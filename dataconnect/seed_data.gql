@@ -1,0 +1,112 @@
+mutation CreateSeedData @transaction @auth(level: USER, insecureReason: "Seed data is for development and testing purposes and will be removed in production.") {
+  user_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      displayName: "Alice Smith",
+      email: "alice.smith@example.com",
+      createdAt: "2023-01-01T10:00:00Z",
+      photoUrl: "https://example.com/alice.jpg",
+      role: "admin"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440001",
+      displayName: "Bob Johnson",
+      email: "bob.johnson@example.com",
+      createdAt: "2023-01-02T11:00:00Z",
+      photoUrl: "https://example.com/bob.jpg",
+      role: "user"
+    }
+  ])
+  experiment_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440002",
+      title: "Investigating the Effects of Temperature on Chemical Reaction Rate",
+      objective: "To determine how temperature influences the speed of a specific chemical reaction.",
+      procedure: "Heat reactants to varying temperatures (20C, 30C, 40C, 50C) and measure reaction time using a stopwatch.",
+      createdAt: "2023-01-03T12:00:00Z",
+      isPublic: true,
+      description: "A foundational experiment in chemical kinetics.",
+      creatorId: "550e8400-e29b-41d4-a716-446655440000"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440003",
+      title: "Plant Growth in Different Light Conditions",
+      objective: "To observe the growth patterns of plants under various light spectra (red, blue, white light).",
+      procedure: "Grow bean sprouts in controlled environments with different colored LED lights for two weeks, measuring height daily.",
+      createdAt: "2023-01-04T13:00:00Z",
+      isPublic: false,
+      description: "An agricultural experiment focused on optimizing crop growth.",
+      creatorId: "550e8400-e29b-41d4-a716-446655440001"
+    }
+  ])
+  observation_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440004",
+      experimentId: "550e8400-e29b-41d4-a716-446655440002",
+      stepNumber: 1,
+      observationText: "Reaction at 20C: 120 seconds",
+      createdAt: "2023-01-03T12:30:00Z",
+      dataValue: 120.0,
+      unit: "seconds"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440005",
+      experimentId: "550e8400-e29b-41d4-a716-446655440002",
+      stepNumber: 2,
+      observationText: "Reaction at 30C: 60 seconds",
+      createdAt: "2023-01-03T12:45:00Z",
+      dataValue: 60.0,
+      unit: "seconds"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440006",
+      experimentId: "550e8400-e29b-41d4-a716-446655440003",
+      stepNumber: 1,
+      observationText: "Day 1, red light: 2cm growth",
+      createdAt: "2023-01-04T13:15:00Z",
+      dataValue: 2.0,
+      unit: "cm"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440007",
+      experimentId: "550e8400-e29b-41d4-a716-446655440003",
+      stepNumber: 2,
+      observationText: "Day 1, blue light: 1.5cm growth",
+      createdAt: "2023-01-04T13:30:00Z",
+      dataValue: 1.5,
+      unit: "cm"
+    }
+  ])
+  attachment_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440008",
+      fileName: "reaction_graph.png",
+      fileUrl: "https://example.com/reaction_graph.png",
+      fileType: "image/png",
+      createdAt: "2023-01-03T13:00:00Z",
+      experimentId: "550e8400-e29b-41d4-a716-446655440002"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440009",
+      fileName: "plant_data.csv",
+      fileUrl: "https://example.com/plant_data.csv",
+      fileType: "text/csv",
+      createdAt: "2023-01-04T14:00:00Z",
+      observationId: "550e8400-e29b-41d4-a716-446655440006"
+    }
+  ])
+  labReport_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-44665544000a",
+      title: "Temperature Effects on Reaction Rate Analysis",
+      reportContent: "The experiment clearly shows a positive correlation between temperature and reaction rate, doubling for every 10C increase.",
+      createdAt: "2023-01-05T09:00:00Z",
+      updatedAt: "2023-01-05T09:00:00Z",
+      isPublic: true,
+      conclusion: "Higher temperatures lead to faster reaction rates.",
+      discussion: "This is due to increased kinetic energy of molecules, leading to more frequent and energetic collisions.",
+      experimentId: "550e8400-e29b-41d4-a716-446655440002",
+      authorId: "550e8400-e29b-41d4-a716-446655440000"
+    }
+  ])
+}

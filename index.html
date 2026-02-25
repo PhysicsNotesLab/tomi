@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+    <title>Portal Física UNAL — Centro de Control</title>
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+    <link rel="stylesheet" href="assets/css/main.css"/>
+    <link rel="stylesheet" href="assets/css/dashboard.css"/>
+
+</head>
+
+<body>
+
+<div class="layout">
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar">
+
+        <div class="logo">
+            <i class="fa-solid fa-atom"></i>
+            <h2>LAB • FÍSICA UNAL</h2>
+        </div>
+
+
+
+        <ul class="menu">
+
+            <li>
+                <a href="index.html">
+                    <i class="fa-solid fa-satellite-dish"></i>
+                    Centro de Control
+                </a>
+            </li>
+
+            <li>
+                <a href="semestre1.html" data-sem="1">
+                    <i class="fa-solid fa-atom"></i>
+                    Semestre I — Fundamentos
+                </a>
+            </li>
+
+            <li>
+                <a href="semestre2.html" data-sem="2">
+                    <i class="fa-solid fa-wave-square"></i>
+                    Semestre II — Ondas y Cálculo
+                </a>
+            </li>
+
+            <li>
+                <a href="semestre3.html" data-sem="3">
+                    <i class="fa-solid fa-bolt"></i>
+                    Semestre III — Electromagnetismo
+                </a>
+            </li>
+
+            <li>
+                <a href="semestre4.html" data-sem="4">
+                    <i class="fa-solid fa-gears"></i>
+                    Semestre IV — Mecánica
+                </a>
+            </li>
+
+            <li>
+                <a href="semestre5.html" data-sem="5">
+                    <i class="fa-solid fa-shuffle"></i>
+                    Semestre V — Cuántica
+                </a>
+            </li>
+
+            <li>
+                <a href="semestre6.html" data-sem="6">
+                    <i class="fa-solid fa-chart-line"></i>
+                    Semestre VI — Física Estadística
+                </a>
+            </li>
+
+            <li>
+                <a href="semestre7.html" data-sem="7">
+                    <i class="fa-solid fa-clock"></i>
+                    Semestre VII — Relatividad
+                </a>
+            </li>
+
+            <li>
+                <a href="semestre8.html" data-sem="8">
+                    <i class="fa-solid fa-burst"></i>
+                    Semestre VIII — Partículas
+                </a>
+            </li>
+
+            <li>
+                <a href="semestre9.html" data-sem="9">
+                    <i class="fa-solid fa-star"></i>
+                    Semestre IX — Cosmología
+                </a>
+            </li>
+
+            <li>
+                <a href="semestre10.html" data-sem="10">
+                    <i class="fa-solid fa-flask-vial"></i>
+                    Semestre X — Investigación
+                </a>
+            </li>
+
+        </ul>
+
+    </aside>
+
+    <!-- ===== CONTENIDO ===== -->
+    <main class="content">
+
+        <header class="topbar">
+
+            <button class="menu-toggle">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+
+            <!-- Animación átomo -->
+            <div class="atom-container">
+                <div class="nucleus"></div>
+                <div class="orbit orbit-1"><div class="electron e1"></div></div>
+                <div class="orbit orbit-2"><div class="electron e2"></div></div>
+                <div class="orbit orbit-3"><div class="electron e3"></div></div>
+            </div>
+
+            <div>
+                <h1>CENTRO DE CONTROL ACADÉMICO</h1>
+                <p>Portal personal — Carrera de Física</p>
+            </div>
+
+        </header>
+
+        <!-- ===== PANEL DE ESTADO =====
+        <section class="status-grid">
+
+            <div class="status-card">
+                <i class="fa-solid fa-graduation-cap"></i>
+                <h3>Créditos cursados</h3>
+                <p>0 / 160</p>
+            </div>
+
+            <div class="status-card">
+                <i class="fa-solid fa-layer-group"></i>
+                <h3>Semestre actual</h3>
+                <p>I</p>
+            </div>
+
+            <div class="status-card">
+                <i class="fa-solid fa-check-circle"></i>
+                <h3>Asignaturas aprobadas</h3>
+                <p>0</p>
+            </div>
+
+            <div class="status-card">
+                <i class="fa-solid fa-database"></i>
+                <h3>Backups generados</h3>
+                <p>0</p>
+            </div>
+
+        </section>
+-->
+        <!-- ===== SELECTOR DE SEMESTRES ===== -->
+        <section class="semesters-grid">
+
+            <a href="semestre1.html" class="semester-card"><h3>Semestre I</h3></a>
+            <a href="semestre2.html" class="semester-card"><h3>Semestre II</h3></a>
+            <a href="semestre3.html" class="semester-card"><h3>Semestre III</h3></a>
+            <a href="semestre4.html" class="semester-card"><h3>Semestre IV</h3></a>
+            <a href="semestre5.html" class="semester-card"><h3>Semestre V</h3></a>
+            <a href="semestre6.html" class="semester-card"><h3>Semestre VI</h3></a>
+            <a href="semestre7.html" class="semester-card"><h3>Semestre VII</h3></a>
+            <a href="semestre8.html" class="semester-card"><h3>Semestre VIII</h3></a>
+            <a href="semestre9.html" class="semester-card"><h3>Semestre IX</h3></a>
+            <a href="semestre10.html" class="semester-card"><h3>Semestre X</h3></a>
+
+        </section>
+
+    </main>
+
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="assets/js/firebase-config.js"></script>
+<script src="assets/js/auth-guard.js"></script>
+<script src="assets/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+type User @table {
+  displayName: String!
+  email: String!
+  createdAt: Timestamp!
+  photoUrl: String
+  role: String
+}
+
+type Experiment @table {
+  title: String!
+  objective: String!
+  procedure: String!
+  createdAt: Timestamp!
+  isPublic: Boolean!
+  description: String
+  templateId: UUID
+  creator: User
+}
+
+type Observation @table {
+  stepNumber: Int!
+  observationText: String!
+  createdAt: Timestamp!
+  dataValue: Float
+  unit: String
+  experiment: Experiment
+}
+
+type Attachment @table {
+  fileName: String!
+  fileUrl: String!
+  fileType: String!
+  createdAt: Timestamp!
+  observation: Observation
+  experiment: Experiment
+}
+
+type LabReport @table {
+  title: String!
+  reportContent: String!
+  createdAt: Timestamp!
+  updatedAt: Timestamp!
+  isPublic: Boolean!
+  conclusion: String
+  discussion: String
+  experiment: Experiment
+  author: User
+}

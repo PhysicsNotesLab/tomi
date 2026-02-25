@@ -1,0 +1,42 @@
+query ListPublicExperiments @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public as it only retrieves public experiment data.") {
+  experiments(where: {isPublic: {eq: true}}) {
+    id
+    title
+    description
+    createdAt
+    creator {
+      displayName
+    }
+  }
+}
+
+query GetMyLabReports @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users as it only retrieves lab reports created by the authenticated user.") {
+  labReports(where: {authorId: {eq_expr: "auth.uid"}}) {
+    id
+    title
+    reportContent
+    createdAt
+    updatedAt
+    experiment {
+      title
+    }
+  }
+}
+
+mutation CreateObservation($experimentId: UUID!, $stepNumber: Int!, $observationText: String!, $dataValue: Float, $unit: String) @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users as it allows a user to record observations for their experiments.") {
+  observation_insert(data: {
+    experimentId: $experimentId,
+    stepNumber: $stepNumber,
+    observationText: $observationText,
+    dataValue: $dataValue,
+    unit: $unit,
+    createdAt_expr: "request.time"
+  })
+}
+
+mutation UpdateUserProfile($displayName: String!, $photoUrl: String) @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users as it allows a user to update their own profile information.") {
+  user_update(key: {id_expr: "auth.uid"}, data: {
+    displayName: $displayName,
+    photoUrl: $photoUrl
+  })
+}

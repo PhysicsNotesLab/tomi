@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Optativa - Física y Óptica — Física UNAL</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+    <link rel="stylesheet" href="/assets/css/main.css"/>
+    <link rel="stylesheet" href="/assets/css/dashboard.css"/>
+    <link rel="stylesheet" href="assets/css/subject.css"/>
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar">
+        <div class="logo"><i class="fa-solid fa-atom"></i><h2>LAB • FÍSICA UNAL</h2></div>
+        <ul class="menu">
+            <li><a href="/index.html"><i class="fa-solid fa-satellite-dish"></i> Centro de Control</a></li>
+            <li><a href="/semestre1.html"><i class="fa-solid fa-atom"></i> Semestre I — Fundamentos</a></li>
+            <li><a href="/semestre2.html"><i class="fa-solid fa-wave-square"></i> Semestre II — Ondas y Cálculo</a></li>
+            <li><a href="/semestre3.html"><i class="fa-solid fa-bolt"></i> Semestre III — Electromagnetismo</a></li>
+            <li><a href="/semestre4.html"><i class="fa-solid fa-gears"></i> Semestre IV — Mecánica</a></li>
+            <li><a href="/semestre5.html"><i class="fa-solid fa-shuffle"></i> Semestre V — Cuántica</a></li>
+            <li><a href="/semestre6.html"><i class="fa-solid fa-chart-line"></i> Semestre VI — Física Estadística</a></li>
+            <li class="active"><a href="/semestre7.html"><i class="fa-solid fa-clock"></i> Semestre VII — Relatividad</a></li>
+            <li><a href="/semestre8.html"><i class="fa-solid fa-burst"></i> Semestre VIII — Partículas</a></li>
+            <li><a href="/semestre9.html"><i class="fa-solid fa-star"></i> Semestre IX — Cosmología</a></li>
+            <li><a href="/semestre10.html"><i class="fa-solid fa-flask-vial"></i> Semestre X — Investigación</a></li>
+        </ul>
+    </aside>
+    <main class="content">
+        <header class="topbar">
+            <button class="menu-toggle"><i class="fa-solid fa-bars"></i></button>
+            <div>
+                <h1>FÍSICA Y ÓPTICA</h1>
+                <p>Repositorio científico de la asignatura</p>
+            </div>
+        </header>
+        <section class="course-info">
+            <div class="info-card"><i class="fa-solid fa-user"></i><h3>Profesor</h3><p id="profName" contenteditable="true" title="Haz clic para editar">Por asignar</p></div>
+            <div class="info-card"><i class="fa-solid fa-graduation-cap"></i><h3>Créditos</h3><p>4</p></div>
+            <div class="info-card"><i class="fa-solid fa-calendar"></i><h3>Periodo</h3><p id="periodName" contenteditable="true" title="Haz clic para editar">Por definir</p></div>
+        </section>
+        <section class="modules-grid">
+            <a href="files.html" class="module-card"><i class="fa-solid fa-folder"></i><h3>Repositorio de archivos</h3><span>PDFs, documentos y recursos</span></a>
+            <a href="notes.html" class="module-card"><i class="fa-solid fa-book"></i><h3>Bloc de notas</h3><span>Apuntes y observaciones</span></a>
+            <a href="backups.html" class="module-card"><i class="fa-solid fa-database"></i><h3>Backups</h3><span>Historial por semestre</span></a>
+        </section>
+    </main>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="/assets/js/firebase-config.js"></script>
+<script src="/assets/js/auth-guard.js"></script>
+<script src="/assets/js/firestore-service.js"></script>
+<script src="/assets/js/main.js"></script>
+</body>
+</html>

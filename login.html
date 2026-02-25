@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Acceso — Lab Física UNAL</title>
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+    <link rel="stylesheet" href="assets/css/main.css"/>
+
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #020b10;
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 420px;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: linear-gradient(145deg, #0b2530, #071a22);
+            border: 1px solid #0b3b46;
+            border-radius: 20px;
+            padding: 40px 32px;
+            box-shadow:
+                0 0 60px rgba(0, 255, 170, 0.04),
+                0 20px 50px rgba(0, 0, 0, 0.6);
+            text-align: center;
+        }
+
+        .login-logo {
+            font-size: 48px;
+            color: #d4a017;
+            margin-bottom: 16px;
+        }
+
+        .login-card h1 {
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: #e6f0f2;
+            margin-bottom: 6px;
+        }
+
+        .login-card p {
+            color: #6b8a91;
+            font-size: 13px;
+            margin-bottom: 30px;
+        }
+
+        .login-card input {
+            width: 100%;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+            background: #020f14;
+            border: 1px solid #0b3b46;
+            border-radius: 10px;
+            color: #e6f0f2;
+            font-size: 15px;
+            outline: none;
+            transition: 0.25s;
+        }
+
+        .login-card input:focus {
+            border-color: #d4a017;
+            box-shadow: 0 0 0 2px rgba(212, 160, 23, 0.2);
+        }
+
+        .login-card input::placeholder {
+            color: #4a6a72;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #d4a017, #c25b12);
+            border: none;
+            border-radius: 10px;
+            color: #020b10;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 4px;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(212, 160, 23, 0.3);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .login-error {
+            color: #ff4d4d;
+            font-size: 13px;
+            margin-top: 14px;
+            min-height: 20px;
+        }
+
+        .login-footer {
+            margin-top: 28px;
+            font-size: 11px;
+            color: #3a5a62;
+            letter-spacing: 1px;
+        }
+
+        /* Línea decorativa superior */
+        .login-card::before {
+            content: "";
+            display: block;
+            height: 2px;
+            width: 60%;
+            margin: 0 auto 30px;
+            background: linear-gradient(90deg, transparent, #d4a017, transparent);
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="login-container">
+    <div class="login-card">
+
+        <i class="fa-solid fa-atom login-logo"></i>
+        <h1>LAB • FÍSICA UNAL</h1>
+        <p>Sistema académico personal — Acceso restringido</p>
+
+        <input type="email"    id="loginEmail"    placeholder="Correo electrónico" autocomplete="email"/>
+        <input type="password" id="loginPassword" placeholder="Contraseña"         autocomplete="current-password"/>
+
+        <button class="login-btn" id="loginBtn">
+            <i class="fa-solid fa-right-to-bracket"></i>
+            INGRESAR AL SISTEMA
+        </button>
+
+        <div class="login-error" id="loginError"></div>
+
+        <div class="login-footer">
+            UNIVERSIDAD NACIONAL DE COLOMBIA — SEDE BOGOTÁ
+        </div>
+
+    </div>
+</div>
+
+<!-- Firebase SDK (compat — sin bundler) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="assets/js/firebase-config.js"></script>
+
+<script>
+    const emailInput    = document.getElementById("loginEmail");
+    const passwordInput = document.getElementById("loginPassword");
+    const loginBtn      = document.getElementById("loginBtn");
+    const errorMsg      = document.getElementById("loginError");
+
+    // Si ya tiene sesión activa → ir al dashboard
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            window.location.href = "index.html";
+        }
+    });
+
+    // Login
+    loginBtn.addEventListener("click", async () => {
+
+        const email    = emailInput.value.trim();
+        const password = passwordInput.value;
+
+        if (!email || !password) {
+            errorMsg.textContent = "Completa ambos campos";
+            return;
+        }
+
+        loginBtn.disabled    = true;
+        loginBtn.textContent = "Verificando...";
+        errorMsg.textContent = "";
+
+        try {
+            await auth.signInWithEmailAndPassword(email, password);
+            window.location.href = "index.html";
+        } catch (err) {
+            const messages = {
+                "auth/user-not-found":     "Usuario no registrado",
+                "auth/wrong-password":     "Contraseña incorrecta",
+                "auth/invalid-email":      "Correo inválido",
+                "auth/too-many-requests":  "Demasiados intentos. Espera un momento",
+                "auth/invalid-credential": "Credenciales inválidas"
+            };
+            errorMsg.textContent = messages[err.code] || "Error: " + err.message;
+            loginBtn.disabled    = false;
+            loginBtn.innerHTML   = '<i class="fa-solid fa-right-to-bracket"></i> INGRESAR AL SISTEMA';
+        }
+    });
+
+    // Enter para hacer login
+    passwordInput.addEventListener("keydown", e => {
+        if (e.key === "Enter") loginBtn.click();
+    });
+    emailInput.addEventListener("keydown", e => {
+        if (e.key === "Enter") passwordInput.focus();
+    });
+</script>
+
+</body>
+</html>

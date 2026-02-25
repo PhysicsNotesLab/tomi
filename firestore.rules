@@ -1,0 +1,27 @@
+// =====================================================
+//  FIRESTORE SECURITY RULES
+//  Proyecto: physicsnoteslab-a23d9
+//  Copiar en: Firebase Console → Firestore → Rules
+// =====================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Datos del usuario — solo el dueño puede leer/escribir
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // Documentos de materia (profesor, periodo)
+      match /subjects/{subjectId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+
+        // Sub-colecciones: notes, files, backups
+        match /{subcollection}/{docId} {
+          allow read, write: if request.auth != null && request.auth.uid == uid;
+        }
+      }
+    }
+  }
+}
