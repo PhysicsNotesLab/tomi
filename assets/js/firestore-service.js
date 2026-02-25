@@ -81,7 +81,7 @@ const FireDB = (() => {
             await ref.collection("notes").doc(id).delete();
         },
 
-        /* ============ FILES CRUD ============ */
+        /* ============ FILES CRUD (Firebase Storage) ============ */
         async getFiles() {
             const ref = _subRef();
             if (!ref) return [];
@@ -90,10 +90,27 @@ const FireDB = (() => {
             return snap.docs.map(d => ({ id: d.id, ...d.data() }));
         },
 
-        async addFile(fileData) {
+        async addFile(fileObj, metadata) {
             const ref = _subRef();
             if (!ref) return null;
-            fileData.uploadedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+            // Subir binario a Firebase Storage
+            const storagePath = `users/${_uid}/subjects/${_subjectId}/files/${Date.now()}_${fileObj.name}`;
+            const storageRef  = storage.ref(storagePath);
+            const snapshot    = await storageRef.put(fileObj);
+            const downloadURL = await snapshot.ref.getDownloadURL();
+
+            // Guardar metadatos + URL en Firestore
+            const fileData = {
+                name:       fileObj.name,
+                category:   metadata.category || "General",
+                date:       metadata.date || new Date().toLocaleDateString("es-CO"),
+                size:       fileObj.size,
+                type:       fileObj.type,
+                url:        downloadURL,
+                storagePath: storagePath,
+                uploadedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
             const docRef = await ref.collection("files").add(fileData);
             return docRef.id;
         },
@@ -101,6 +118,21 @@ const FireDB = (() => {
         async deleteFile(id) {
             const ref = _subRef();
             if (!ref) return;
+
+            // Obtener doc para saber la ruta en Storage
+            const doc = await ref.collection("files").doc(id).get();
+            if (doc.exists) {
+                const data = doc.data();
+                // Eliminar de Storage si tiene ruta
+                if (data.storagePath) {
+                    try {
+                        await storage.ref(data.storagePath).delete();
+                    } catch (e) {
+                        console.warn("No se pudo borrar de Storage:", e);
+                    }
+                }
+                // Compatibilidad: si era base64 antiguo (data field), no hay Storage que borrar
+            }
             await ref.collection("files").doc(id).delete();
         },
 

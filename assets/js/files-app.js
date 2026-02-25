@@ -1,7 +1,7 @@
 /* =====================================================
-   FILES APP — Sistema de archivos con Firestore
+   FILES APP — Sistema de archivos con Firebase Storage
    Centralizado para todas las materias
-   Límite: archivos < 900 KB (Firestore 1 MB / doc)
+   Sin límite práctico de tamaño (usa Storage, no Firestore)
 ===================================================== */
 
 (function () {
@@ -13,6 +13,14 @@
     if (!filesContainer || !uploadBtn) return;
 
     let files = [];
+
+    /* ===== FORMATEAR TAMAÑO ===== */
+    function formatSize(bytes) {
+        if (!bytes) return "";
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+        return (bytes / 1024 / 1024).toFixed(1) + " MB";
+    }
 
     /* ===== RENDERIZAR ===== */
     function render() {
@@ -26,13 +34,16 @@
         files.forEach(file => {
             const card = document.createElement("div");
             card.className = "file-card";
+
+            const sizeStr = file.size ? ` — ${formatSize(file.size)}` : "";
+
             card.innerHTML = `
                 <h4>${file.name}</h4>
-                <span>${file.category || ""} — ${file.date || ""}</span>
+                <span>${file.category || ""}${sizeStr} — ${file.date || ""}</span>
                 <div class="actions">
-                    ${file.data ? `<button onclick="FilesApp.download('${file.id}')">
+                    <button onclick="FilesApp.download('${file.id}')">
                         <i class="fa-solid fa-download"></i>
-                    </button>` : ""}
+                    </button>
                     <button onclick="FilesApp.remove('${file.id}')">
                         <i class="fa-solid fa-trash"></i>
                     </button>
@@ -52,56 +63,52 @@
         }
     }
 
-    /* ===== SUBIR ARCHIVO ===== */
-    uploadBtn.addEventListener("click", () => {
+    /* ===== SUBIR ARCHIVO (Firebase Storage) ===== */
+    uploadBtn.addEventListener("click", async () => {
         const file = fileInput.files[0];
         if (!file) {
             alert("Selecciona un archivo primero");
             return;
         }
 
-        /* Límite de 900 KB para respetar el máximo de 1 MB de Firestore */
-        if (file.size > 900 * 1024) {
-            alert(
-                `Archivo demasiado grande (${(file.size / 1024 / 1024).toFixed(1)} MB).\n` +
-                "Límite: 900 KB por archivo (restricción de Firestore)."
-            );
-            return;
-        }
-
         uploadBtn.disabled = true;
         uploadBtn.textContent = "Subiendo...";
 
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                await FireDB.addFile({
-                    name: file.name,
-                    category: categoryInput ? categoryInput.value : "General",
-                    date: new Date().toLocaleDateString("es-CO"),
-                    data: e.target.result
-                });
-                fileInput.value = "";
-                await load();
-            } catch (err) {
-                console.error("Error al subir archivo:", err);
-                alert("Error al subir. El archivo puede ser demasiado grande.");
-            }
-            uploadBtn.disabled = false;
-            uploadBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Subir archivo';
-        };
-        reader.readAsDataURL(file);
+        try {
+            await FireDB.addFile(file, {
+                category: categoryInput ? categoryInput.value : "General",
+                date: new Date().toLocaleDateString("es-CO")
+            });
+            fileInput.value = "";
+            await load();
+        } catch (err) {
+            console.error("Error al subir archivo:", err);
+            alert("Error al subir archivo. Intenta de nuevo.");
+        }
+
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Guardar archivo';
     });
 
     /* ===== DESCARGAR / ELIMINAR (global) ===== */
     window.FilesApp = {
         download(id) {
             const file = files.find(f => f.id === id);
-            if (!file || !file.data) return;
-            const a = document.createElement("a");
-            a.href     = file.data;
-            a.download = file.name;
-            a.click();
+            if (!file) return;
+
+            // Archivos nuevos (Storage) → abrir URL
+            if (file.url) {
+                window.open(file.url, "_blank");
+                return;
+            }
+
+            // Compatibilidad: archivos antiguos (base64 en Firestore)
+            if (file.data) {
+                const a = document.createElement("a");
+                a.href     = file.data;
+                a.download = file.name;
+                a.click();
+            }
         },
 
         async remove(id) {

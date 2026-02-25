@@ -17,7 +17,8 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 
 // Exponer servicios globalmente
-const auth = firebase.auth();
-const db   = firebase.firestore();
+const auth    = firebase.auth();
+const db      = firebase.firestore();
+const storage = firebase.storage();
 
 console.log("🔥 Firebase inicializado correctamente");
