@@ -19,17 +19,15 @@
             document.documentElement.style.visibility = "visible";
             console.log("🔐 Sesión activa:", user.email);
         } else {
-            // ❌ No autenticado — redirigir a login
-            const basePath = currentPage.includes("/assets/subjects/")
-                ? "/login.html"
-                : "login.html";
-
-            // Calcular ruta relativa al login
-            const depth = currentPage.split("/assets/subjects/");
-            if (depth.length > 1) {
-                // Estamos dentro de una materia
-                window.location.href = "/login.html";
+            // ❌ No autenticado — redirigir a login (ruta relativa)
+            if (currentPage.includes("/assets/subjects/")) {
+                // Estamos dentro de una materia (3 niveles de profundidad)
+                window.location.href = "../../../login.html";
+            } else if (currentPage.includes("/assets/")) {
+                // Estamos en assets/ (2 niveles)
+                window.location.href = "../../login.html";
             } else {
+                // Estamos en la raíz
                 window.location.href = "login.html";
             }
         }
