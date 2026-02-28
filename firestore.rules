@@ -9,17 +9,37 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Datos del usuario — solo el dueño puede leer/escribir
+    // Datos del usuario — normalmente solo el dueño puede leer/escribir.
+    // Excepción: permitir acceso completo a dos cuentas administrativas especificadas por email,
+    // para que ambos usuarios compartan los mismos datos en cualquier sesión/dispositivo.
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if request.auth != null && (
+        request.auth.uid == uid ||
+        request.auth.token.email in [
+          "pgalvisg8156@universidadean.edu.co",
+          "tomassantiagogalvisbarrera3@gmail.com"
+        ]
+      );
 
       // Documentos de materia (profesor, periodo)
       match /subjects/{subjectId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read, write: if request.auth != null && (
+          request.auth.uid == uid ||
+          request.auth.token.email in [
+            "pgalvisg8156@universidadean.edu.co",
+            "tomassantiagogalvisbarrera3@gmail.com"
+          ]
+        );
 
         // Sub-colecciones: notes, files, backups
         match /{subcollection}/{docId} {
-          allow read, write: if request.auth != null && request.auth.uid == uid;
+          allow read, write: if request.auth != null && (
+            request.auth.uid == uid ||
+            request.auth.token.email in [
+              "pgalvisg8156@universidadean.edu.co",
+              "tomassantiagogalvisbarrera3@gmail.com"
+            ]
+          );
         }
       }
     }

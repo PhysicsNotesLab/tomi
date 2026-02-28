@@ -11,10 +11,25 @@ const FireDB = (() => {
     let _readyResolve;
     const _ready = new Promise(r => { _readyResolve = r; });
 
-    // Derivar subjectId del URL
-    const pathMatch = location.pathname.match(/\/assets\/subjects\/([^\/]+)\//);
+    // Derivar subjectId del URL (más tolerante: acepta trailing slash o final de ruta)
+    const pathMatch = location.pathname.match(/\/assets\/subjects\/([^\/]+)(?:\/|$)/);
     if (pathMatch) {
         _subjectId = decodeURIComponent(pathMatch[1]);
+    } else {
+        // Intentar obtener subject desde query param: ?subject=...
+        try {
+            const params = new URLSearchParams(location.search);
+            if (params.has('subject')) {
+                _subjectId = decodeURIComponent(params.get('subject'));
+            }
+        } catch (e) {
+            // ignore
+        }
+        // Intentar meta tag <meta name="subject-id" content="..."> (útil para servir desde distintos entornos)
+        if (!_subjectId) {
+            const m = document.querySelector('meta[name="subject-id"]');
+            if (m && m.content) _subjectId = m.content;
+        }
     }
 
     // Esperar autenticación
@@ -28,7 +43,14 @@ const FireDB = (() => {
     }
 
     function _subRef() {
-        if (!_uid || !_subjectId) return null;
+        if (!_uid) {
+            console.warn('FireDB: uid no está disponible aún');
+            return null;
+        }
+        if (!_subjectId) {
+            console.warn('FireDB: subjectId no pudo derivarse desde la URL. Usa ?subject=ID o añade <meta name="subject-id"> en la página.');
+            return null;
+        }
         return db.collection("users").doc(_uid)
             .collection("subjects").doc(_subjectId);
     }

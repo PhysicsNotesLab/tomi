@@ -8,13 +8,23 @@
 
 document.addEventListener("DOMContentLoaded", () => {
 
-    // ===== 1. MARCAR MENÚ ACTIVO =====
+    // ===== 1. NORMALIZAR HREFs Y MARCAR MENÚ ACTIVO =====
     const sidebarLinks = document.querySelectorAll(".sidebar a");
     const currentPage = window.location.pathname.split("/").pop();
 
     sidebarLinks.forEach(link => {
-        const href = link.getAttribute("href");
-        if (href === currentPage) {
+        let href = link.getAttribute("href") || "";
+
+        // Si estamos dentro de /assets/subjects/ y el href es relativo simple
+        // como "semestre2.html", convertirlo a ruta desde la raíz del proyecto.
+        if (location.pathname.includes('/assets/subjects/') && href && !href.startsWith('.') && !href.startsWith('/') && href.endsWith('.html')) {
+            link.setAttribute('href', '../../../' + href);
+            href = link.getAttribute('href');
+        }
+
+        // Comparar sólo el nombre del archivo
+        const linkFile = href.split('/').pop();
+        if (linkFile === currentPage) {
             link.parentElement.classList.add("active");
         }
     });
