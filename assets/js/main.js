@@ -32,24 +32,39 @@ document.addEventListener("DOMContentLoaded", () => {
     // ===== 2. TOGGLE SIDEBAR MÓVIL =====
     const toggle  = document.querySelector(".menu-toggle");
     const sidebar = document.querySelector(".sidebar");
-    const overlay = document.querySelector(".sidebar-overlay");
+    let overlay = document.querySelector(".sidebar-overlay");
 
+    // Asegurar que exista un overlay en todas las páginas
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'sidebar-overlay';
+        document.body.appendChild(overlay);
+    }
+
+    // Función para cerrar el sidebar (quita ambas clases por compatibilidad)
+    function closeSidebar() {
+        if (!sidebar) return;
+        sidebar.classList.remove('open');
+        sidebar.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+        document.body.style.overflow = 'auto';
+    }
+
+    // Alternar (abrir/cerrar)
     if (toggle && sidebar) {
-        toggle.addEventListener("click", () => {
-            sidebar.classList.toggle("open");
-            if (overlay) overlay.classList.toggle("active");
-            document.body.style.overflow =
-                sidebar.classList.contains("open") ? "hidden" : "auto";
+        toggle.addEventListener('click', () => {
+            // Alternar ambas clases para funcionar con cualquier CSS
+            sidebar.classList.toggle('open');
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+            const isOpen = sidebar.classList.contains('open') || sidebar.classList.contains('active');
+            document.body.style.overflow = isOpen ? 'hidden' : 'auto';
         });
     }
 
-    // ===== 3. CERRAR CON OVERLAY =====
+    // Cerrar al clicar el overlay
     if (overlay) {
-        overlay.addEventListener("click", () => {
-            sidebar.classList.remove("open");
-            overlay.classList.remove("active");
-            document.body.style.overflow = "auto";
-        });
+        overlay.addEventListener('click', closeSidebar);
     }
 
     // ===== 4. PROFESOR EDITABLE (Firestore) =====
