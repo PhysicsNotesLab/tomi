@@ -34,11 +34,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const sidebar = document.querySelector(".sidebar");
     let overlay = document.querySelector(".sidebar-overlay");
 
-    // Asegurar que exista un overlay en todas las páginas
+    // Asegurar que exista un overlay en todas las páginas y aplicar estilos inline
     if (!overlay) {
         overlay = document.createElement('div');
         overlay.className = 'sidebar-overlay';
+        // estilos inline para evitar diferencias entre subject.css
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.background = 'rgba(0,0,0,0.35)';
+        overlay.style.backdropFilter = 'blur(2px)';
+        overlay.style.transition = 'opacity 0.25s ease';
+        overlay.style.opacity = '0';
+        overlay.style.pointerEvents = 'none';
+        overlay.style.zIndex = '1100';
         document.body.appendChild(overlay);
+    } else {
+        // reforzar visual leve si ya existe en CSS
+        overlay.style.background = overlay.style.background || 'rgba(0,0,0,0.35)';
+        overlay.style.backdropFilter = overlay.style.backdropFilter || 'blur(2px)';
+        overlay.style.zIndex = overlay.style.zIndex || '1100';
     }
 
     // Función para cerrar el sidebar (quita ambas clases por compatibilidad)
@@ -46,7 +60,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!sidebar) return;
         sidebar.classList.remove('open');
         sidebar.classList.remove('active');
-        if (overlay) overlay.classList.remove('active');
+        if (overlay) {
+            overlay.classList.remove('active');
+            overlay.style.opacity = '0';
+            overlay.style.pointerEvents = 'none';
+        }
         document.body.style.overflow = 'auto';
     }
 
@@ -56,9 +74,27 @@ document.addEventListener("DOMContentLoaded", () => {
             // Alternar ambas clases para funcionar con cualquier CSS
             sidebar.classList.toggle('open');
             sidebar.classList.toggle('active');
-            overlay.classList.toggle('active');
+
             const isOpen = sidebar.classList.contains('open') || sidebar.classList.contains('active');
-            document.body.style.overflow = isOpen ? 'hidden' : 'auto';
+
+            // asegurar z-index para que sidebar y toggle estén por encima
+            try {
+                sidebar.style.zIndex = '1200';
+                toggle.style.zIndex = '1201';
+            } catch (e) {}
+
+            // manejar overlay visualmente con estilos inline (más consistente)
+            if (isOpen) {
+                overlay.classList.add('active');
+                overlay.style.opacity = '1';
+                overlay.style.pointerEvents = 'auto';
+                document.body.style.overflow = 'hidden';
+            } else {
+                overlay.classList.remove('active');
+                overlay.style.opacity = '0';
+                overlay.style.pointerEvents = 'none';
+                document.body.style.overflow = 'auto';
+            }
         });
     }
 
