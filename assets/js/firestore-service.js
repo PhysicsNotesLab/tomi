@@ -308,6 +308,19 @@ const FireDB = (() => {
                 batch.set(docRef, s);
             });
             await batch.commit();
+        },
+
+        /* ============ QUERY SUBJECT BY NAME IN SEMESTER ============ */
+        async getSubjectInfoFromSemester(semNum, subjectName) {
+            if (!_uid) return null;
+            const snap = await db.collection("users").doc(_uid)
+                .collection("semesters").doc("sem" + semNum)
+                .collection("subjects")
+                .where("name", "==", subjectName)
+                .limit(1)
+                .get();
+            if (snap.empty) return null;
+            return { id: snap.docs[0].id, ...snap.docs[0].data() };
         }
     };
 })();

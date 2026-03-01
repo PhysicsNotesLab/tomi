@@ -148,4 +148,22 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // ===== 6. CRÉDITOS DINÁMICOS (desde semestre en Firestore) =====
+    const creditsEl = document.getElementById("creditsValue");
+    const _urlParams = new URLSearchParams(location.search);
+    const _semParam = _urlParams.get('sem');
+    const _subjectParam = _urlParams.get('subject');
+    if (creditsEl && _semParam && _subjectParam && typeof FireDB !== "undefined") {
+        FireDB.ready.then(async () => {
+            try {
+                const subInfo = await FireDB.getSubjectInfoFromSemester(
+                    parseInt(_semParam), _subjectParam
+                );
+                if (subInfo && subInfo.credits != null) {
+                    creditsEl.textContent = subInfo.credits;
+                }
+            } catch (e) { console.warn("Error cargando créditos:", e); }
+        });
+    }
+
 });
