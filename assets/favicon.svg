@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="64" height="64">
+  <!-- Núcleo brillante con gradiente -->
+  <defs>
+    <radialGradient id="nucleusGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="40%" stop-color="#00e5ff"/>
+      <stop offset="100%" stop-color="#0077ff" stop-opacity="0.6"/>
+    </radialGradient>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0a1628" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#0a1628" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Órbita 1 - Cyan -->
+  <ellipse cx="50" cy="50" rx="42" ry="16"
+           fill="none" stroke="#00e5ff" stroke-width="2.2" opacity="0.9"
+           transform="rotate(-30 50 50)"/>
+
+  <!-- Órbita 2 - Magenta -->
+  <ellipse cx="50" cy="50" rx="42" ry="16"
+           fill="none" stroke="#ff3daa" stroke-width="2.2" opacity="0.9"
+           transform="rotate(30 50 50)"/>
+
+  <!-- Órbita 3 - Amarillo/verde -->
+  <ellipse cx="50" cy="50" rx="42" ry="16"
+           fill="none" stroke="#76ff03" stroke-width="2.2" opacity="0.9"
+           transform="rotate(90 50 50)"/>
+
+  <!-- Núcleo central -->
+  <circle cx="50" cy="50" r="8" fill="url(#nucleusGlow)"/>
+  <circle cx="50" cy="50" r="4.5" fill="#ffffff"/>
+
+  <!-- Electrón 1 - en órbita cyan -->
+  <circle cx="50" cy="50" r="4" fill="#00e5ff" transform="rotate(-30 50 50) translate(38, 0) rotate(30 0 0)">
+    <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="3s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Electrón 2 - en órbita magenta -->
+  <circle cx="88" cy="50" r="4" fill="#ff3daa" transform="rotate(30 50 50)"/>
+
+  <!-- Electrón 3 - en órbita verde -->
+  <circle cx="50" cy="8" r="4" fill="#76ff03"/>
+</svg>
