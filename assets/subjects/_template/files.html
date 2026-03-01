@@ -1,35 +1,28 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Repositorio de Archivos — Matemáticas Básicas (Álgebra Lineal)</title>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Repositorio de Archivos — Portal Física UNAL</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-    <link rel="stylesheet" href="../../../assets/css/main.css">
-    <link rel="stylesheet" href="../../../assets/css/dashboard.css">
-    <link rel="stylesheet" href="assets/css/subject.css">
+    <link rel="stylesheet" href="../../../assets/css/main.css"/>
+    <link rel="stylesheet" href="../../../assets/css/dashboard.css"/>
+    <link rel="stylesheet" href="assets/css/subject.css"/>
 </head>
 <body>
 <div class="layout">
-    <aside class="sidebar">
-        <div class="sidebar-overlay"></div>
+    <aside class="sidebar" id="sidebar">
         <div class="logo"><i class="fa-solid fa-atom"></i><h2>LAB • FÍSICA UNAL</h2></div>
-        <ul class="menu">
-            <li><a href="../../../semestre1.html"><i class="fa-solid fa-arrow-left"></i> Volver al semestre</a></li>
-            <li><a href="index.html"><i class="fa-solid fa-house"></i> Inicio materia</a></li>
-            <li><a href="notes.html"><i class="fa-solid fa-book"></i> Bloc de notas</a></li>
-            <li><a href="files.html"><i class="fa-solid fa-folder"></i> Repositorio</a></li>
-            <li><a href="backups.html"><i class="fa-solid fa-database"></i> Backups</a></li>
-        </ul>
+        <ul class="menu" id="sidebarMenu"></ul>
     </aside>
     <main class="content">
         <header class="topbar">
             <button class="menu-toggle"><i class="fa-solid fa-bars"></i></button>
-            <div><h1>REPOSITORIO DE ARCHIVOS</h1><p>Gestión documental — Matemáticas Básicas (Álgebra Lineal)</p></div>
+            <div><h1 id="subjectTitle">REPOSITORIO DE ARCHIVOS</h1><p>Gestión documental de la asignatura</p></div>
         </header>
         <section class="files-upload">
             <h2><i class="fa-solid fa-upload"></i> Subir nuevo archivo</h2>
-            <input type="file" id="fileInput">
+            <input type="file" id="fileInput"/>
             <select id="fileCategory">
                 <option value="Clase">Clase</option><option value="Laboratorio">Laboratorio</option>
                 <option value="Parcial">Parcial</option><option value="Taller">Taller</option>
@@ -51,6 +44,7 @@
 <script src="../../../assets/js/auth-guard.js"></script>
 <script src="../../../assets/js/firestore-service.js"></script>
 <script src="../../../assets/js/main.js"></script>
+<script src="../../../assets/js/subject-loader.js"></script>
 <script src="../../../assets/js/files-app.js"></script>
 </body>
 </html>

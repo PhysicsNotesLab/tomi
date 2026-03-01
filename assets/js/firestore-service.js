@@ -11,32 +11,44 @@ const FireDB = (() => {
     let _readyResolve;
     const _ready = new Promise(r => { _readyResolve = r; });
 
-    // Derivar subjectId del URL (más tolerante: acepta trailing slash o final de ruta)
-    const pathMatch = location.pathname.match(/\/assets\/subjects\/([^\/]+)(?:\/|$)/);
-    if (pathMatch) {
-        _subjectId = decodeURIComponent(pathMatch[1]);
-    } else {
-        // Intentar obtener subject desde query param: ?subject=...
-        try {
-            const params = new URLSearchParams(location.search);
-            if (params.has('subject')) {
-                _subjectId = decodeURIComponent(params.get('subject'));
-            }
-        } catch (e) {
-            // ignore
+    // UID compartido: ambos correos admin leen/escriben en la misma
+    // ruta de Firestore, así ven exactamente los mismos datos.
+    const SHARED_UID = 'shared_admin_data';
+    const ADMIN_EMAILS = [
+        'pgalvisg8156@universidadean.edu.co',
+        'tomassantiagogalvisbarrera3@gmail.com'
+    ];
+
+    // Derivar subjectId: prioridad → ?subject= > URL path > meta tag
+    // 1. Query param ?subject=...
+    try {
+        const params = new URLSearchParams(location.search);
+        if (params.has('subject')) {
+            _subjectId = decodeURIComponent(params.get('subject'));
         }
-        // Intentar meta tag <meta name="subject-id" content="..."> (útil para servir desde distintos entornos)
-        if (!_subjectId) {
-            const m = document.querySelector('meta[name="subject-id"]');
-            if (m && m.content) _subjectId = m.content;
+    } catch (e) {}
+
+    // 2. URL path /assets/subjects/{name}/
+    if (!_subjectId) {
+        const pathMatch = location.pathname.match(/\/assets\/subjects\/([^\/]+)(?:\/|$)/);
+        if (pathMatch) {
+            _subjectId = decodeURIComponent(pathMatch[1]);
         }
+    }
+
+    // 3. Meta tag <meta name="subject-id" content="...">
+    if (!_subjectId) {
+        const m = document.querySelector('meta[name="subject-id"]');
+        if (m && m.content) _subjectId = m.content;
     }
 
     // Esperar autenticación
     if (typeof auth !== "undefined") {
         auth.onAuthStateChanged(user => {
             if (user) {
-                _uid = user.uid;
+                // Si es uno de los admin, usar UID compartido
+                const email = (user.email || '').toLowerCase();
+                _uid = ADMIN_EMAILS.includes(email) ? SHARED_UID : user.uid;
                 _readyResolve();
             }
         });
@@ -205,6 +217,55 @@ const FireDB = (() => {
                 }
             }
             return data;
+        },
+
+        /* ============ SEMESTER SUBJECTS CRUD ============ */
+        async getSemesterSubjects(semNum) {
+            if (!_uid) return [];
+            const snap = await db.collection("users").doc(_uid)
+                .collection("semesters").doc("sem" + semNum)
+                .collection("subjects")
+                .orderBy("order")
+                .get();
+            return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        },
+
+        async addSemesterSubject(semNum, data) {
+            if (!_uid) return null;
+            const ref = db.collection("users").doc(_uid)
+                .collection("semesters").doc("sem" + semNum)
+                .collection("subjects");
+            const docRef = await ref.add(data);
+            return docRef.id;
+        },
+
+        async updateSemesterSubject(semNum, docId, data) {
+            if (!_uid) return;
+            await db.collection("users").doc(_uid)
+                .collection("semesters").doc("sem" + semNum)
+                .collection("subjects").doc(docId)
+                .update(data);
+        },
+
+        async deleteSemesterSubject(semNum, docId) {
+            if (!_uid) return;
+            await db.collection("users").doc(_uid)
+                .collection("semesters").doc("sem" + semNum)
+                .collection("subjects").doc(docId)
+                .delete();
+        },
+
+        async seedSemesterSubjects(semNum, subjects) {
+            if (!_uid) return;
+            const ref = db.collection("users").doc(_uid)
+                .collection("semesters").doc("sem" + semNum)
+                .collection("subjects");
+            const batch = db.batch();
+            subjects.forEach(s => {
+                const docRef = ref.doc();
+                batch.set(docRef, s);
+            });
+            await batch.commit();
         }
     };
 })();

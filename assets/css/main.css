@@ -7,12 +7,18 @@
     --bg-main: #071e26;
     --bg-sidebar: #04161c;
     --bg-card: #0b2a33;
+    --bg-darker: #020b10;
 
     --accent-yellow: #d4a017;
     --accent-orange: #c25b12;
 
+    --border: #0b3b46;
+    --border-main: #0b3b46;
+
     --text-main: #e6f0f2;
+    --text-light: #e6f0f2;
     --text-muted: #8aa3a8;
+    --text-dim: #8aa3a8;
 }
 
 * {
@@ -63,21 +69,7 @@ img, svg, video, canvas {
 }
 
 /* ===== RESPONSIVE SIDEBAR ===== */
-@media (max-width: 900px) {
-    .sidebar {
-        transform: translateX(-100%);
-        position: fixed;
-        left: 0;
-        top: 0;
-        height: 100vh;
-        z-index: 1000;
-        transition: 0.35s;
-    }
-
-    .sidebar.open {
-        transform: translateX(0);
-    }
-}
+/* Reglas responsive de sidebar controladas desde dashboard.css y subject.css */
 
 /* ===== GRID FIX ===== */
 .subjects-grid,

@@ -9,37 +9,53 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Datos del usuario — normalmente solo el dueño puede leer/escribir.
-    // Excepción: permitir acceso completo a dos cuentas administrativas especificadas por email,
-    // para que ambos usuarios compartan los mismos datos en cualquier sesión/dispositivo.
-    match /users/{uid} {
-      allow read, write: if request.auth != null && (
-        request.auth.uid == uid ||
+    // ─── Helper: ¿es admin? ───
+    function isAdmin() {
+      return request.auth != null && (
         request.auth.token.email in [
           "pgalvisg8156@universidadean.edu.co",
           "tomassantiagogalvisbarrera3@gmail.com"
-        ]
+        ] || request.auth.token.admin == true
       );
+    }
+
+    function isOwnerOrAdmin(uid) {
+      return request.auth != null && (
+        request.auth.uid == uid || isAdmin()
+      );
+    }
+
+    // ─── Metadatos centralizados de las materias ───
+    match /subjectsMeta/{subjectId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // ─── Backups de metadatos ───
+    match /subjectsMetaBackups/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ─── Datos del usuario ───
+    match /users/{uid} {
+      allow read, write: if isOwnerOrAdmin(uid);
 
       // Documentos de materia (profesor, periodo)
       match /subjects/{subjectId} {
-        allow read, write: if request.auth != null && (
-          request.auth.uid == uid ||
-          request.auth.token.email in [
-            "pgalvisg8156@universidadean.edu.co",
-            "tomassantiagogalvisbarrera3@gmail.com"
-          ]
-        );
+        allow read, write: if isOwnerOrAdmin(uid);
 
         // Sub-colecciones: notes, files, backups
         match /{subcollection}/{docId} {
-          allow read, write: if request.auth != null && (
-            request.auth.uid == uid ||
-            request.auth.token.email in [
-              "pgalvisg8156@universidadean.edu.co",
-              "tomassantiagogalvisbarrera3@gmail.com"
-            ]
-          );
+          allow read, write: if isOwnerOrAdmin(uid);
+        }
+      }
+
+      // Configuración de materias por semestre (CRUD)
+      match /semesters/{semId} {
+        allow read, write: if isOwnerOrAdmin(uid);
+
+        match /subjects/{subjectId} {
+          allow read, write: if isOwnerOrAdmin(uid);
         }
       }
     }

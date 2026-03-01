@@ -32,28 +32,23 @@ document.addEventListener("DOMContentLoaded", () => {
     // ===== 2. TOGGLE SIDEBAR MÓVIL =====
     const toggle  = document.querySelector(".menu-toggle");
     const sidebar = document.querySelector(".sidebar");
-    let overlay = document.querySelector(".sidebar-overlay");
 
-    // Asegurar que exista un overlay en todas las páginas y aplicar estilos inline
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.className = 'sidebar-overlay';
-        // estilos inline para evitar diferencias entre subject.css
-        overlay.style.position = 'fixed';
-        overlay.style.inset = '0';
-        overlay.style.background = 'rgba(0,0,0,0.35)';
-        overlay.style.backdropFilter = 'blur(2px)';
-        overlay.style.transition = 'opacity 0.25s ease';
-        overlay.style.opacity = '0';
-        overlay.style.pointerEvents = 'none';
-        overlay.style.zIndex = '1100';
-        document.body.appendChild(overlay);
-    } else {
-        // reforzar visual leve si ya existe en CSS
-        overlay.style.background = overlay.style.background || 'rgba(0,0,0,0.35)';
-        overlay.style.backdropFilter = overlay.style.backdropFilter || 'blur(2px)';
-        overlay.style.zIndex = overlay.style.zIndex || '1100';
-    }
+    // Eliminar cualquier overlay estático del HTML (puede estar mal posicionado)
+    let existingOverlay = document.querySelector(".sidebar-overlay");
+    if (existingOverlay) existingOverlay.remove();
+
+    // Crear siempre un overlay limpio en document.body (posición correcta)
+    let overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.background = 'rgba(0,0,0,0.35)';
+    overlay.style.backdropFilter = 'blur(2px)';
+    overlay.style.transition = 'opacity 0.25s ease';
+    overlay.style.opacity = '0';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.zIndex = '1100';
+    document.body.appendChild(overlay);
 
     // Función para cerrar el sidebar (quita ambas clases por compatibilidad)
     function closeSidebar() {
