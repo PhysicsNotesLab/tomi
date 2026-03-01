@@ -84,19 +84,24 @@
         }
 
         uploadBtn.disabled = true;
-        uploadBtn.textContent = "Subiendo...";
+        uploadBtn.textContent = "Subiendo 0%...";
 
         try {
             await FireDB.addFile(file, {
                 category: categoryInput ? categoryInput.value : "General",
                 date: new Date().toLocaleDateString("es-CO")
+            }, function (pct) {
+                uploadBtn.textContent = "Subiendo " + pct + "%...";
             });
             fileInput.value = "";
             await load();
             showToast("✅ Archivo subido correctamente: " + file.name);
         } catch (err) {
             console.error("Error al subir archivo:", err);
-            showToast("❌ Error al subir archivo. Revisa la consola.", true);
+            var msg = err.code === "storage/unauthorized"
+                ? "❌ Permiso denegado. Actualiza las Storage Rules en Firebase Console."
+                : "❌ Error: " + (err.message || "Intenta de nuevo");
+            showToast(msg, true);
         }
 
         uploadBtn.disabled = false;

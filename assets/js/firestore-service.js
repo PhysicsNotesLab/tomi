@@ -124,15 +124,42 @@ const FireDB = (() => {
             return snap.docs.map(d => ({ id: d.id, ...d.data() }));
         },
 
-        async addFile(fileObj, metadata) {
+        async addFile(fileObj, metadata, onProgress) {
             const ref = _subRef();
-            if (!ref) return null;
+            if (!ref) throw new Error("No hay referencia de materia. Recarga la página.");
 
             // Subir binario a Firebase Storage
             const storagePath = `users/${_uid}/subjects/${_subjectId}/files/${Date.now()}_${fileObj.name}`;
             const storageRef  = storage.ref(storagePath);
-            const snapshot    = await storageRef.put(fileObj);
-            const downloadURL = await snapshot.ref.getDownloadURL();
+            const uploadTask  = storageRef.put(fileObj);
+
+            // Esperar subida con progreso y timeout
+            const downloadURL = await new Promise((resolve, reject) => {
+                let timeoutId = setTimeout(() => {
+                    uploadTask.cancel();
+                    reject(new Error("Timeout: la subida tardó más de 2 minutos. Verifica las Storage Rules en Firebase Console."));
+                }, 120000);
+
+                uploadTask.on("state_changed",
+                    (snap) => {
+                        const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+                        if (onProgress) onProgress(pct);
+                    },
+                    (err) => {
+                        clearTimeout(timeoutId);
+                        reject(err);
+                    },
+                    async () => {
+                        clearTimeout(timeoutId);
+                        try {
+                            const url = await uploadTask.snapshot.ref.getDownloadURL();
+                            resolve(url);
+                        } catch (e) {
+                            reject(e);
+                        }
+                    }
+                );
+            });
 
             // Guardar metadatos + URL en Firestore
             const fileData = {
