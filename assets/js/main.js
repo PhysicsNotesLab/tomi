@@ -17,7 +17,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Si estamos dentro de /assets/subjects/ y el href es relativo simple
         // como "semestre2.html", convertirlo a ruta desde la raíz del proyecto.
-        if (location.pathname.includes('/assets/subjects/') && href && !href.startsWith('.') && !href.startsWith('/') && href.endsWith('.html')) {
+        // Solo transformar links que apuntan a páginas de la raíz (semestre, login, index raíz).
+        // NO transformar links internos de materia (notes.html, files.html, backups.html, index.html).
+        const paginasInternas = ['index.html', 'notes.html', 'files.html', 'backups.html'];
+        if (location.pathname.includes('/assets/subjects/') && href && !href.startsWith('.') && !href.startsWith('/') && href.endsWith('.html') && !paginasInternas.includes(href.split('?')[0])) {
             link.setAttribute('href', '../../../' + href);
             href = link.getAttribute('href');
         }
