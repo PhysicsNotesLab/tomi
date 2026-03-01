@@ -70,6 +70,14 @@
         }));
     }
 
+    // ===== Actualizar total de créditos en el header =====
+    function updateCreditsHeader() {
+        const el = document.getElementById('semesterCredits');
+        if (!el) return;
+        const total = subjects.reduce((sum, s) => sum + (parseInt(s.credits) || 0), 0);
+        el.textContent = 'Portal personal — Carrera de Física (' + total + ' créditos)';
+    }
+
     // ===== Renderizar la cuadrícula de materias =====
     function render() {
         grid.innerHTML = '';
@@ -117,6 +125,9 @@
         addCard.style.cursor = 'pointer';
         addCard.addEventListener('click', () => openModal(null));
         grid.appendChild(addCard);
+
+        // Actualizar total de créditos en el header
+        updateCreditsHeader();
     }
 
     // ===== Modal: abrir =====
