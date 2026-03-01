@@ -91,7 +91,7 @@
         var linkQs = '?subject=' + encodeURIComponent(name) + '&sem=' + sem;
         var items = [
             { href: '../../../semestre' + sem + '.html', icon: 'fa-solid fa-arrow-left', label: 'Volver al semestre', id: '' },
-            { href: 'index.html' + linkQs,              icon: 'fa-solid fa-house',      label: 'Inicio materia',      id: '' },
+            { href: 'index.html' + linkQs,              icon: 'fa-solid fa-house',      label: 'Inicio',      id: '' },
             { href: 'notes.html' + linkQs,              icon: 'fa-solid fa-book',       label: 'Bloc de notas',       id: 'notes.html' },
             { href: 'files.html' + linkQs,              icon: 'fa-solid fa-folder',     label: 'Repositorio',         id: 'files.html' },
             { href: 'backups.html' + linkQs,            icon: 'fa-solid fa-database',   label: 'Backups',             id: 'backups.html' }
