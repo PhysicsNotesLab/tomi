@@ -128,35 +128,50 @@ const FireDB = (() => {
             const ref = _subRef();
             if (!ref) throw new Error("No hay referencia de materia. Recarga la página.");
 
+            // Sanitizar nombre para Storage (sin caracteres problemáticos)
+            const safeName = fileObj.name.replace(/[#\[\]\*\?]/g, '_');
+            const safeSubject = (_subjectId || 'unknown').replace(/[#\[\]\*\?]/g, '_');
+
             // Subir binario a Firebase Storage
-            const storagePath = `users/${_uid}/subjects/${_subjectId}/files/${Date.now()}_${fileObj.name}`;
-            const storageRef  = storage.ref(storagePath);
-            const uploadTask  = storageRef.put(fileObj);
+            const storagePath = 'users/' + _uid + '/subjects/' + safeSubject + '/files/' + Date.now() + '_' + safeName;
+            console.log('📤 Storage upload path:', storagePath);
+            console.log('📤 UID:', _uid, '| SubjectId:', _subjectId);
+
+            var storageRef, uploadTask;
+            try {
+                storageRef = storage.ref(storagePath);
+                uploadTask = storageRef.put(fileObj);
+            } catch (initErr) {
+                console.error('Error iniciando upload:', initErr);
+                throw initErr;
+            }
 
             // Esperar subida con progreso y timeout
-            const downloadURL = await new Promise((resolve, reject) => {
-                let timeoutId = setTimeout(() => {
+            const downloadURL = await new Promise(function (resolve, reject) {
+                var timeoutId = setTimeout(function () {
                     uploadTask.cancel();
-                    reject(new Error("Timeout: la subida tardó más de 2 minutos. Verifica las Storage Rules en Firebase Console."));
+                    reject(new Error("Timeout: la subida tardó más de 2 minutos."));
                 }, 120000);
 
                 uploadTask.on("state_changed",
-                    (snap) => {
-                        const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+                    function (snap) {
+                        var pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+                        console.log('📤 Progreso:', pct + '%');
                         if (onProgress) onProgress(pct);
                     },
-                    (err) => {
+                    function (err) {
                         clearTimeout(timeoutId);
+                        console.error('📤 Error en upload:', err.code, err.message);
                         reject(err);
                     },
-                    async () => {
+                    function () {
                         clearTimeout(timeoutId);
-                        try {
-                            const url = await uploadTask.snapshot.ref.getDownloadURL();
+                        uploadTask.snapshot.ref.getDownloadURL().then(function (url) {
+                            console.log('📤 Upload completo, URL:', url);
                             resolve(url);
-                        } catch (e) {
+                        }).catch(function (e) {
                             reject(e);
-                        }
+                        });
                     }
                 );
             });
