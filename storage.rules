@@ -1,17 +1,29 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Cada usuario solo puede leer/escribir en su propia carpeta
-    // Excepción: permitir acceso a las dos cuentas administrativas por email
-    match /users/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && (
-        request.auth.uid == userId ||
+
+    // Helper: ¿es admin?
+    function isAdmin() {
+      return request.auth != null && (
         request.auth.token.email in [
           "pgalvisg8156@universidadean.edu.co",
           "tomassantiagogalvisbarrera3@gmail.com"
         ]
       );
     }
+
+    // Carpeta compartida (shared_admin_data) — ambos admin acceden
+    match /users/shared_admin_data/{allPaths=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // Carpeta personal de cada usuario
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && (
+        request.auth.uid == userId || isAdmin()
+      );
+    }
+
     // Denegar todo lo demás
     match /{allPaths=**} {
       allow read, write: if false;

@@ -12,6 +12,18 @@
 
     let backups = [];
 
+    /* ===== TOAST NOTIFICATION ===== */
+    function showToast(msg, isError) {
+        var t = document.createElement("div");
+        t.textContent = msg;
+        t.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);" +
+            "background:" + (isError ? "#e74c3c" : "#1a5c2a") + ";color:#fff;padding:14px 28px;" +
+            "border-radius:10px;font-size:15px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.4);" +
+            "animation:fadeIn .3s ease";
+        document.body.appendChild(t);
+        setTimeout(function () { t.remove(); }, 4000);
+    }
+
     /* ===== RENDERIZAR ===== */
     function render() {
         backupList.innerHTML = "";
@@ -65,10 +77,10 @@
         try {
             await FireDB.createBackup(label);
             await load();
-            alert("Backup creado correctamente");
+            showToast("✅ Backup creado correctamente");
         } catch (err) {
             console.error("Error al crear backup:", err);
-            alert("Error al crear backup. Intenta de nuevo.");
+            showToast("❌ Error al crear backup", true);
         }
 
         createBtn.disabled = false;
@@ -102,9 +114,10 @@
             try {
                 await FireDB.deleteBackup(id);
                 await load();
+                showToast("🗑️ Backup eliminado");
             } catch (err) {
                 console.error("Error al eliminar:", err);
-                alert("Error al eliminar backup.");
+                showToast("❌ Error al eliminar backup", true);
             }
         }
     };

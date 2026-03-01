@@ -14,6 +14,18 @@
 
     let files = [];
 
+    /* ===== TOAST NOTIFICATION ===== */
+    function showToast(msg, isError) {
+        var t = document.createElement("div");
+        t.textContent = msg;
+        t.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);" +
+            "background:" + (isError ? "#e74c3c" : "#1a5c2a") + ";color:#fff;padding:14px 28px;" +
+            "border-radius:10px;font-size:15px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.4);" +
+            "animation:fadeIn .3s ease";
+        document.body.appendChild(t);
+        setTimeout(function () { t.remove(); }, 4000);
+    }
+
     /* ===== FORMATEAR TAMAÑO ===== */
     function formatSize(bytes) {
         if (!bytes) return "";
@@ -81,9 +93,10 @@
             });
             fileInput.value = "";
             await load();
+            showToast("✅ Archivo subido correctamente: " + file.name);
         } catch (err) {
             console.error("Error al subir archivo:", err);
-            alert("Error al subir archivo. Intenta de nuevo.");
+            showToast("❌ Error al subir archivo. Revisa la consola.", true);
         }
 
         uploadBtn.disabled = false;
@@ -116,9 +129,10 @@
             try {
                 await FireDB.deleteFile(id);
                 await load();
+                showToast("🗑️ Archivo eliminado");
             } catch (err) {
                 console.error("Error al eliminar:", err);
-                alert("Error al eliminar archivo.");
+                showToast("❌ Error al eliminar archivo", true);
             }
         }
     };
