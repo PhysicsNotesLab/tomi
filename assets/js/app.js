@@ -577,7 +577,7 @@ const Views = {
 
     setContent(`
       <button class="btn-back" onclick="Router.go('dashboard')">
-        <i class="fa-solid fa-arrow-left"></i> Centro de Control
+        <i class="fa-solid fa-arrow-left"></i> Panel de Control
       </button>
       <div class="page-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         ${sem.name.toUpperCase()} — ${sem.subtitle?.toUpperCase()||""}
