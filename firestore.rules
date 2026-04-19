@@ -9,7 +9,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── Helper: ¿es admin? ───
+    // ─── Helpers ───
     function isAdmin() {
       return request.auth != null && (
         request.auth.token.email in [
@@ -31,7 +31,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // ─── Backups de metadatos ───
+    // ─── Backups ───
     match /subjectsMetaBackups/{docId} {
       allow read, write: if isAdmin();
     }
@@ -40,20 +40,32 @@ service cloud.firestore {
     match /users/{uid} {
       allow read, write: if isOwnerOrAdmin(uid);
 
-      // Documentos de materia (profesor, periodo)
+      // Metadatos de materia (estado, nota, profesor, periodo)
       match /subjects/{subjectId} {
         allow read, write: if isOwnerOrAdmin(uid);
-
-        // Sub-colecciones: notes, files, backups
         match /{subcollection}/{docId} {
           allow read, write: if isOwnerOrAdmin(uid);
         }
       }
 
-      // Configuración de materias por semestre (CRUD)
+      // Materias personalizadas por semestre (CRUD de asignaturas)
+      match /semSubjects/{semId} {
+        allow read, write: if isOwnerOrAdmin(uid);
+      }
+
+      // Semestres personalizados creados por el usuario (Sem XI, XII…)
+      match /customSemesters/{docId} {
+        allow read, write: if isOwnerOrAdmin(uid);
+      }
+
+      // Eventos del calendario académico
+      match /events/{eventId} {
+        allow read, write: if isOwnerOrAdmin(uid);
+      }
+
+      // Legacy — alias de semSubjects usado antes
       match /semesters/{semId} {
         allow read, write: if isOwnerOrAdmin(uid);
-
         match /subjects/{subjectId} {
           allow read, write: if isOwnerOrAdmin(uid);
         }

@@ -11,15 +11,11 @@
 </head>
 <body>
 
-<!-- Sidebar overlay (mobile) -->
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
 <div class="spa-layout">
-
-  <!-- ============ SIDEBAR ============ -->
+  <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
-
-    <!-- Logo con átomo animado -->
     <div class="sidebar-logo">
       <div class="atom-container">
         <div class="nucleus"></div>
@@ -27,140 +23,227 @@
         <div class="orbit orbit-2"><div class="electron e2"></div></div>
         <div class="orbit orbit-3"><div class="electron e3"></div></div>
       </div>
-      <h2>LAB · FÍSICA UNAL</h2>
+      <h2>LAB · FÍSICA<br>UNAL</h2>
     </div>
 
-    <!-- Nav -->
     <nav class="sidebar-nav" id="sidebarNav">
-
       <div class="nav-section-label">NAVEGACIÓN</div>
-
       <button class="nav-item" data-route="dashboard">
-        <i class="fa-solid fa-satellite-dish"></i>
-        Centro de Control
+        <i class="fa-solid fa-satellite-dish"></i>Centro de Control
       </button>
-
-      <!-- Semestres accordion -->
       <button class="nav-accordion-btn" id="semAccordionToggle">
-        <i class="fa-solid fa-layer-group icon"></i>
-        Semestres
+        <i class="fa-solid fa-layer-group icon"></i>Semestres
         <i class="fa-solid fa-chevron-down chevron"></i>
       </button>
-      <div class="nav-accordion-body" id="sidebarAccordionBody">
-        <!-- Populated by app.js -->
-      </div>
+      <div class="nav-accordion-body" id="sidebarAccordionBody"></div>
 
       <div class="nav-section-label">HERRAMIENTAS</div>
-
+      <button class="nav-item" data-route="calendar">
+        <i class="fa-solid fa-calendar-days"></i>Calendario
+      </button>
       <button class="nav-item" data-route="documents">
-        <i class="fa-solid fa-folder-open"></i>
-        Todos los documentos
+        <i class="fa-solid fa-folder-open"></i>Todos los documentos
       </button>
-
       <button class="nav-item" data-route="stats">
-        <i class="fa-solid fa-chart-line"></i>
-        Estadísticas
+        <i class="fa-solid fa-chart-line"></i>Estadísticas
       </button>
 
+      <div class="nav-section-label">ADMINISTRAR</div>
+      <button class="nav-item" id="btnNewSemester">
+        <i class="fa-solid fa-circle-plus"></i>Nuevo Semestre
+      </button>
     </nav>
 
-    <!-- Footer -->
     <div class="sidebar-footer">
       <div class="user-block">
         <div class="user-avatar" id="userAvatar">T</div>
         <span class="user-email" id="userEmail">cargando...</span>
       </div>
       <button class="btn-logout" id="logoutBtn">
-        <i class="fa-solid fa-right-from-bracket"></i>
-        CERRAR SESIÓN
+        <i class="fa-solid fa-right-from-bracket"></i>CERRAR SESIÓN
       </button>
     </div>
-
   </aside>
 
-  <!-- ============ MAIN ============ -->
+  <!-- MAIN -->
   <div class="main-wrap">
-
-    <!-- Topbar -->
     <header class="topbar">
       <button class="btn-hamburger" id="hamburgerBtn">
         <i class="fa-solid fa-bars"></i>
       </button>
       <div class="topbar-info">
         <h1 id="topbarTitle">CENTRO DE CONTROL</h1>
-        <p  id="topbarSub">Portal personal — Carrera de Física</p>
+        <p id="topbarSub">Portal personal — Carrera de Física</p>
+      </div>
+
+      <!-- Campana de notificaciones -->
+      <div class="notif-wrap">
+        <button class="notif-bell" id="notifBell" title="Próximos eventos">
+          <i class="fa-solid fa-bell"></i>
+          <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+        </button>
+        <div class="notif-panel" id="notifPanel">
+          <div class="notif-panel-header">
+            <span><i class="fa-solid fa-bell"></i> Próximos 7 días</span>
+            <button class="notif-close" onclick="Notif.hide()"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="notif-list" id="notifList">
+            <div class="notif-empty">
+              <i class="fa-solid fa-circle-check"></i>
+              <p>Sin eventos próximos</p>
+              <small>Los próximos 7 días están libres</small>
+            </div>
+          </div>
+          <div class="notif-panel-footer">
+            <button class="notif-goto" onclick="Router.go('calendar');Notif.hide()">
+              <i class="fa-solid fa-calendar-days"></i> Ver calendario completo
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Átomo: solo móvil/tablet -->
+      <div class="topbar-atom" aria-hidden="true">
+        <div class="nucleus"></div>
+        <div class="orbit orbit-1"><div class="electron e1"></div></div>
+        <div class="orbit orbit-2"><div class="electron e2"></div></div>
+        <div class="orbit orbit-3"><div class="electron e3"></div></div>
       </div>
     </header>
 
-    <!-- Dynamic page content -->
     <main class="page" id="appContent">
       <div class="loading-wrap"><div class="spinner"></div></div>
     </main>
-
   </div>
-
 </div>
 
-<!-- Toast container -->
 <div id="toastContainer"></div>
 
-<!-- ============ MODAL: CRUD MATERIAS ============ -->
+<!-- Bottom Nav -->
+<nav class="bottom-nav" id="bottomNav">
+  <button class="bnav-btn" data-route="dashboard">
+    <i class="fa-solid fa-house"></i><span>Inicio</span>
+  </button>
+  <button class="bnav-btn" id="bnavSemestres">
+    <i class="fa-solid fa-layer-group"></i><span>Semestres</span>
+  </button>
+  <button class="bnav-btn bnav-center" id="bnavNewSem">
+    <i class="fa-solid fa-circle-plus"></i><span>Nuevo Sem</span>
+  </button>
+  <button class="bnav-btn" id="bnavCalendar">
+    <i class="fa-solid fa-calendar-days"></i><span>Calendario</span>
+  </button>
+  <button class="bnav-btn" data-route="stats">
+    <i class="fa-solid fa-chart-line"></i><span>Stats</span>
+  </button>
+</nav>
+
+<!-- Modal: Materias -->
 <div class="modal-overlay" id="subjectModal">
   <div class="modal-content">
     <h2 id="modalTitle">Agregar materia</h2>
-
     <label for="modalName">Nombre de la materia</label>
     <input type="text" id="modalName" placeholder="Ej: Mecánica Cuántica I" autocomplete="off"/>
-
     <label for="modalDesc">Descripción corta</label>
-    <input type="text" id="modalDesc" placeholder="Ej: Marco conceptual / módulo teórico" autocomplete="off"/>
-
+    <input type="text" id="modalDesc" placeholder="Ej: Marco conceptual" autocomplete="off"/>
     <label for="modalCredits">Créditos</label>
     <input type="number" id="modalCredits" min="1" max="12" value="3"/>
-
     <label for="modalTag">Categoría</label>
     <select id="modalTag">
-      <option>Teoría</option>
-      <option>Laboratorio</option>
-      <option>Cálculo</option>
-      <option>Matemáticas</option>
-      <option>Optativa</option>
-      <option>Taller</option>
-      <option>Idiomas</option>
-      <option>Investigación</option>
-      <option>Seminario</option>
-      <option>Electiva</option>
-      <option>Tesis</option>
-      <option>General</option>
+      <option>Teoría</option><option>Laboratorio</option>
+      <option>Cálculo</option><option>Matemáticas</option>
+      <option>Optativa</option><option>Taller</option>
+      <option>Idiomas</option><option>Investigación</option>
+      <option>Seminario</option><option>Electiva</option>
+      <option>Tesis</option><option>General</option>
     </select>
-
     <label>Icono</label>
     <div class="icon-selector">
       <i class="fa-solid fa-atom" id="modalIconPreview"></i>
-      <select id="modalIcon">
-        <!-- Poblado por app.js con ICON_OPTIONS -->
-      </select>
+      <select id="modalIcon"></select>
     </div>
-
     <div class="modal-actions">
-      <button class="btn-primary" id="btnModalSave">
-        <i class="fa-solid fa-floppy-disk"></i> Guardar
-      </button>
+      <button class="btn-primary" id="btnModalSave"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
       <button class="btn-secondary" id="btnModalCancel">Cancelar</button>
     </div>
   </div>
 </div>
 
-<!-- Firebase SDK (compat — sin bundler) -->
+<!-- Modal: Semestres -->
+<div class="modal-overlay" id="semesterModal">
+  <div class="modal-content">
+    <h2 id="semModalTitle">Nuevo Semestre</h2>
+    <label for="semModalName">Nombre del semestre</label>
+    <input type="text" id="semModalName" placeholder="Ej: Semestre XI" autocomplete="off"/>
+    <label for="semModalSubtitle">Subtítulo</label>
+    <input type="text" id="semModalSubtitle" placeholder="Ej: Profundización" autocomplete="off"/>
+    <label>Icono</label>
+    <div class="icon-selector">
+      <i class="fa-solid fa-star" id="semModalIconPreview"></i>
+      <select id="semModalIcon"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="btnSemModalSave"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+      <button class="btn-secondary" id="btnSemModalCancel">Cancelar</button>
+    </div>
+    <div id="semModalDeleteWrap" style="display:none;margin-top:12px;text-align:center">
+      <button class="btn-danger-sm" id="btnSemModalDelete">
+        <i class="fa-solid fa-trash"></i> Eliminar este semestre
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Eventos de Calendario -->
+<div class="modal-overlay" id="calendarModal">
+  <div class="modal-content">
+    <h2 id="calModalTitle">Nuevo evento</h2>
+
+    <label for="calModalEvTitle">Título</label>
+    <input type="text" id="calModalEvTitle" placeholder="Ej: Parcial 1 — Cuántica" autocomplete="off"/>
+
+    <label for="calModalDate">Fecha</label>
+    <input type="date" id="calModalDate"/>
+
+    <label>Tipo</label>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <span id="calTypeDot"
+            style="width:14px;height:14px;border-radius:4px;background:#ef5350;flex-shrink:0;transition:.2s"></span>
+      <select id="calModalType" style="flex:1">
+        <option value="parcial">Parcial / Examen</option>
+        <option value="trabajo">Trabajo / Proyecto</option>
+        <option value="laboratorio">Laboratorio</option>
+        <option value="taller">Taller</option>
+        <option value="entrega">Entrega</option>
+        <option value="clase">Clase especial</option>
+        <option value="otro">Otro</option>
+      </select>
+    </div>
+
+    <label for="calModalSubject">Materia (opcional)</label>
+    <input type="text" id="calModalSubject" placeholder="Ej: Mecánica Cuántica I" autocomplete="off"/>
+
+    <label for="calModalDesc">Nota (opcional)</label>
+    <input type="text" id="calModalDesc" placeholder="Detalles adicionales..." autocomplete="off"/>
+
+    <div class="modal-actions">
+      <button class="btn-primary" id="btnCalModalSave"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+      <button class="btn-secondary" id="btnCalModalCancel">Cancelar</button>
+    </div>
+    <div id="calModalDeleteBtn" style="display:none;margin-top:12px;text-align:center">
+      <button class="btn-danger-sm" onclick="CalendarCRUD.deleteEv()">
+        <i class="fa-solid fa-trash"></i> Eliminar evento
+      </button>
+    </div>
+  </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
-
-<!-- App scripts -->
 <script src="assets/js/firebase-config.js"></script>
 <script src="assets/js/data.js"></script>
 <script src="assets/js/app.js"></script>
-
 </body>
 </html>

@@ -126,11 +126,13 @@ const SUBJECT_STATUS = {
 };
 
 const FILE_ICONS = {
-  "application/pdf":    { icon: "fa-file-pdf",   color: "#ff5252" },
-  "application/msword": { icon: "fa-file-word",  color: "#2196f3" },
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": { icon: "fa-file-word",  color: "#2196f3" },
-  "application/vnd.ms-excel":                                                { icon: "fa-file-excel", color: "#4caf50" },
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":       { icon: "fa-file-excel", color: "#4caf50" },
+  "application/pdf":    { icon: "fa-file-pdf",        color: "#ff5252" },
+  "application/msword": { icon: "fa-file-word",       color: "#2196f3" },
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document":         { icon: "fa-file-word",       color: "#2196f3" },
+  "application/vnd.ms-excel":                                                         { icon: "fa-file-excel",      color: "#4caf50" },
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":               { icon: "fa-file-excel",      color: "#4caf50" },
+  "application/vnd.ms-powerpoint":                                                    { icon: "fa-file-powerpoint", color: "#ff6d42" },
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation":       { icon: "fa-file-powerpoint", color: "#ff6d42" },
   "text/plain":         { icon: "fa-file-lines",  color: "#90a4ae" },
   "image/png":          { icon: "fa-file-image",  color: "#ab47bc" },
   "image/jpeg":         { icon: "fa-file-image",  color: "#ab47bc" },
