@@ -1908,3 +1908,2136 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* ================================================
+   AÑADIR AL FINAL de assets/css/main.css
+   Incluye: átomo, topbar atom, bottom nav, modals CRUD
+================================================ */
+
+/* ───────────────────────────────────────────────
+   ⚛  ÁTOMO ANIMADO — sidebar + topbar
+   Overrides la FA icon original del sidebar-logo
+─────────────────────────────────────────────── */
+
+/* Override: que el i heredado del sidebar-logo no rote */
+.sidebar-logo > i { animation: none !important; display: none !important; }
+
+/* Contenedor del átomo (sidebar) */
+.atom-container {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
+/* Topbar atom — tamaño diferente */
+.topbar-atom {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  display: none; /* oculto en desktop */
+}
+
+/* Mostrar solo en móvil/tablet */
+@media (max-width: 900px) {
+  .topbar-atom { display: block; }
+}
+
+/* Núcleo brillante — compartido */
+.atom-container .nucleus,
+.topbar-atom    .nucleus {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, #f1c40f 40%, #e67e22 100%);
+  animation: nucleusPulse 2s ease-in-out infinite;
+  z-index: 2;
+}
+.atom-container .nucleus { width: 10px; height: 10px;
+  box-shadow: 0 0 7px 3px rgba(241,196,15,.65), 0 0 18px 5px rgba(241,196,15,.25); }
+.topbar-atom    .nucleus { width: 8px;  height: 8px;
+  box-shadow: 0 0 5px 2px rgba(241,196,15,.65), 0 0 14px 4px rgba(241,196,15,.25); }
+
+@keyframes nucleusPulse {
+  0%,100% { transform: translate(-50%,-50%) scale(1); }
+  50%      { transform: translate(-50%,-50%) scale(1.2); }
+}
+
+/* Órbitas */
+.atom-container .orbit,
+.topbar-atom    .orbit {
+  position: absolute;
+  top: 50%; left: 50%;
+  border-radius: 50%;
+}
+
+/* Sidebar orbit sizes */
+.atom-container .orbit-1 { width:50px; height:19px;
+  transform:translate(-50%,-50%) rotate(-30deg);
+  border:1.2px solid rgba(231,76,60,.35); }
+.atom-container .orbit-2 { width:50px; height:19px;
+  transform:translate(-50%,-50%) rotate(30deg);
+  border:1.2px solid rgba(52,152,219,.35); }
+.atom-container .orbit-3 { width:50px; height:19px;
+  transform:translate(-50%,-50%) rotate(90deg);
+  border:1.2px solid rgba(241,196,15,.35); }
+
+/* Topbar orbit sizes */
+.topbar-atom .orbit-1 { width:40px; height:15px;
+  transform:translate(-50%,-50%) rotate(-30deg);
+  border:1px solid rgba(231,76,60,.4); }
+.topbar-atom .orbit-2 { width:40px; height:15px;
+  transform:translate(-50%,-50%) rotate(30deg);
+  border:1px solid rgba(52,152,219,.4); }
+.topbar-atom .orbit-3 { width:40px; height:15px;
+  transform:translate(-50%,-50%) rotate(90deg);
+  border:1px solid rgba(241,196,15,.4); }
+
+/* Electrones */
+.atom-container .electron,
+.topbar-atom    .electron {
+  position: absolute;
+  border-radius: 50%;
+  top: -50%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.atom-container .electron { width:6px; height:6px; }
+.topbar-atom    .electron { width:5px; height:5px; }
+
+.e1 { background:radial-gradient(circle,#fff 0%,#e74c3c 60%);
+      box-shadow:0 0 5px 2px rgba(231,76,60,.8);
+      animation:orbit1Move 2.2s linear infinite; }
+.e2 { background:radial-gradient(circle,#fff 0%,#3498db 60%);
+      box-shadow:0 0 5px 2px rgba(52,152,219,.8);
+      animation:orbit2Move 2.8s linear infinite; }
+.e3 { background:radial-gradient(circle,#fff 0%,#f1c40f 60%);
+      box-shadow:0 0 5px 2px rgba(241,196,15,.8);
+      animation:orbit3Move 3.4s linear infinite; }
+
+@keyframes orbit1Move {
+  0%   { top:-3px; left:50%; }
+  25%  { top:calc(50% - 3px); left:calc(100% + 1px); }
+  50%  { top:calc(100% - 3px); left:50%; }
+  75%  { top:calc(50% - 3px); left:-8px; }
+  100% { top:-3px; left:50%; }
+}
+@keyframes orbit2Move {
+  0%   { top:calc(100% - 3px); left:50%; }
+  25%  { top:calc(50% - 3px);  left:-8px; }
+  50%  { top:-3px;             left:50%; }
+  75%  { top:calc(50% - 3px);  left:calc(100% + 1px); }
+  100% { top:calc(100% - 3px); left:50%; }
+}
+@keyframes orbit3Move {
+  0%   { top:-3px; left:50%; }
+  25%  { top:calc(50% - 3px); left:calc(100% + 1px); }
+  50%  { top:calc(100% - 3px); left:50%; }
+  75%  { top:calc(50% - 3px); left:-8px; }
+  100% { top:-3px; left:50%; }
+}
+
+/* Sidebar logo text ajuste */
+.sidebar-logo h2 {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--accent-yellow);
+  line-height: 1.5;
+}
+
+/* ───────────────────────────────────────────────
+   📲 BOTTOM NAV — solo móvil/tablet
+─────────────────────────────────────────────── */
+.bottom-nav {
+  display: none; /* oculto en desktop */
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 62px;
+  background: var(--bg-sidebar);
+  border-top: 1px solid var(--border);
+  z-index: 300;
+  padding: 0 4px;
+  padding-bottom: env(safe-area-inset-bottom, 0); /* iPhone notch */
+  backdrop-filter: blur(12px);
+  box-shadow: 0 -4px 20px rgba(0,0,0,.4);
+}
+
+@media (max-width: 900px) {
+  .bottom-nav { display: flex; align-items: center; justify-content: space-around; }
+  /* dar espacio al contenido para que no tape el bottom nav */
+  .main-wrap { padding-bottom: 68px; }
+}
+
+.bnav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 9.5px;
+  letter-spacing: .5px;
+  padding: 6px 2px;
+  cursor: pointer;
+  transition: color .2s, transform .15s;
+  border-radius: 10px;
+}
+.bnav-btn i { font-size: 18px; transition: transform .2s; }
+.bnav-btn:hover { color: var(--text-muted); }
+.bnav-btn.active { color: var(--accent-teal); }
+.bnav-btn.active i { transform: scale(1.12); }
+
+/* Botón central "Nuevo Sem" — destacado */
+.bnav-center {
+  color: var(--accent-yellow);
+  position: relative;
+}
+.bnav-center i {
+  font-size: 28px;
+  filter: drop-shadow(0 0 6px rgba(212,160,23,.5));
+}
+.bnav-center:hover i { transform: scale(1.18) rotate(90deg); }
+.bnav-center span { font-size: 8px; }
+
+/* ───────────────────────────────────────────────
+   🗂 MODAL — compartido subject + semester
+─────────────────────────────────────────────── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.72);
+  backdrop-filter: blur(6px);
+  z-index: 3000;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+}
+.modal-overlay.open { display: flex; }
+
+.modal-content {
+  background: linear-gradient(145deg, #071e26, #04161c);
+  border: 1px solid var(--border-2);
+  border-radius: 18px;
+  padding: 28px 24px;
+  width: 100%;
+  max-width: 450px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 70px rgba(0,0,0,.85);
+  animation: modalIn .25s cubic-bezier(.34,1.56,.64,1);
+}
+.modal-content::before {
+  content: "";
+  display: block;
+  height: 2px; width: 55%;
+  margin: 0 auto 20px;
+  background: linear-gradient(90deg,transparent,var(--accent-yellow),transparent);
+}
+@keyframes modalIn {
+  from { opacity:0; transform:translateY(28px) scale(.94); }
+  to   { opacity:1; transform:translateY(0)    scale(1);   }
+}
+.modal-content h2 {
+  color: var(--accent-yellow);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 18px;
+  text-align: center;
+}
+.modal-content label {
+  display: block;
+  color: var(--text-muted);
+  font-size: .78rem;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  margin: 12px 0 5px;
+}
+.modal-content input,
+.modal-content select {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: .93rem;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color .2s;
+}
+.modal-content input:focus,
+.modal-content select:focus {
+  border-color: var(--accent-yellow);
+  box-shadow: 0 0 0 2px rgba(212,160,23,.12);
+}
+.icon-selector { display:flex; align-items:center; gap:12px; }
+.icon-selector > i { font-size:1.5rem; color:var(--accent-yellow); min-width:28px; text-align:center; }
+.icon-selector select { flex:1; }
+
+.modal-actions { display:flex; gap:10px; margin-top:20px; }
+
+.btn-primary {
+  flex:1; background:linear-gradient(135deg,var(--accent-yellow),var(--accent-orange));
+  color:var(--bg-darker); border:none; padding:11px;
+  border-radius:var(--radius-sm); font-weight:700;
+  font-size:.88rem; letter-spacing:.5px; cursor:pointer;
+  transition:.25s; display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(212,160,23,.32); }
+.btn-primary:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+
+.btn-secondary {
+  flex:1; background:transparent; color:var(--text-muted);
+  border:1px solid var(--border); padding:11px;
+  border-radius:var(--radius-sm); font-size:.88rem; cursor:pointer; transition:.2s;
+}
+.btn-secondary:hover { border-color:var(--accent-yellow); color:var(--accent-yellow); }
+
+/* Botón peligro dentro del modal */
+.btn-danger-sm {
+  background:transparent; color:#ef5350;
+  border:1px solid rgba(239,83,80,.35); border-radius:8px;
+  padding:8px 16px; font-size:.8rem; cursor:pointer;
+  transition:.2s; display:inline-flex; align-items:center; gap:6px;
+}
+.btn-danger-sm:hover { background:rgba(239,83,80,.12); border-color:#ef5350; }
+
+/* ───────────────────────────────────────────────
+   ✏️ CARD ACTIONS — botones editar/borrar en tarjeta
+─────────────────────────────────────────────── */
+.sub-click {
+  display: flex; gap:16px; align-items:flex-start;
+  cursor: pointer; width: 100%;
+}
+.sub-desc { font-size:12px; color:var(--text-dim); margin:2px 0 6px; font-style:italic; }
+
+.card-actions {
+  position: absolute; top:10px; right:10px;
+  display: flex; gap:6px; opacity:0; transition:opacity .2s; z-index:10;
+}
+.subject-card:hover .card-actions { opacity:1; }
+
+.card-btn {
+  background:rgba(2,11,16,.85); border:1px solid var(--border-2);
+  color:var(--text-muted); width:32px; height:32px; border-radius:8px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  font-size:13px; transition:.2s; backdrop-filter:blur(4px);
+}
+.card-btn:hover { border-color:var(--accent-yellow); color:var(--accent-yellow); transform:scale(1.1); }
+.card-delete:hover { border-color:#e74c3c !important; color:#e74c3c !important; }
+
+@media (max-width:768px) { .card-actions { opacity:1; } }
+
+/* ───────────────────────────────────────────────
+   ➕ ADD-CARD — "Agregar materia"
+─────────────────────────────────────────────── */
+.add-card {
+  border-style: dashed !important;
+  display: flex; flex-direction:column; align-items:center;
+  justify-content:center; cursor:pointer; opacity:.5;
+  transition:.3s; min-height:150px; gap:6px;
+}
+.add-card:hover { opacity:1; border-color:var(--accent-yellow)!important;
+                  box-shadow:0 0 20px rgba(212,160,23,.1); }
+.add-card i { font-size:2rem; color:var(--accent-yellow); }
+.add-card h3 { color:var(--text-muted); font-size:14px; font-weight:600; }
+.add-card span { font-size:12px; color:var(--text-dim); }
+
+/* ───────────────────────────────────────────────
+   🗓 SEMESTER card — botón editar semestre personalizado
+─────────────────────────────────────────────── */
+.semester-card { position: relative; }
+
+.sem-edit-btn {
+  position:absolute; top:8px; right:8px;
+  background:rgba(2,11,16,.8); border:1px solid var(--border-2);
+  color:var(--text-muted); width:28px; height:28px; border-radius:7px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  font-size:12px; opacity:0; transition:.2s; backdrop-filter:blur(4px);
+}
+.semester-card:hover .sem-edit-btn { opacity:1; }
+.sem-edit-btn:hover { border-color:var(--accent-yellow); color:var(--accent-yellow); }
+
+/* Botón editar semestre dentro de la vista de semestre */
+.btn-edit-sem {
+  display: inline-flex; align-items:center; gap:6px;
+  background: rgba(212,160,23,.1); border:1px solid rgba(212,160,23,.3);
+  color:var(--accent-yellow); border-radius:8px; padding:4px 12px;
+  font-size:12px; cursor:pointer; transition:.2s;
+}
+.btn-edit-sem:hover { background:rgba(212,160,23,.2); }
+
+/* Icono editar en sidebar (semestres custom) */
+.nav-edit-sem {
+  margin-left:auto; font-size:10px; opacity:.5;
+  transition:opacity .2s, color .2s; flex-shrink:0;
+}
+.nav-sub-item:hover .nav-edit-sem { opacity:1; color:var(--accent-yellow); }
+
+/* ================================================
+   🔔 NOTIFICACIONES — Bell + Panel dropdown
+================================================ */
+.notif-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin-right: 6px;
+}
+
+.notif-bell {
+  position: relative;
+  width: 38px; height: 38px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all .2s;
+}
+.notif-bell:hover {
+  border-color: var(--accent-yellow);
+  color: var(--accent-yellow);
+}
+
+.notif-badge {
+  position: absolute;
+  top: -5px; right: -5px;
+  min-width: 18px; height: 18px;
+  background: #ef5350;
+  border-radius: 99px;
+  font-size: 10px; font-weight: 700;
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 4px;
+  border: 2px solid var(--bg-main);
+  animation: badgePop .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes badgePop {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+
+/* Panel dropdown */
+.notif-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 320px;
+  background: linear-gradient(145deg, #0b2530, #071a22);
+  border: 1px solid var(--border-2);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.7);
+  z-index: 500;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  animation: panelDrop .22s cubic-bezier(.34,1.3,.64,1);
+}
+.notif-panel.open { display: flex; }
+
+@keyframes panelDrop {
+  from { opacity:0; transform: translateY(-8px) scale(.97); }
+  to   { opacity:1; transform: translateY(0)    scale(1);   }
+}
+
+.notif-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px; font-weight: 600; color: var(--text-main);
+  letter-spacing: .5px;
+}
+.notif-close {
+  background: none; border: none; color: var(--text-dim);
+  font-size: 14px; cursor: pointer; padding: 4px;
+  border-radius: 6px; transition: color .2s;
+}
+.notif-close:hover { color: var(--text-main); }
+
+.notif-list { max-height: 280px; overflow-y: auto; }
+
+.notif-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  cursor: pointer; transition: background .15s;
+}
+.notif-item:hover { background: rgba(255,255,255,.04); }
+
+.notif-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%; flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.notif-info { flex: 1; min-width: 0; }
+.notif-title {
+  font-size: 13px; color: var(--text-main);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 500;
+}
+.notif-meta {
+  font-size: 11px; color: var(--text-dim); margin-top: 2px;
+}
+
+.notif-when {
+  font-size: 11px; font-weight: 700;
+  white-space: nowrap; flex-shrink: 0;
+}
+
+.notif-empty {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 28px 16px; text-align: center; gap: 8px;
+}
+.notif-empty i { font-size: 28px; color: var(--accent-teal); opacity: .6; }
+.notif-empty p { color: var(--text-muted); font-size: 13px; margin: 0; }
+.notif-empty small { color: var(--text-dim); font-size: 11px; }
+
+.notif-panel-footer {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+}
+.notif-goto {
+  width: 100%; padding: 9px;
+  background: rgba(212,160,23,.1); border: 1px solid rgba(212,160,23,.25);
+  border-radius: 8px; color: var(--accent-yellow);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  transition: .2s;
+}
+.notif-goto:hover { background: rgba(212,160,23,.2); }
+
+/* Mobile: panel a ancho completo */
+@media (max-width: 480px) {
+  .notif-panel {
+    position: fixed;
+    top: var(--topbar-h);
+    right: 0; left: 0;
+    width: 100%;
+    border-radius: 0 0 16px 16px;
+  }
+}
+
+/* ================================================
+   📅 CALENDARIO — Vista mensual
+================================================ */
+.cal-header-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.cal-month-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-yellow);
+  letter-spacing: 1px;
+  flex: 1;
+  text-align: center;
+  min-width: 180px;
+}
+
+.cal-nav-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: .2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.cal-nav-btn:hover { border-color: var(--accent-yellow); color: var(--accent-yellow); }
+
+.cal-header-actions {
+  display: flex; gap: 8px; flex-shrink: 0;
+}
+
+.cal-today-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 8px 14px; border-radius: 9px;
+  font-size: 13px; cursor: pointer; transition: .2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.cal-today-btn:hover { border-color: var(--accent-teal); color: var(--accent-teal); }
+
+.cal-add-btn {
+  flex: none !important;
+  padding: 8px 14px !important;
+  font-size: 13px !important;
+  border-radius: 9px !important;
+  white-space: nowrap;
+}
+
+/* Upcoming bar */
+.cal-upcoming-bar {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(212,160,23,.08);
+  border: 1px solid rgba(212,160,23,.2);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px; color: var(--accent-yellow);
+  margin-bottom: 16px;
+}
+.cal-upcoming-bar i { opacity: .8; }
+
+/* Grid wrapper */
+.cal-grid-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+/* Day headers */
+.cal-weekday {
+  background: rgba(0,0,0,.3);
+  padding: 10px 4px;
+  text-align: center;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--accent-yellow);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Day cells */
+.cal-cell {
+  min-height: 90px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 6px;
+  cursor: pointer;
+  transition: background .15s;
+  position: relative;
+  vertical-align: top;
+}
+.cal-cell:nth-child(7n) { border-right: none; }
+.cal-cell:hover { background: rgba(255,255,255,.03); }
+
+.cal-cell.cal-other {
+  opacity: .35; cursor: default;
+}
+.cal-cell.cal-other:hover { background: none; }
+
+.cal-cell.cal-today {
+  background: rgba(212,160,23,.06);
+}
+
+.cal-day-num {
+  display: inline-block;
+  font-size: 13px; font-weight: 600;
+  color: var(--text-muted);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.cal-day-num.today-num {
+  background: var(--accent-yellow);
+  color: var(--bg-darker);
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700;
+}
+
+/* Event pills */
+.cal-pill {
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity .15s;
+  display: block;
+  max-width: 100%;
+}
+.cal-pill:hover { opacity: .8; }
+
+.cal-more {
+  font-size: 10px; color: var(--text-dim);
+  padding: 1px 4px;
+  cursor: pointer;
+}
+
+/* Legend */
+.cal-legend {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  padding: 4px 2px;
+}
+.cal-legend-item {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--text-muted);
+}
+
+/* Responsive calendar */
+@media (max-width: 600px) {
+  .cal-month-title { font-size: 1.1rem; }
+  .cal-cell { min-height: 60px; padding: 4px; }
+  .cal-pill { font-size: 9px; }
+  .cal-day-num { font-size: 11px; }
+  .cal-header-actions { width: 100%; justify-content: flex-end; }
+  .cal-header-bar { justify-content: center; }
+}
+
+@media (max-width: 400px) {
+  .cal-cell { min-height: 48px; }
+  .cal-weekday { font-size: 9px; padding: 6px 2px; }
+}
+
+/* ================================================
+   🛠 FIXES — Mobile & responsiveness
+================================================ */
+
+/* ── 1. Mobile browser bar color (theme-color fallback) ──
+   The <meta name="theme-color"> handles Chrome Android.
+   This rule prevents white flashes on iOS/scroll overscroll. */
+html, body {
+  background-color: #020b10 !important;
+}
+
+/* ── 2. Sidebar logout always visible on mobile ──
+   The bottom-nav (62px) was hiding the footer.
+   Add padding so the nav scrolls above the bottom-nav. */
+@media (max-width: 900px) {
+  .sidebar {
+    padding-bottom: 70px;
+  }
+  /* Keep the footer pinned at the bottom of the sidebar */
+  .sidebar-footer {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-sidebar);
+    border-top: 1px solid var(--border);
+    z-index: 5;
+  }
+}
+
+/* ── 3. Notification panel — higher z-index, never behind sidebar ── */
+.notif-wrap {
+  z-index: 350; /* > sidebar z-index (200) and bottom-nav (300) */
+}
+.notif-panel {
+  z-index: 400;
+}
+
+/* Mobile: full-width panel, positioned below topbar */
+@media (max-width: 768px) {
+  .notif-panel {
+    position: fixed;
+    top: var(--topbar-h);
+    right: 8px;
+    left: 8px;
+    width: auto;
+    border-radius: 14px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.8);
+  }
+}
+
+/* ── 4. Calendar mobile – compact header ── */
+@media (max-width: 640px) {
+  .cal-header-bar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-rows: auto auto;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  /* Row 1: [< Anterior]  [Abril 2026]  [Siguiente >] */
+  .cal-nav-btn:first-child { grid-column: 1; grid-row: 1; justify-self: start; }
+  .cal-month-title          { grid-column: 2; grid-row: 1; text-align: center; font-size: 1.1rem; min-width: 0; }
+  .cal-nav-btn:nth-child(3) { grid-column: 3; grid-row: 1; justify-self: end;  }
+
+  /* Row 2: [Hoy]  [+ Nuevo evento] — span full width */
+  .cal-header-actions {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+  .cal-today-btn,
+  .cal-add-btn {
+    flex: 1;
+    justify-content: center;
+    max-width: 200px;
+  }
+}
+
+/* ── 5. Calendar cells – show at least 1 pill cleanly on very small screens ── */
+@media (max-width: 380px) {
+  .cal-cell { min-height: 44px; padding: 3px; }
+  .cal-day-num { font-size: 10px; }
+  .cal-pill { font-size: 8.5px; padding: 1px 4px; }
+  .cal-weekday { font-size: 8px; letter-spacing: 0; }
+}
+
+/* ── 6. Topbar – ensure notification wrap doesn't push atom off screen ── */
+.topbar {
+  gap: 10px;
+}
+.topbar-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.topbar-info h1 {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ================================================
+   📊 BARRA DE PROGRESO — Vista individual semestre
+================================================ */
+.sem-progress-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 22px;
+}
+
+.sem-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sem-progress-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.sem-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.sem-stat-item strong {
+  color: var(--text-main);
+  font-size: 15px;
+}
+.sem-cr-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.sem-pct-label {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent-teal);
+  flex-shrink: 0;
+}
+
+/* Track con dos capas: aprobadas + en curso */
+.sem-progress-track {
+  position: relative;
+  height: 10px;
+  background: var(--bg-darker);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.sem-progress-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 99px;
+  transition: width .5s ease;
+}
+.sem-fill-passed {
+  left: 0;
+  background: linear-gradient(90deg, #4caf50, #66bb6a);
+  z-index: 2;
+}
+.sem-fill-active {
+  background: linear-gradient(90deg, var(--accent-teal), #00e5c0);
+  z-index: 1;
+}
+
+.sem-progress-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.sem-progress-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.leg-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .sem-progress-stats { gap: 8px; }
+  .sem-stat-item { font-size: 12px; }
+  .sem-pct-label { font-size: 18px; }
+}
+/* ================================================
+   AÑADIR AL FINAL de assets/css/main.css
+   Incluye: átomo, topbar atom, bottom nav, modals CRUD
+================================================ */
+
+/* ───────────────────────────────────────────────
+   ⚛  ÁTOMO ANIMADO — sidebar + topbar
+   Overrides la FA icon original del sidebar-logo
+─────────────────────────────────────────────── */
+
+/* Override: que el i heredado del sidebar-logo no rote */
+.sidebar-logo > i { animation: none !important; display: none !important; }
+
+/* Contenedor del átomo (sidebar) */
+.atom-container {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
+/* Topbar atom — tamaño diferente */
+.topbar-atom {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  display: none; /* oculto en desktop */
+}
+
+/* Mostrar solo en móvil/tablet */
+@media (max-width: 900px) {
+  .topbar-atom { display: block; }
+}
+
+/* Núcleo brillante — compartido */
+.atom-container .nucleus,
+.topbar-atom    .nucleus {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, #f1c40f 40%, #e67e22 100%);
+  animation: nucleusPulse 2s ease-in-out infinite;
+  z-index: 2;
+}
+.atom-container .nucleus { width: 10px; height: 10px;
+  box-shadow: 0 0 7px 3px rgba(241,196,15,.65), 0 0 18px 5px rgba(241,196,15,.25); }
+.topbar-atom    .nucleus { width: 8px;  height: 8px;
+  box-shadow: 0 0 5px 2px rgba(241,196,15,.65), 0 0 14px 4px rgba(241,196,15,.25); }
+
+@keyframes nucleusPulse {
+  0%,100% { transform: translate(-50%,-50%) scale(1); }
+  50%      { transform: translate(-50%,-50%) scale(1.2); }
+}
+
+/* Órbitas */
+.atom-container .orbit,
+.topbar-atom    .orbit {
+  position: absolute;
+  top: 50%; left: 50%;
+  border-radius: 50%;
+}
+
+/* Sidebar orbit sizes */
+.atom-container .orbit-1 { width:50px; height:19px;
+  transform:translate(-50%,-50%) rotate(-30deg);
+  border:1.2px solid rgba(231,76,60,.35); }
+.atom-container .orbit-2 { width:50px; height:19px;
+  transform:translate(-50%,-50%) rotate(30deg);
+  border:1.2px solid rgba(52,152,219,.35); }
+.atom-container .orbit-3 { width:50px; height:19px;
+  transform:translate(-50%,-50%) rotate(90deg);
+  border:1.2px solid rgba(241,196,15,.35); }
+
+/* Topbar orbit sizes */
+.topbar-atom .orbit-1 { width:40px; height:15px;
+  transform:translate(-50%,-50%) rotate(-30deg);
+  border:1px solid rgba(231,76,60,.4); }
+.topbar-atom .orbit-2 { width:40px; height:15px;
+  transform:translate(-50%,-50%) rotate(30deg);
+  border:1px solid rgba(52,152,219,.4); }
+.topbar-atom .orbit-3 { width:40px; height:15px;
+  transform:translate(-50%,-50%) rotate(90deg);
+  border:1px solid rgba(241,196,15,.4); }
+
+/* Electrones */
+.atom-container .electron,
+.topbar-atom    .electron {
+  position: absolute;
+  border-radius: 50%;
+  top: -50%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.atom-container .electron { width:6px; height:6px; }
+.topbar-atom    .electron { width:5px; height:5px; }
+
+.e1 { background:radial-gradient(circle,#fff 0%,#e74c3c 60%);
+      box-shadow:0 0 5px 2px rgba(231,76,60,.8);
+      animation:orbit1Move 2.2s linear infinite; }
+.e2 { background:radial-gradient(circle,#fff 0%,#3498db 60%);
+      box-shadow:0 0 5px 2px rgba(52,152,219,.8);
+      animation:orbit2Move 2.8s linear infinite; }
+.e3 { background:radial-gradient(circle,#fff 0%,#f1c40f 60%);
+      box-shadow:0 0 5px 2px rgba(241,196,15,.8);
+      animation:orbit3Move 3.4s linear infinite; }
+
+@keyframes orbit1Move {
+  0%   { top:-3px; left:50%; }
+  25%  { top:calc(50% - 3px); left:calc(100% + 1px); }
+  50%  { top:calc(100% - 3px); left:50%; }
+  75%  { top:calc(50% - 3px); left:-8px; }
+  100% { top:-3px; left:50%; }
+}
+@keyframes orbit2Move {
+  0%   { top:calc(100% - 3px); left:50%; }
+  25%  { top:calc(50% - 3px);  left:-8px; }
+  50%  { top:-3px;             left:50%; }
+  75%  { top:calc(50% - 3px);  left:calc(100% + 1px); }
+  100% { top:calc(100% - 3px); left:50%; }
+}
+@keyframes orbit3Move {
+  0%   { top:-3px; left:50%; }
+  25%  { top:calc(50% - 3px); left:calc(100% + 1px); }
+  50%  { top:calc(100% - 3px); left:50%; }
+  75%  { top:calc(50% - 3px); left:-8px; }
+  100% { top:-3px; left:50%; }
+}
+
+/* Sidebar logo text ajuste */
+.sidebar-logo h2 {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--accent-yellow);
+  line-height: 1.5;
+}
+
+/* ───────────────────────────────────────────────
+   📲 BOTTOM NAV — solo móvil/tablet
+─────────────────────────────────────────────── */
+.bottom-nav {
+  display: none; /* oculto en desktop */
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 62px;
+  background: var(--bg-sidebar);
+  border-top: 1px solid var(--border);
+  z-index: 300;
+  padding: 0 4px;
+  padding-bottom: env(safe-area-inset-bottom, 0); /* iPhone notch */
+  backdrop-filter: blur(12px);
+  box-shadow: 0 -4px 20px rgba(0,0,0,.4);
+}
+
+@media (max-width: 900px) {
+  .bottom-nav { display: flex; align-items: center; justify-content: space-around; }
+  /* dar espacio al contenido para que no tape el bottom nav */
+  .main-wrap { padding-bottom: 68px; }
+}
+
+.bnav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 9.5px;
+  letter-spacing: .5px;
+  padding: 6px 2px;
+  cursor: pointer;
+  transition: color .2s, transform .15s;
+  border-radius: 10px;
+}
+.bnav-btn i { font-size: 18px; transition: transform .2s; }
+.bnav-btn:hover { color: var(--text-muted); }
+.bnav-btn.active { color: var(--accent-teal); }
+.bnav-btn.active i { transform: scale(1.12); }
+
+/* Botón central "Nuevo Sem" — destacado */
+.bnav-center {
+  color: var(--accent-yellow);
+  position: relative;
+}
+.bnav-center i {
+  font-size: 28px;
+  filter: drop-shadow(0 0 6px rgba(212,160,23,.5));
+}
+.bnav-center:hover i { transform: scale(1.18) rotate(90deg); }
+.bnav-center span { font-size: 8px; }
+
+/* ───────────────────────────────────────────────
+   🗂 MODAL — compartido subject + semester
+─────────────────────────────────────────────── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.72);
+  backdrop-filter: blur(6px);
+  z-index: 3000;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+}
+.modal-overlay.open { display: flex; }
+
+.modal-content {
+  background: linear-gradient(145deg, #071e26, #04161c);
+  border: 1px solid var(--border-2);
+  border-radius: 18px;
+  padding: 28px 24px;
+  width: 100%;
+  max-width: 450px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 70px rgba(0,0,0,.85);
+  animation: modalIn .25s cubic-bezier(.34,1.56,.64,1);
+}
+.modal-content::before {
+  content: "";
+  display: block;
+  height: 2px; width: 55%;
+  margin: 0 auto 20px;
+  background: linear-gradient(90deg,transparent,var(--accent-yellow),transparent);
+}
+@keyframes modalIn {
+  from { opacity:0; transform:translateY(28px) scale(.94); }
+  to   { opacity:1; transform:translateY(0)    scale(1);   }
+}
+.modal-content h2 {
+  color: var(--accent-yellow);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 18px;
+  text-align: center;
+}
+.modal-content label {
+  display: block;
+  color: var(--text-muted);
+  font-size: .78rem;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  margin: 12px 0 5px;
+}
+.modal-content input,
+.modal-content select {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: .93rem;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color .2s;
+}
+.modal-content input:focus,
+.modal-content select:focus {
+  border-color: var(--accent-yellow);
+  box-shadow: 0 0 0 2px rgba(212,160,23,.12);
+}
+.icon-selector { display:flex; align-items:center; gap:12px; }
+.icon-selector > i { font-size:1.5rem; color:var(--accent-yellow); min-width:28px; text-align:center; }
+.icon-selector select { flex:1; }
+
+.modal-actions { display:flex; gap:10px; margin-top:20px; }
+
+.btn-primary {
+  flex:1; background:linear-gradient(135deg,var(--accent-yellow),var(--accent-orange));
+  color:var(--bg-darker); border:none; padding:11px;
+  border-radius:var(--radius-sm); font-weight:700;
+  font-size:.88rem; letter-spacing:.5px; cursor:pointer;
+  transition:.25s; display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(212,160,23,.32); }
+.btn-primary:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+
+.btn-secondary {
+  flex:1; background:transparent; color:var(--text-muted);
+  border:1px solid var(--border); padding:11px;
+  border-radius:var(--radius-sm); font-size:.88rem; cursor:pointer; transition:.2s;
+}
+.btn-secondary:hover { border-color:var(--accent-yellow); color:var(--accent-yellow); }
+
+/* Botón peligro dentro del modal */
+.btn-danger-sm {
+  background:transparent; color:#ef5350;
+  border:1px solid rgba(239,83,80,.35); border-radius:8px;
+  padding:8px 16px; font-size:.8rem; cursor:pointer;
+  transition:.2s; display:inline-flex; align-items:center; gap:6px;
+}
+.btn-danger-sm:hover { background:rgba(239,83,80,.12); border-color:#ef5350; }
+
+/* ───────────────────────────────────────────────
+   ✏️ CARD ACTIONS — botones editar/borrar en tarjeta
+─────────────────────────────────────────────── */
+.sub-click {
+  display: flex; gap:16px; align-items:flex-start;
+  cursor: pointer; width: 100%;
+}
+.sub-desc { font-size:12px; color:var(--text-dim); margin:2px 0 6px; font-style:italic; }
+
+.card-actions {
+  position: absolute; top:10px; right:10px;
+  display: flex; gap:6px; opacity:0; transition:opacity .2s; z-index:10;
+}
+.subject-card:hover .card-actions { opacity:1; }
+
+.card-btn {
+  background:rgba(2,11,16,.85); border:1px solid var(--border-2);
+  color:var(--text-muted); width:32px; height:32px; border-radius:8px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  font-size:13px; transition:.2s; backdrop-filter:blur(4px);
+}
+.card-btn:hover { border-color:var(--accent-yellow); color:var(--accent-yellow); transform:scale(1.1); }
+.card-delete:hover { border-color:#e74c3c !important; color:#e74c3c !important; }
+
+@media (max-width:768px) { .card-actions { opacity:1; } }
+
+/* ───────────────────────────────────────────────
+   ➕ ADD-CARD — "Agregar materia"
+─────────────────────────────────────────────── */
+.add-card {
+  border-style: dashed !important;
+  display: flex; flex-direction:column; align-items:center;
+  justify-content:center; cursor:pointer; opacity:.5;
+  transition:.3s; min-height:150px; gap:6px;
+}
+.add-card:hover { opacity:1; border-color:var(--accent-yellow)!important;
+                  box-shadow:0 0 20px rgba(212,160,23,.1); }
+.add-card i { font-size:2rem; color:var(--accent-yellow); }
+.add-card h3 { color:var(--text-muted); font-size:14px; font-weight:600; }
+.add-card span { font-size:12px; color:var(--text-dim); }
+
+/* ───────────────────────────────────────────────
+   🗓 SEMESTER card — botón editar semestre personalizado
+─────────────────────────────────────────────── */
+.semester-card { position: relative; }
+
+.sem-edit-btn {
+  position:absolute; top:8px; right:8px;
+  background:rgba(2,11,16,.8); border:1px solid var(--border-2);
+  color:var(--text-muted); width:28px; height:28px; border-radius:7px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  font-size:12px; opacity:0; transition:.2s; backdrop-filter:blur(4px);
+}
+.semester-card:hover .sem-edit-btn { opacity:1; }
+.sem-edit-btn:hover { border-color:var(--accent-yellow); color:var(--accent-yellow); }
+
+/* Botón editar semestre dentro de la vista de semestre */
+.btn-edit-sem {
+  display: inline-flex; align-items:center; gap:6px;
+  background: rgba(212,160,23,.1); border:1px solid rgba(212,160,23,.3);
+  color:var(--accent-yellow); border-radius:8px; padding:4px 12px;
+  font-size:12px; cursor:pointer; transition:.2s;
+}
+.btn-edit-sem:hover { background:rgba(212,160,23,.2); }
+
+/* Icono editar en sidebar (semestres custom) */
+.nav-edit-sem {
+  margin-left:auto; font-size:10px; opacity:.5;
+  transition:opacity .2s, color .2s; flex-shrink:0;
+}
+.nav-sub-item:hover .nav-edit-sem { opacity:1; color:var(--accent-yellow); }
+
+/* ================================================
+   🔔 NOTIFICACIONES — Bell + Panel dropdown
+================================================ */
+.notif-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin-right: 6px;
+}
+
+.notif-bell {
+  position: relative;
+  width: 38px; height: 38px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all .2s;
+}
+.notif-bell:hover {
+  border-color: var(--accent-yellow);
+  color: var(--accent-yellow);
+}
+
+.notif-badge {
+  position: absolute;
+  top: -5px; right: -5px;
+  min-width: 18px; height: 18px;
+  background: #ef5350;
+  border-radius: 99px;
+  font-size: 10px; font-weight: 700;
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 4px;
+  border: 2px solid var(--bg-main);
+  animation: badgePop .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes badgePop {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+
+/* Panel dropdown */
+.notif-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 320px;
+  background: linear-gradient(145deg, #0b2530, #071a22);
+  border: 1px solid var(--border-2);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.7);
+  z-index: 500;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  animation: panelDrop .22s cubic-bezier(.34,1.3,.64,1);
+}
+.notif-panel.open { display: flex; }
+
+@keyframes panelDrop {
+  from { opacity:0; transform: translateY(-8px) scale(.97); }
+  to   { opacity:1; transform: translateY(0)    scale(1);   }
+}
+
+.notif-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px; font-weight: 600; color: var(--text-main);
+  letter-spacing: .5px;
+}
+.notif-close {
+  background: none; border: none; color: var(--text-dim);
+  font-size: 14px; cursor: pointer; padding: 4px;
+  border-radius: 6px; transition: color .2s;
+}
+.notif-close:hover { color: var(--text-main); }
+
+.notif-list { max-height: 280px; overflow-y: auto; }
+
+.notif-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  cursor: pointer; transition: background .15s;
+}
+.notif-item:hover { background: rgba(255,255,255,.04); }
+
+.notif-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%; flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.notif-info { flex: 1; min-width: 0; }
+.notif-title {
+  font-size: 13px; color: var(--text-main);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 500;
+}
+.notif-meta {
+  font-size: 11px; color: var(--text-dim); margin-top: 2px;
+}
+
+.notif-when {
+  font-size: 11px; font-weight: 700;
+  white-space: nowrap; flex-shrink: 0;
+}
+
+.notif-empty {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 28px 16px; text-align: center; gap: 8px;
+}
+.notif-empty i { font-size: 28px; color: var(--accent-teal); opacity: .6; }
+.notif-empty p { color: var(--text-muted); font-size: 13px; margin: 0; }
+.notif-empty small { color: var(--text-dim); font-size: 11px; }
+
+.notif-panel-footer {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+}
+.notif-goto {
+  width: 100%; padding: 9px;
+  background: rgba(212,160,23,.1); border: 1px solid rgba(212,160,23,.25);
+  border-radius: 8px; color: var(--accent-yellow);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  transition: .2s;
+}
+.notif-goto:hover { background: rgba(212,160,23,.2); }
+
+/* Mobile: panel a ancho completo */
+@media (max-width: 480px) {
+  .notif-panel {
+    position: fixed;
+    top: var(--topbar-h);
+    right: 0; left: 0;
+    width: 100%;
+    border-radius: 0 0 16px 16px;
+  }
+}
+
+/* ================================================
+   📅 CALENDARIO — Vista mensual
+================================================ */
+.cal-header-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.cal-month-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-yellow);
+  letter-spacing: 1px;
+  flex: 1;
+  text-align: center;
+  min-width: 180px;
+}
+
+.cal-nav-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: .2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.cal-nav-btn:hover { border-color: var(--accent-yellow); color: var(--accent-yellow); }
+
+.cal-header-actions {
+  display: flex; gap: 8px; flex-shrink: 0;
+}
+
+.cal-today-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 8px 14px; border-radius: 9px;
+  font-size: 13px; cursor: pointer; transition: .2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.cal-today-btn:hover { border-color: var(--accent-teal); color: var(--accent-teal); }
+
+.cal-add-btn {
+  flex: none !important;
+  padding: 8px 14px !important;
+  font-size: 13px !important;
+  border-radius: 9px !important;
+  white-space: nowrap;
+}
+
+/* Upcoming bar */
+.cal-upcoming-bar {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(212,160,23,.08);
+  border: 1px solid rgba(212,160,23,.2);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px; color: var(--accent-yellow);
+  margin-bottom: 16px;
+}
+.cal-upcoming-bar i { opacity: .8; }
+
+/* Grid wrapper */
+.cal-grid-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+/* Day headers */
+.cal-weekday {
+  background: rgba(0,0,0,.3);
+  padding: 10px 4px;
+  text-align: center;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--accent-yellow);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Day cells */
+.cal-cell {
+  min-height: 90px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 6px;
+  cursor: pointer;
+  transition: background .15s;
+  position: relative;
+  vertical-align: top;
+}
+.cal-cell:nth-child(7n) { border-right: none; }
+.cal-cell:hover { background: rgba(255,255,255,.03); }
+
+.cal-cell.cal-other {
+  opacity: .35; cursor: default;
+}
+.cal-cell.cal-other:hover { background: none; }
+
+.cal-cell.cal-today {
+  background: rgba(212,160,23,.06);
+}
+
+.cal-day-num {
+  display: inline-block;
+  font-size: 13px; font-weight: 600;
+  color: var(--text-muted);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.cal-day-num.today-num {
+  background: var(--accent-yellow);
+  color: var(--bg-darker);
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700;
+}
+
+/* Event pills */
+.cal-pill {
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity .15s;
+  display: block;
+  max-width: 100%;
+}
+.cal-pill:hover { opacity: .8; }
+
+.cal-more {
+  font-size: 10px; color: var(--text-dim);
+  padding: 1px 4px;
+  cursor: pointer;
+}
+
+/* Legend */
+.cal-legend {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  padding: 4px 2px;
+}
+.cal-legend-item {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--text-muted);
+}
+
+/* Responsive calendar */
+@media (max-width: 600px) {
+  .cal-month-title { font-size: 1.1rem; }
+  .cal-cell { min-height: 60px; padding: 4px; }
+  .cal-pill { font-size: 9px; }
+  .cal-day-num { font-size: 11px; }
+  .cal-header-actions { width: 100%; justify-content: flex-end; }
+  .cal-header-bar { justify-content: center; }
+}
+
+@media (max-width: 400px) {
+  .cal-cell { min-height: 48px; }
+  .cal-weekday { font-size: 9px; padding: 6px 2px; }
+}
+
+/* ================================================
+   🛠 FIXES — Mobile & responsiveness
+================================================ */
+
+/* ── 1. Mobile browser bar color (theme-color fallback) ──
+   The <meta name="theme-color"> handles Chrome Android.
+   This rule prevents white flashes on iOS/scroll overscroll. */
+html, body {
+  background-color: #020b10 !important;
+}
+
+/* ── 2. Sidebar logout always visible on mobile ──
+   The bottom-nav (62px) was hiding the footer.
+   Add padding so the nav scrolls above the bottom-nav. */
+@media (max-width: 900px) {
+  .sidebar {
+    padding-bottom: 70px;
+  }
+  /* Keep the footer pinned at the bottom of the sidebar */
+  .sidebar-footer {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-sidebar);
+    border-top: 1px solid var(--border);
+    z-index: 5;
+  }
+}
+
+/* ── 3. Notification panel — higher z-index, never behind sidebar ── */
+.notif-wrap {
+  z-index: 350; /* > sidebar z-index (200) and bottom-nav (300) */
+}
+.notif-panel {
+  z-index: 400;
+}
+
+/* Mobile: full-width panel, positioned below topbar */
+@media (max-width: 768px) {
+  .notif-panel {
+    position: fixed;
+    top: var(--topbar-h);
+    right: 8px;
+    left: 8px;
+    width: auto;
+    border-radius: 14px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.8);
+  }
+}
+
+/* ── 4. Calendar mobile – compact header ── */
+@media (max-width: 640px) {
+  .cal-header-bar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-rows: auto auto;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  /* Row 1: [< Anterior]  [Abril 2026]  [Siguiente >] */
+  .cal-nav-btn:first-child { grid-column: 1; grid-row: 1; justify-self: start; }
+  .cal-month-title          { grid-column: 2; grid-row: 1; text-align: center; font-size: 1.1rem; min-width: 0; }
+  .cal-nav-btn:nth-child(3) { grid-column: 3; grid-row: 1; justify-self: end;  }
+
+  /* Row 2: [Hoy]  [+ Nuevo evento] — span full width */
+  .cal-header-actions {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+  .cal-today-btn,
+  .cal-add-btn {
+    flex: 1;
+    justify-content: center;
+    max-width: 200px;
+  }
+}
+
+/* ── 5. Calendar cells – show at least 1 pill cleanly on very small screens ── */
+@media (max-width: 380px) {
+  .cal-cell { min-height: 44px; padding: 3px; }
+  .cal-day-num { font-size: 10px; }
+  .cal-pill { font-size: 8.5px; padding: 1px 4px; }
+  .cal-weekday { font-size: 8px; letter-spacing: 0; }
+}
+
+/* ── 6. Topbar – ensure notification wrap doesn't push atom off screen ── */
+.topbar {
+  gap: 10px;
+}
+.topbar-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.topbar-info h1 {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ================================================
+   📊 BARRA DE PROGRESO — Vista individual semestre
+================================================ */
+.sem-progress-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 22px;
+}
+
+.sem-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sem-progress-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.sem-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.sem-stat-item strong {
+  color: var(--text-main);
+  font-size: 15px;
+}
+.sem-cr-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.sem-pct-label {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent-teal);
+  flex-shrink: 0;
+}
+
+/* Track con dos capas: aprobadas + en curso */
+.sem-progress-track {
+  position: relative;
+  height: 10px;
+  background: var(--bg-darker);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.sem-progress-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 99px;
+  transition: width .5s ease;
+}
+.sem-fill-passed {
+  left: 0;
+  background: linear-gradient(90deg, #4caf50, #66bb6a);
+  z-index: 2;
+}
+.sem-fill-active {
+  background: linear-gradient(90deg, var(--accent-teal), #00e5c0);
+  z-index: 1;
+}
+
+.sem-progress-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.sem-progress-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.leg-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .sem-progress-stats { gap: 8px; }
+  .sem-stat-item { font-size: 12px; }
+  .sem-pct-label { font-size: 18px; }
+}
+
+/* ================================================
+   ⏱ POMODORO — Estilos completos
+================================================ */
+
+/* Contenedor raíz */
+.pomo-root {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 8px 0 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Phase tabs */
+.pomo-phase-tabs {
+  display: flex;
+  gap: 6px;
+  background: rgba(0,0,0,.3);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 5px;
+  width: 100%;
+}
+.pomo-phase-tab {
+  flex: 1;
+  padding: 7px 4px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  cursor: pointer;
+  transition: .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.pomo-phase-tab.active {
+  background: var(--bg-card);
+  color: var(--accent-yellow);
+  border: 1px solid rgba(212,160,23,.3);
+}
+.pomo-badge {
+  background: var(--accent-yellow);
+  color: var(--bg-darker);
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  min-width: 16px;
+  text-align: center;
+}
+
+/* Main card */
+.pomo-card {
+  width: 100%;
+  background: linear-gradient(145deg, #0b2530, #071a22);
+  border: 1px solid var(--border-2);
+  border-radius: 22px;
+  padding: 24px 20px 18px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+/* Subtle top glow line */
+.pomo-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 10%; right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-yellow), transparent);
+  opacity: .5;
+}
+
+/* Config button */
+.pomo-cfg-btn {
+  position: absolute;
+  top: 14px; right: 14px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: .2s;
+}
+.pomo-cfg-btn:hover { border-color: var(--accent-yellow); color: var(--accent-yellow); }
+
+/* ── SVG Timer Circle ── */
+.pomo-timer-area {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0 20px;
+}
+.pomo-circle-wrap {
+  position: relative;
+  width: 200px;
+  height: 200px;
+}
+.pomo-svg {
+  width: 200px;
+  height: 200px;
+  overflow: visible;
+}
+.pomo-time-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+}
+.pomo-time {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.pomo-phase-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.pomo-preset-badge {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: .5px;
+  margin-top: 2px;
+}
+
+/* ── Controls ── */
+.pomo-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.pomo-btn-icon {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: .2s;
+}
+.pomo-btn-icon:hover { border-color: var(--accent-yellow); color: var(--accent-yellow); transform: scale(1.08); }
+
+.pomo-btn-main {
+  min-width: 160px;
+  padding: 14px 28px;
+  border-radius: 99px;
+  border: none;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: .25s;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+.pomo-btn-start {
+  background: linear-gradient(135deg, var(--accent-yellow), var(--accent-orange));
+  color: var(--bg-darker);
+}
+.pomo-btn-start:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 12px 30px rgba(212,160,23,.35); }
+.pomo-btn-pause {
+  background: linear-gradient(135deg, #00ccaa, #007755);
+  color: var(--bg-darker);
+}
+.pomo-btn-pause:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 12px 30px rgba(0,204,170,.35); }
+
+/* ── Stats bar ── */
+.pomo-stats-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  background: rgba(0,0,0,.25);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pomo-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.pomo-stat-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* ── Config panel ── */
+.pomo-config-panel {
+  padding: 4px 0;
+}
+.pomo-config-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.pomo-config-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.pomo-back-btn {
+  width: 32px; height: 32px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  transition: .2s; flex-shrink: 0;
+}
+.pomo-back-btn:hover { border-color: var(--accent-yellow); color: var(--accent-yellow); }
+
+.pomo-preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pomo-preset-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(0,0,0,.2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: .2s;
+}
+.pomo-preset-row.selected {
+  border-color: var(--accent-yellow);
+  background: rgba(212,160,23,.07);
+}
+.pomo-preset-row:hover { border-color: var(--border-2); }
+.pomo-preset-row input[type="radio"] {
+  accent-color: var(--accent-yellow);
+  width: 16px; height: 16px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.pomo-preset-info { flex: 1; }
+.pomo-preset-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 3px;
+}
+.pomo-preset-times {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Custom sliders */
+.pomo-custom-sliders { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+.pomo-slider-row {
+  display: grid;
+  grid-template-columns: 52px 1fr 90px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.pomo-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--border-2);
+  outline: none;
+  cursor: pointer;
+}
+.pomo-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent-yellow);
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(212,160,23,.5);
+}
+.pomo-slider-label { text-align: right; color: var(--text-dim); font-size: 10px; }
+
+/* Tip */
+.pomo-tip {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+}
+.pomo-tip i { color: var(--accent-yellow); }
+
+/* Mobile tweaks */
+@media (max-width: 400px) {
+  .pomo-time { font-size: 34px; }
+  .pomo-btn-main { min-width: 130px; padding: 12px 18px; font-size: 13px; }
+  .pomo-circle-wrap { width: 180px; height: 180px; }
+  .pomo-svg { width: 180px; height: 180px; }
+  .pomo-stat { font-size: 10px; }
+}

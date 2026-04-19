@@ -494,7 +494,7 @@ const Views = {
     }).join("");
 
     setContent(`
-      <div class="page-title" style="margin-bottom:4px">PANEL DE CONTROL</div>
+      <div class="page-title" style="margin-bottom:4px">CENTRO DE CONTROL</div>
       <p class="page-sub" style="margin-bottom:20px">Carrera de Física — Universidad Nacional de Colombia</p>
       <div class="stats-row">
         <div class="stat-card"><i class="fa-solid fa-graduation-cap"></i>
@@ -575,18 +575,67 @@ const Views = {
            <i class="fa-solid fa-pen"></i> Editar semestre
          </button>` : "";
 
+    // Progress stats for this semester
+    const meta = Object.keys(State.subjectsMeta).length
+      ? State.subjectsMeta
+      : await DB.getAllSubjectsMeta();
+    State.subjectsMeta = meta;
+
+    const passedSubs  = subjects.filter(s => meta[subKey(semId,s.id)]?.status === "passed");
+    const activeSubs  = subjects.filter(s => meta[subKey(semId,s.id)]?.status === "active");
+    const failedSubs  = subjects.filter(s => meta[subKey(semId,s.id)]?.status === "failed");
+    const passedCrSem = passedSubs.reduce((a,s) => a+s.credits, 0);
+    const pctSem      = totalCr > 0 ? Math.round((passedCrSem/totalCr)*100) : 0;
+    const pctActive   = totalCr > 0 ? Math.round((activeSubs.reduce((a,s)=>a+s.credits,0)/totalCr)*100) : 0;
+
     setContent(`
       <button class="btn-back" onclick="Router.go('dashboard')">
-        <i class="fa-solid fa-arrow-left"></i> Panel de Control
+        <i class="fa-solid fa-arrow-left"></i> Centro de Control
       </button>
       <div class="page-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         ${sem.name.toUpperCase()} — ${sem.subtitle?.toUpperCase()||""}
         ${editSemBtn}
       </div>
-      <p class="page-sub" style="margin-bottom:20px">
+      <p class="page-sub" style="margin-bottom:16px">
         ${totalCr} créditos · ${subjects.length} materias
         <span style="color:var(--text-dim);font-size:11px;margin-left:8px">(✏️ editar · + agregar)</span>
       </p>
+
+      <!-- Barra de progreso del semestre -->
+      <div class="sem-progress-box">
+        <div class="sem-progress-header">
+          <div class="sem-progress-stats">
+            <span class="sem-stat-item">
+              <i class="fa-solid fa-circle-check" style="color:#66bb6a"></i>
+              <strong>${passedSubs.length}</strong> aprobadas
+              <span class="sem-cr-hint">(${passedCrSem} cr)</span>
+            </span>
+            <span class="sem-stat-item">
+              <i class="fa-solid fa-circle-dot" style="color:var(--accent-teal)"></i>
+              <strong>${activeSubs.length}</strong> en curso
+            </span>
+            <span class="sem-stat-item">
+              <i class="fa-solid fa-circle-xmark" style="color:#ef5350"></i>
+              <strong>${failedSubs.length}</strong> reprobadas
+            </span>
+            <span class="sem-stat-item">
+              <i class="fa-solid fa-circle" style="color:var(--text-dim)"></i>
+              <strong>${subjects.length - passedSubs.length - activeSubs.length - failedSubs.length}</strong> pendientes
+            </span>
+          </div>
+          <span class="sem-pct-label">${pctSem}%</span>
+        </div>
+        <div class="sem-progress-track">
+          <div class="sem-progress-fill sem-fill-passed"  style="width:${pctSem}%"></div>
+          <div class="sem-progress-fill sem-fill-active"  style="width:${pctActive}%;left:${pctSem}%"></div>
+        </div>
+        <div class="sem-progress-legend">
+          <span><span class="leg-dot" style="background:#66bb6a"></span>Aprobadas</span>
+          <span><span class="leg-dot" style="background:var(--accent-teal)"></span>En curso</span>
+          <span><span class="leg-dot" style="background:var(--border-2)"></span>Pendientes</span>
+        </div>
+      </div>
+
       <div class="subjects-grid">
         ${cards}
         <div class="subject-card add-card" onclick="SemCRUD.openAdd(${semId})">
@@ -693,6 +742,8 @@ const Views = {
           <i class="fa-solid fa-book"></i> Notas (${notes.length})</button>
         <button class="tab-btn" data-tab="files">
           <i class="fa-solid fa-folder"></i> Archivos (${files.length})</button>
+        <button class="tab-btn" data-tab="pomodoro">
+          <i class="fa-solid fa-stopwatch"></i> Pomodoro</button>
       </div>
       <div class="tab-panel active" id="tab-notes">
         <div class="notes-form">
@@ -734,6 +785,13 @@ const Views = {
         <div id="uploadProgressList"></div>
         <div id="filesList">${filesHTML}</div>
       </div>
+
+      <!-- TAB: POMODORO -->
+      <div class="tab-panel" id="tab-pomodoro">
+        <div class="pomo-wrap" id="pomoWrap">
+          <!-- rendered by Pomodoro.render() after DOM ready -->
+        </div>
+      </div>
     `);
 
     window._curSemId = semId; window._curSubId = subId;
@@ -744,7 +802,9 @@ const Views = {
         document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
         document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
         btn.classList.add("active");
-        document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+        const panel = document.getElementById(`tab-${btn.dataset.tab}`);
+        if (panel) panel.classList.add("active");
+        if (btn.dataset.tab === "pomodoro") Pomodoro.init(semId, subId);
       });
     });
 
@@ -1272,7 +1332,7 @@ const App = {
     const titleEl = document.getElementById("topbarTitle");
     const subEl   = document.getElementById("topbarSub");
     if (view === "dashboard") {
-      titleEl.textContent = "REPOSITORIO";
+      titleEl.textContent = "CENTRO DE CONTROL";
       subEl.textContent   = "Portal personal — Carrera de Física";
     } else if (view === "semester" && semId) {
       const sem = getAnySemester(semId);
@@ -1706,3 +1766,419 @@ function _daysUntil(dateStr) {
   const ev    = new Date(dateStr);  ev.setHours(0,0,0,0);
   return Math.round((ev-today)/(1000*60*60*24));
 }
+
+/* ================================================================
+   ⏱ POMODORO — Engine completo
+================================================================ */
+
+/* ── DB: sesiones de estudio ── */
+Object.assign(DB, {
+  async getStudyStats(semId, subId) {
+    try {
+      const snap = await this._subRef(semId, subId).get();
+      return snap.exists ? (snap.data().studyStats || { totalMin:0, sessions:0 }) : { totalMin:0, sessions:0 };
+    } catch(e) { return { totalMin:0, sessions:0 }; }
+  },
+  async addStudySession(semId, subId, minutes) {
+    const cur = await this.getStudyStats(semId, subId);
+    await this._subRef(semId, subId).set({
+      studyStats: {
+        totalMin: (cur.totalMin || 0) + minutes,
+        sessions: (cur.sessions  || 0) + 1,
+        lastAt:   firebase.firestore.FieldValue.serverTimestamp(),
+      }
+    }, { merge: true });
+  }
+});
+
+/* ── Presets ── */
+const POMO_PRESETS = [
+  { id:"baby",     label:"Paso de bebé", work:10, rest:5,  long:10  },
+  { id:"popular",  label:"Popular",      work:20, rest:5,  long:15  },
+  { id:"medio",    label:"Medio",        work:40, rest:8,  long:20  },
+  { id:"extended", label:"Extendido",    work:60, rest:10, long:25  },
+  { id:"custom",   label:"Personalizado",work:25, rest:5,  long:15  },
+];
+
+/* ── Pomodoro state ── */
+const Pomodoro = {
+  semId: null, subId: null,
+  preset: "popular",
+  custom: { work:25, rest:5, long:15 },
+  phase: "work",   // work | rest | long
+  round: 0,        // completed pomodoros this session
+  totalMin: 0,     // total accumulated minutes (from DB)
+  sessions: 0,
+  timer: null,
+  remaining: 0,    // seconds remaining
+  running: false,
+  showConfig: false,
+  _notifGranted: false,
+
+  /* Call once when Pomodoro tab is activated */
+  async init(semId, subId) {
+    if (this.semId === semId && this.subId === subId) {
+      this.render(); return; // already init for this subject — just re-render
+    }
+    // Stop any running timer from previous subject
+    this.stop();
+    this.semId  = semId;
+    this.subId  = subId;
+    this.round  = 0;
+    this.phase  = "work";
+    this.running = false;
+    this.showConfig = false;
+
+    const stats = await DB.getStudyStats(semId, subId);
+    this.totalMin = stats.totalMin || 0;
+    this.sessions = stats.sessions || 0;
+    this._resetTimer();
+
+    // Request browser notification permission
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().then(p => { this._notifGranted = p === "granted"; });
+    } else {
+      this._notifGranted = Notification.permission === "granted";
+    }
+    this.render();
+  },
+
+  _cfg() {
+    const p = POMO_PRESETS.find(p => p.id === this.preset);
+    return this.preset === "custom" ? this.custom : p;
+  },
+
+  _phaseDuration() {
+    const cfg = this._cfg();
+    if (this.phase === "work") return cfg.work * 60;
+    if (this.phase === "rest") return cfg.rest * 60;
+    return cfg.long * 60;
+  },
+
+  _resetTimer() {
+    clearInterval(this.timer);
+    this.timer   = null;
+    this.running = false;
+    this.remaining = this._phaseDuration();
+  },
+
+  start() {
+    if (this.running) return;
+    this.running = true;
+    this._updateBtn();
+    this.timer = setInterval(() => {
+      if (!this.running) { clearInterval(this.timer); return; }
+      this.remaining--;
+      this._updateDisplay();
+      if (this.remaining <= 0) this._onFinish();
+    }, 1000);
+  },
+
+  pause() {
+    this.running = false;
+    clearInterval(this.timer);
+    this._updateBtn();
+  },
+
+  stop() {
+    clearInterval(this.timer);
+    this.timer   = null;
+    this.running = false;
+    this._resetTimer();
+    this.render();
+  },
+
+  async _onFinish() {
+    clearInterval(this.timer);
+    this.running = false;
+    this._playSound();
+
+    if (this.phase === "work") {
+      const worked = this._cfg().work;
+      this.round++;
+      this.totalMin  += worked;
+      this.sessions  += 1;
+      try { await DB.addStudySession(this.semId, this.subId, worked); } catch(e) {}
+      this._notify("🍅 ¡Pomodoro completado!", `Has estudiado ${worked} min. Tiempo de descansar.`);
+      this.phase = (this.round % 4 === 0) ? "long" : "rest";
+    } else {
+      this._notify("⚡ ¡Descanso terminado!", "Hora de volver a estudiar.");
+      this.phase = "work";
+    }
+    this._resetTimer();
+    this.render();
+  },
+
+  _notify(title, body) {
+    if (this._notifGranted) {
+      try { new Notification(title, { body, icon: "/tomi/assets/favicon.svg" }); } catch(e) {}
+    }
+  },
+
+  _playSound() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const sequences = this.phase === "work"
+        ? [{ f:523, t:0 },{ f:659, t:0.15 },{ f:784, t:0.3 }]
+        : [{ f:784, t:0 },{ f:659, t:0.2  },{ f:523, t:0.4 }];
+      sequences.forEach(({ f, t }) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = f;
+        osc.type = "sine";
+        gain.gain.setValueAtTime(0.5, ctx.currentTime + t);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.4);
+        osc.start(ctx.currentTime + t);
+        osc.stop(ctx.currentTime + t + 0.5);
+      });
+    } catch(e) {}
+  },
+
+  _updateDisplay() {
+    const el = document.getElementById("pomoTime");
+    const ring = document.getElementById("pomoRing");
+    if (!el) return;
+    const total = this._phaseDuration();
+    const pct   = (this.remaining / total);
+    const r = 88, circ = 2 * Math.PI * r;
+    if (ring) ring.style.strokeDashoffset = circ * (1 - pct);
+    el.textContent = this._fmt(this.remaining);
+  },
+
+  _updateBtn() {
+    const btn = document.getElementById("pomoBtnMain");
+    if (!btn) return;
+    if (this.running) {
+      btn.innerHTML = '<i class="fa-solid fa-pause"></i> PAUSAR';
+      btn.className = "pomo-btn-main pomo-btn-pause";
+      btn.onclick = () => Pomodoro.pause();
+    } else {
+      btn.innerHTML = '<i class="fa-solid fa-play"></i> INICIAR';
+      btn.className = "pomo-btn-main pomo-btn-start";
+      btn.onclick = () => Pomodoro.start();
+    }
+  },
+
+  _fmt(sec) {
+    const m = String(Math.floor(sec/60)).padStart(2,"0");
+    const s = String(sec%60).padStart(2,"0");
+    return `${m}:${s}`;
+  },
+
+  _phaseLabel() {
+    if (this.phase === "work") return "Pomodoro";
+    if (this.phase === "rest") return "Descanso";
+    return "Descanso largo";
+  },
+
+  _phaseColor() {
+    if (this.phase === "work") return "#d4a017";
+    if (this.phase === "rest") return "#00ccaa";
+    return "#3498db";
+  },
+
+  _fmtTotal() {
+    const h = Math.floor(this.totalMin / 60);
+    const m = this.totalMin % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m} min`;
+  },
+
+  setPreset(id) {
+    this.stop();
+    this.preset = id;
+    this.phase  = "work";
+    this._resetTimer();
+    this.render();
+  },
+
+  setCustom(key, val) {
+    this.custom[key] = Math.max(1, Math.min(90, parseInt(val) || 1));
+    if (this.preset === "custom") {
+      this.stop();
+      this._resetTimer();
+      this._updateDisplay();
+      this.render();
+    }
+  },
+
+  toggleConfig() {
+    this.showConfig = !this.showConfig;
+    this.render();
+  },
+
+  render() {
+    const wrap = document.getElementById("pomoWrap");
+    if (!wrap) return;
+
+    const cfg    = this._cfg();
+    const color  = this._phaseColor();
+    const r      = 88;
+    const circ   = 2 * Math.PI * r;
+    const total  = this._phaseDuration();
+    const pct    = this.remaining / total;
+    const offset = circ * (1 - pct);
+
+    // Phase tab indicators
+    const phases = [
+      { id:"work", label:"Pomodoro", count:this.round },
+      { id:"rest", label:"Descanso", count:0 },
+      { id:"long", label:"Descanso largo", count:0 },
+    ];
+
+    const phaseTabs = phases.map(p => `
+      <button class="pomo-phase-tab${this.phase===p.id?" active":""}"
+        onclick="Pomodoro.phase='${p.id}';Pomodoro.stop();Pomodoro.render()">
+        ${p.label}${p.id==="work"&&this.round>0?` <span class="pomo-badge">${this.round}</span>`:""}
+      </button>`).join("");
+
+    // Preset list
+    const presetList = POMO_PRESETS.map(p => `
+      <label class="pomo-preset-row${this.preset===p.id?" selected":""}">
+        <input type="radio" name="pomoPreset" value="${p.id}"
+          ${this.preset===p.id?"checked":""}
+          onchange="Pomodoro.setPreset('${p.id}')">
+        <div class="pomo-preset-info">
+          <span class="pomo-preset-name">${p.label}</span>
+          ${p.id !== "custom"
+            ? `<span class="pomo-preset-times">${p.work} min · ${p.rest} min · ${p.long} min</span>`
+            : `<div class="pomo-custom-sliders">
+                <div class="pomo-slider-row">
+                  <span id="lblWork">${this.custom.work} min</span>
+                  <input type="range" min="5" max="90" step="5" value="${this.custom.work}"
+                    oninput="document.getElementById('lblWork').textContent=this.value+' min'"
+                    onchange="Pomodoro.setCustom('work',this.value)" class="pomo-slider">
+                  <span class="pomo-slider-label">Pomodoro</span>
+                </div>
+                <div class="pomo-slider-row">
+                  <span id="lblRest">${this.custom.rest} min</span>
+                  <input type="range" min="1" max="30" step="1" value="${this.custom.rest}"
+                    oninput="document.getElementById('lblRest').textContent=this.value+' min'"
+                    onchange="Pomodoro.setCustom('rest',this.value)" class="pomo-slider">
+                  <span class="pomo-slider-label">Descanso</span>
+                </div>
+                <div class="pomo-slider-row">
+                  <span id="lblLong">${this.custom.long} min</span>
+                  <input type="range" min="5" max="45" step="5" value="${this.custom.long}"
+                    oninput="document.getElementById('lblLong').textContent=this.value+' min'"
+                    onchange="Pomodoro.setCustom('long',this.value)" class="pomo-slider">
+                  <span class="pomo-slider-label">Descanso largo</span>
+                </div>
+              </div>`
+          }
+        </div>
+      </label>`).join("");
+
+    wrap.innerHTML = `
+      <div class="pomo-root">
+
+        <!-- Phase tabs -->
+        <div class="pomo-phase-tabs">${phaseTabs}</div>
+
+        <!-- Main card -->
+        <div class="pomo-card">
+
+          <!-- Config toggle -->
+          <button class="pomo-cfg-btn" onclick="Pomodoro.toggleConfig()" title="Configurar">
+            <i class="fa-solid fa-sliders"></i>
+          </button>
+
+          ${this.showConfig ? `
+          <!-- Config panel -->
+          <div class="pomo-config-panel">
+            <div class="pomo-config-header">
+              <button onclick="Pomodoro.toggleConfig()" class="pomo-back-btn">
+                <i class="fa-solid fa-arrow-left"></i>
+              </button>
+              <h3>Nivel de concentración</h3>
+            </div>
+            <div class="pomo-preset-list">${presetList}</div>
+          </div>` : `
+
+          <!-- Timer display -->
+          <div class="pomo-timer-area">
+            <div class="pomo-circle-wrap">
+              <svg class="pomo-svg" viewBox="0 0 200 200">
+                <!-- Glow filter -->
+                <defs>
+                  <filter id="glow">
+                    <feGaussianBlur stdDeviation="3" result="blur"/>
+                    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                  </filter>
+                </defs>
+                <!-- Background track -->
+                <circle cx="100" cy="100" r="${r}" fill="none"
+                  stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+                <!-- Progress ring -->
+                <circle id="pomoRing" cx="100" cy="100" r="${r}" fill="none"
+                  stroke="${color}" stroke-width="8"
+                  stroke-linecap="round"
+                  stroke-dasharray="${circ}"
+                  stroke-dashoffset="${offset}"
+                  transform="rotate(-90 100 100)"
+                  filter="url(#glow)"
+                  style="transition:stroke-dashoffset 1s linear,stroke .3s"/>
+                <!-- Inner glow circle -->
+                <circle cx="100" cy="100" r="76" fill="rgba(255,255,255,0.02)"/>
+              </svg>
+              <!-- Time text overlay -->
+              <div class="pomo-time-overlay">
+                <div class="pomo-time" id="pomoTime">${this._fmt(this.remaining)}</div>
+                <div class="pomo-phase-label" style="color:${color}">${this._phaseLabel()}</div>
+                <div class="pomo-preset-badge">${this._cfg().label}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Controls -->
+          <div class="pomo-controls">
+            <button class="pomo-btn-icon" onclick="Pomodoro.stop()" title="Reiniciar">
+              <i class="fa-solid fa-rotate-left"></i>
+            </button>
+            <button id="pomoBtnMain"
+              class="pomo-btn-main ${this.running?"pomo-btn-pause":"pomo-btn-start"}"
+              onclick="${this.running?"Pomodoro.pause()":"Pomodoro.start()"}">
+              <i class="fa-solid ${this.running?"fa-pause":"fa-play"}"></i>
+              ${this.running?"PAUSAR":"INICIAR"}
+            </button>
+            <button class="pomo-btn-icon" onclick="Pomodoro.phase=Pomodoro.phase==='work'?'rest':'work';Pomodoro.stop();Pomodoro.render()" title="Saltar">
+              <i class="fa-solid fa-forward-step"></i>
+            </button>
+          </div>`}
+
+          <!-- Stats bar -->
+          <div class="pomo-stats-bar">
+            <div class="pomo-stat">
+              <i class="fa-solid fa-fire-flame-curved" style="color:#ff7043"></i>
+              <span>${this.round} pomodoro${this.round!==1?"s":""} hoy</span>
+            </div>
+            <div class="pomo-stat-divider"></div>
+            <div class="pomo-stat">
+              <i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-teal)"></i>
+              <span>${this._fmtTotal()} acumulado</span>
+            </div>
+            <div class="pomo-stat-divider"></div>
+            <div class="pomo-stat">
+              <i class="fa-solid fa-calendar-check" style="color:var(--accent-yellow)"></i>
+              <span>${this.sessions} sesiones totales</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tip -->
+        <p class="pomo-tip">
+          <i class="fa-solid fa-lightbulb"></i>
+          Cada 4 pomodoros, tómate un descanso largo. El tiempo se guarda automáticamente.
+        </p>
+      </div>`;
+
+    // Wire buttons via JS after innerHTML set (avoids template-literal quote escaping)
+    const mainBtn = document.getElementById("pomoBtnMain");
+    if (mainBtn) mainBtn.onclick = () => Pomodoro.running ? Pomodoro.pause() : Pomodoro.start();
+    const skipBtn = document.getElementById("pomoSkipBtn");
+    if (skipBtn) skipBtn.onclick = () => {
+      Pomodoro.phase = Pomodoro.phase === "work" ? "rest" : "work";
+      Pomodoro.stop();
+    };
+  }
+};
