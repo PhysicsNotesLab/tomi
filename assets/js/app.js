@@ -1776,18 +1776,33 @@ Object.assign(DB, {
   async getStudyStats(semId, subId) {
     try {
       const snap = await this._subRef(semId, subId).get();
-      return snap.exists ? (snap.data().studyStats || { totalMin:0, sessions:0 }) : { totalMin:0, sessions:0 };
-    } catch(e) { return { totalMin:0, sessions:0 }; }
+      if (!snap.exists) return { totalMin:0, sessions:0, todayCount:0, todayDate:"" };
+      return snap.data().studyStats || { totalMin:0, sessions:0, todayCount:0, todayDate:"" };
+    } catch(e) {
+      console.error("getStudyStats error:", e.code, e.message);
+      return { totalMin:0, sessions:0, todayCount:0, todayDate:"" };
+    }
   },
   async addStudySession(semId, subId, minutes) {
-    const cur = await this.getStudyStats(semId, subId);
-    await this._subRef(semId, subId).set({
-      studyStats: {
-        totalMin: (cur.totalMin || 0) + minutes,
-        sessions: (cur.sessions  || 0) + 1,
-        lastAt:   firebase.firestore.FieldValue.serverTimestamp(),
-      }
-    }, { merge: true });
+    try {
+      const cur = await this.getStudyStats(semId, subId);
+      const today = _today();
+      // Reset today counter if it's a new day
+      const todayCount = (cur.todayDate === today ? (cur.todayCount || 0) : 0) + 1;
+      await this._subRef(semId, subId).set({
+        studyStats: {
+          totalMin:   (cur.totalMin  || 0) + minutes,
+          sessions:   (cur.sessions  || 0) + 1,
+          todayCount,
+          todayDate:  today,
+          lastAt:     firebase.firestore.FieldValue.serverTimestamp(),
+        }
+      }, { merge: true });
+      console.log("✅ Sesión guardada:", minutes, "min. Total:", (cur.totalMin||0)+minutes);
+    } catch(e) {
+      console.error("❌ addStudySession error:", e.code, e.message);
+      toast("Error al guardar sesión: " + (e.code || e.message), "err");
+    }
   }
 });
 
@@ -1832,6 +1847,9 @@ const Pomodoro = {
     const stats = await DB.getStudyStats(semId, subId);
     this.totalMin = stats.totalMin || 0;
     this.sessions = stats.sessions || 0;
+    // Restore today's pomodoro count (persisted in DB)
+    const storedToday = (stats.todayDate === _today()) ? (stats.todayCount || 0) : 0;
+    this.round = storedToday;
     this._resetTimer();
 
     // Request browser notification permission
@@ -1895,10 +1913,11 @@ const Pomodoro = {
 
     if (this.phase === "work") {
       const worked = this._cfg().work;
-      this.round++;
-      this.totalMin  += worked;
-      this.sessions  += 1;
-      try { await DB.addStudySession(this.semId, this.subId, worked); } catch(e) {}
+      this.round++;          // optimistic local update
+      this.totalMin += worked;
+      this.sessions += 1;
+      // Save to Firestore (addStudySession now shows errors if it fails)
+      await DB.addStudySession(this.semId, this.subId, worked);
       this._notify("🍅 ¡Pomodoro completado!", `Has estudiado ${worked} min. Tiempo de descansar.`);
       this.phase = (this.round % 4 === 0) ? "long" : "rest";
     } else {
