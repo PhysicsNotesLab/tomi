@@ -494,7 +494,7 @@ const Views = {
     }).join("");
 
     setContent(`
-      <div class="page-title" style="margin-bottom:4px">CENTRO DE CONTROL</div>
+      <div class="page-title" style="margin-bottom:4px">PANEL DE CONTROL</div>
       <p class="page-sub" style="margin-bottom:20px">Carrera de Física — Universidad Nacional de Colombia</p>
       <div class="stats-row">
         <div class="stat-card"><i class="fa-solid fa-graduation-cap"></i>
@@ -590,7 +590,7 @@ const Views = {
 
     setContent(`
       <button class="btn-back" onclick="Router.go('dashboard')">
-        <i class="fa-solid fa-arrow-left"></i> Centro de Control
+        <i class="fa-solid fa-arrow-left"></i> Panel de Control
       </button>
       <div class="page-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         ${sem.name.toUpperCase()} — ${sem.subtitle?.toUpperCase()||""}
@@ -1332,7 +1332,7 @@ const App = {
     const titleEl = document.getElementById("topbarTitle");
     const subEl   = document.getElementById("topbarSub");
     if (view === "dashboard") {
-      titleEl.textContent = "CENTRO DE CONTROL";
+      titleEl.textContent = "REPOSITORIO";
       subEl.textContent   = "Portal personal — Carrera de Física";
     } else if (view === "semester" && semId) {
       const sem = getAnySemester(semId);
