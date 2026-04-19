@@ -448,16 +448,25 @@ const Views = {
     const meta = await DB.getAllSubjectsMeta();
     State.subjectsMeta = meta;
 
-    let passedCr=0, passedCount=0, activeCount=0, totalSubs=0;
+    // Cargar materias reales de todos los semestres (en paralelo, con caché)
+    await Promise.all(getAllSemesters().map(async sem => {
+      if (!window._semSubjects[sem.id]) {
+        window._semSubjects[sem.id] = await DB.getSubjects(sem.id);
+      }
+    }));
+
+    let passedCr=0, passedCount=0, activeCount=0, totalSubs=0, dynamicTotal=0;
     getAllSemesters().forEach(sem => {
-      (window._semSubjects[sem.id] || sem.subjects || []).forEach(sub => {
+      const subs = window._semSubjects[sem.id] || sem.subjects || [];
+      subs.forEach(sub => {
         totalSubs++;
+        dynamicTotal += (sub.credits || 0);
         const st = meta[subKey(sem.id, sub.id)]?.status || "pending";
         if (st==="passed") { passedCr += sub.credits; passedCount++; }
         if (st==="active") activeCount++;
       });
     });
-    const pct = TOTAL_CREDITS > 0 ? Math.round((passedCr / TOTAL_CREDITS) * 100) : 0;
+    const pct = dynamicTotal > 0 ? Math.round((passedCr / dynamicTotal) * 100) : 0;
 
     let recentHtml = "";
     try {
@@ -479,7 +488,7 @@ const Views = {
             <i class="fa-solid fa-pen"></i></button>` : ""}
           <i class="fa-solid ${sem.icon}"></i>
           <h3>${sem.name}</h3><p>${sem.subtitle}</p>
-          <span class="sem-cr-badge">${sem.credits || (subs.reduce((a,s)=>a+s.credits,0))} cr</span>
+          <span class="sem-cr-badge">${subs.reduce((a,s)=>a+(s.credits||0),0)} cr</span>
           <div class="sem-mini-bar"><div class="sem-mini-fill" style="width:${pctSem}%"></div></div>
         </div>`;
     }).join("");
@@ -491,7 +500,7 @@ const Views = {
         <div class="stat-card"><i class="fa-solid fa-graduation-cap"></i>
           <span class="stat-label">Créditos aprobados</span>
           <span class="stat-value">${passedCr}</span>
-          <span class="stat-sub">de ${TOTAL_CREDITS} totales</span></div>
+          <span class="stat-sub">de ${dynamicTotal} totales</span></div>
         <div class="stat-card"><i class="fa-solid fa-circle-check"></i>
           <span class="stat-label">Materias aprobadas</span>
           <span class="stat-value">${passedCount}</span>
@@ -917,6 +926,14 @@ const Views = {
     setContent(loading());
     const meta = await DB.getAllSubjectsMeta();
     State.subjectsMeta = meta;
+
+    // Cargar materias reales (con caché)
+    await Promise.all(getAllSemesters().map(async sem => {
+      if (!window._semSubjects[sem.id]) {
+        window._semSubjects[sem.id] = await DB.getSubjects(sem.id);
+      }
+    }));
+
     let totalPassed=0, totalActive=0, totalPending=0, totalFailed=0;
     const rows = getAllSemesters().map(sem => {
       const subs    = window._semSubjects[sem.id] || sem.subjects || [];
