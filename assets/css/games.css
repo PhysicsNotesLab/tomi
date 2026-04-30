@@ -1,0 +1,413 @@
+/* ═══════════════════════════════════════════════════════════
+   GAMES SYSTEM — Lab Física UNAL
+   Archivo: assets/css/games.css
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Overlay principal (cubre el área de contenido) ────────── */
+.game-overlay {
+  position: fixed;
+  inset: 0;
+  background: #020b10;
+  z-index: 600;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  overflow-y: auto;
+}
+.game-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* ── Header del overlay ─────────────────────────────────────── */
+.game-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: rgba(7, 26, 34, 0.95);
+  border-bottom: 1px solid #0b3b46;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
+}
+.game-overlay-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  color: #d4a017;
+}
+.game-overlay-score {
+  font-size: 13px;
+  color: #e6f0f2;
+  font-weight: 600;
+  letter-spacing: 1px;
+  min-width: 120px;
+  text-align: center;
+}
+.game-overlay-close {
+  background: transparent;
+  border: 1px solid #0b3b46;
+  border-radius: 8px;
+  color: #6b8a91;
+  padding: 5px 12px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.game-overlay-close:hover {
+  border-color: #d4a017;
+  color: #d4a017;
+}
+
+/* ── Cuerpo del overlay ──────────────────────────────────────── */
+#gameBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px 32px;
+}
+
+/* ── Pantalla de selección de juegos ────────────────────────── */
+.games-select-header {
+  text-align: center;
+  padding: 24px 0 8px;
+  width: 100%;
+  max-width: 640px;
+}
+.games-select-header h2 {
+  font-size: 18px;
+  letter-spacing: 3px;
+  color: #e6f0f2;
+  margin-bottom: 6px;
+}
+.games-select-header p {
+  font-size: 12px;
+  color: #4a6a72;
+  letter-spacing: 1px;
+}
+.games-featured-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(212, 160, 23, 0.08);
+  border: 1px solid rgba(212, 160, 23, 0.25);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 11px;
+  color: #d4a017;
+  letter-spacing: 1.2px;
+  margin-top: 10px;
+}
+
+/* ── Grid de tarjetas ────────────────────────────────────────── */
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+  width: 100%;
+  max-width: 640px;
+  margin-top: 20px;
+}
+
+.game-card {
+  background: linear-gradient(145deg, #0b2530, #071a22);
+  border: 1px solid #0b3b46;
+  border-radius: 16px;
+  padding: 22px 14px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+.game-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #0b3b46, transparent);
+  transition: 0.3s;
+}
+.game-card.featured {
+  border-color: rgba(212, 160, 23, 0.4);
+  background: linear-gradient(145deg, #142638, #0b1e28);
+}
+.game-card.featured::before {
+  background: linear-gradient(90deg, transparent, #d4a017, transparent);
+}
+.game-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(212, 160, 23, 0.5);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.4);
+}
+.game-card-emoji {
+  font-size: 38px;
+  display: block;
+  margin-bottom: 10px;
+  line-height: 1;
+}
+.game-card-name {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #e6f0f2;
+  margin-bottom: 4px;
+}
+.game-card-desc {
+  font-size: 10px;
+  color: #4a6a72;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+.game-card-playbtn {
+  background: linear-gradient(135deg, #d4a017, #c25b12);
+  border: none;
+  border-radius: 8px;
+  color: #020b10;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  padding: 7px 18px;
+  cursor: pointer;
+  transition: 0.2s;
+  pointer-events: none; /* card handles click */
+}
+.game-card:hover .game-card-playbtn {
+  box-shadow: 0 4px 14px rgba(212, 160, 23, 0.35);
+}
+
+/* ── Wrapper del canvas ──────────────────────────────────────── */
+.game-canvas-wrap {
+  position: relative;
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+canvas.game-canvas {
+  display: block;
+  border: 1px solid #0b3b46;
+  border-radius: 10px;
+  box-shadow: 0 0 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(212,160,23,0.05);
+  touch-action: none;
+}
+.game-controls-hint {
+  margin-top: 10px;
+  font-size: 10px;
+  color: #2a4a52;
+  letter-spacing: 1px;
+  text-align: center;
+  max-width: 400px;
+}
+
+/* ── Mensaje de Game Over / Victoria ────────────────────────── */
+.game-msg-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(2, 11, 16, 0.94);
+  border: 1px solid #d4a017;
+  border-radius: 18px;
+  padding: 28px 32px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+  z-index: 5;
+}
+.game-msg-overlay h2 {
+  font-size: 20px;
+  color: #d4a017;
+  letter-spacing: 3px;
+  margin-bottom: 6px;
+}
+.game-msg-overlay p {
+  font-size: 13px;
+  color: #6b8a91;
+  margin-bottom: 20px;
+  letter-spacing: 1px;
+}
+.game-restart-btn {
+  background: linear-gradient(135deg, #d4a017, #c25b12);
+  border: none;
+  border-radius: 10px;
+  color: #020b10;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 11px 26px;
+  cursor: pointer;
+  letter-spacing: 1.5px;
+  transition: 0.2s;
+  display: inline-block;
+}
+.game-restart-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(212, 160, 23, 0.3);
+}
+.game-back-btn {
+  background: transparent;
+  border: 1px solid #0b3b46;
+  border-radius: 10px;
+  color: #6b8a91;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 24px;
+  cursor: pointer;
+  letter-spacing: 1.5px;
+  transition: 0.2s;
+  display: inline-block;
+  margin-top: 8px;
+}
+.game-back-btn:hover {
+  border-color: #d4a017;
+  color: #d4a017;
+}
+
+/* ── Sudoku DOM ─────────────────────────────────────────────── */
+.sudoku-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 20px 0 40px;
+  width: 100%;
+}
+.sudoku-status {
+  font-size: 12px;
+  color: #4a6a72;
+  letter-spacing: 1.5px;
+}
+.sudoku-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  background: #0b3b46;
+  padding: 4px;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+}
+.sudoku-cell {
+  width: 66px;
+  height: 66px;
+  background: #020f14;
+  border: none;
+  color: #e6f0f2;
+  font-size: 26px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  border-radius: 7px;
+  transition: background 0.15s, box-shadow 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+/* Thick border between 2x2 boxes */
+.sudoku-cell:nth-child(2)  { border-right: 2px solid #0b3b46; }
+.sudoku-cell:nth-child(6)  { border-right: 2px solid #0b3b46; }
+.sudoku-cell:nth-child(10) { border-right: 2px solid #0b3b46; }
+.sudoku-cell:nth-child(14) { border-right: 2px solid #0b3b46; }
+.sudoku-cell:nth-child(n+9):nth-child(-n+12) { border-top: 2px solid #0b3b46; }
+
+.sudoku-cell.given {
+  color: #d4a017;
+  cursor: default;
+  background: rgba(212, 160, 23, 0.05);
+}
+.sudoku-cell.selected {
+  background: #0e3040;
+  box-shadow: 0 0 0 2px #d4a017;
+}
+.sudoku-cell.error {
+  color: #ef5350 !important;
+  background: rgba(239, 83, 80, 0.08) !important;
+}
+.sudoku-cell.correct {
+  color: #00ffa8;
+}
+.sudoku-numpad {
+  display: flex;
+  gap: 10px;
+}
+.sudoku-num {
+  width: 50px;
+  height: 50px;
+  background: #0b2530;
+  border: 1px solid #0b3b46;
+  border-radius: 10px;
+  color: #e6f0f2;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sudoku-num:hover {
+  border-color: #d4a017;
+  color: #d4a017;
+  background: rgba(212, 160, 23, 0.08);
+}
+.sudoku-erase {
+  font-size: 14px;
+  letter-spacing: -0.5px;
+  color: #6b8a91;
+}
+
+/* ── D-pad táctil (Tetris, Asteroids) ──────────────────────── */
+.game-dpad {
+  display: none;
+  margin-top: 14px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+@media (pointer: coarse) {
+  .game-dpad { display: flex; }
+}
+.game-dpad-row {
+  display: flex;
+  gap: 4px;
+}
+.dpad-btn {
+  width: 52px;
+  height: 52px;
+  background: #0b2530;
+  border: 1px solid #0b3b46;
+  border-radius: 10px;
+  color: #6b8a91;
+  font-size: 18px;
+  cursor: pointer;
+  transition: 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.dpad-btn:active {
+  background: #0e3040;
+  border-color: #d4a017;
+  color: #d4a017;
+}
+.dpad-shoot {
+  width: 60px;
+  background: rgba(212, 160, 23, 0.1);
+  border-color: rgba(212, 160, 23, 0.3);
+  color: #d4a017;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.dpad-spacer {
+  width: 52px;
+  height: 52px;
+}
