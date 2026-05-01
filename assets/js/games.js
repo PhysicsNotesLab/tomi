@@ -941,24 +941,54 @@ const GamesEngine = (() => {
   /* ─────────────────── SPACE INVADERS (móvil mejorado) ────── */
   Impls.invaders = (() => {
     let cv,ctx,S,kh,ku,keys={};
-    let touchFiring=false; // auto-disparo al mantener toque en canvas
-    const AW=28,AH=18,AGX=12,AGY=10,ACOLS=9,AROWS=4;
+    let touchFiring=false;
+    // Tamaño de aliens adaptado al ancho del canvas
+    let AW,AH,AGX,AGY,ACOLS,AROWS;
 
     function shoot(){
       if(S.shootCd>0)return;
-      if(S.bullets.filter(b=>b.ok).length>=2)return;
-      S.bullets.push({x:S.px,y:cv.height-30,vy:-11,ok:true});S.shootCd=18;
+      if(S.bullets.filter(b=>b.ok).length>=3)return;
+      S.bullets.push({x:S.px,y:cv.height-30,vy:-10,ok:true});S.shootCd=16;
     }
 
     function init(c){
       cv=c;ctx=c.getContext('2d');keys={};touchFiring=false;
+
+      // Adaptar tamaño de la formación al canvas disponible
+      const isMobile=c.width<380;
+      ACOLS=isMobile?7:9;   // menos columnas en móvil
+      AROWS=4;
+      AW=isMobile?22:26;    // aliens más pequeños en móvil
+      AH=isMobile?15:17;
+      AGX=isMobile?9:10;    // gap horizontal
+      AGY=isMobile?8:9;     // gap vertical
+
+      // startY proporcional al canvas: ~12% desde arriba
+      const startY=Math.max(28, Math.floor(c.height*0.12));
       const sx=(c.width-ACOLS*(AW+AGX))/2;
+
+      // drop por rebote: proporcional al canvas, mínimo 6px
+      const dropStep=Math.max(6, Math.floor(c.height*0.028));
+      // velocidad horizontal inicial más lenta
+      const initSpd=isMobile?0.35:0.45;
+      // zona segura inferior mayor para dar tiempo de reacción
+      const dangerY=c.height-45;
+      // frecuencia y velocidad de bombas reducidas en móvil
+      const bombFreq=isMobile?0.14:0.22;
+      const bombSpeed=isMobile?2.2:3.0;
+
       S={
-        aliens:Array.from({length:AROWS*ACOLS},(_,i)=>({baseX:sx+(i%ACOLS)*(AW+AGX),baseY:48+Math.floor(i/ACOLS)*(AH+AGY),row:Math.floor(i/ACOLS),alive:true})),
-        offX:0,dir:1,spd:0.5,
-        px:c.width/2,pSpd:5,lives:3,
+        aliens:Array.from({length:AROWS*ACOLS},(_,i)=>({
+          baseX:sx+(i%ACOLS)*(AW+AGX),
+          baseY:startY+Math.floor(i/ACOLS)*(AH+AGY),
+          row:Math.floor(i/ACOLS),alive:true
+        })),
+        offX:0,dir:1,spd:initSpd,
+        px:c.width/2,pSpd:isMobile?4:5,lives:3,
         bullets:[],bombs:[],
-        shootCd:0,score:0,frame:0,stars:null,over:false,won:false
+        shootCd:0,score:0,frame:0,stars:null,
+        over:false,won:false,
+        dropStep,dangerY,bombFreq,bombSpeed
       };
       S.stars=Array.from({length:55},()=>({x:Math.random()*c.width,y:Math.random()*c.height,r:Math.random()*1.2+0.3}));
 
@@ -966,7 +996,6 @@ const GamesEngine = (() => {
       ku=e=>{delete keys[e.key];};
       document.addEventListener('keydown',kh);document.addEventListener('keyup',ku);
 
-      // Touch canvas: desliza para mover, toca para disparar, mantén para auto-disparar
       c.addEventListener('touchmove',e=>{
         e.preventDefault();
         const r=c.getBoundingClientRect();
@@ -975,8 +1004,7 @@ const GamesEngine = (() => {
       c.addEventListener('touchstart',e=>{
         const r=c.getBoundingClientRect();
         S.px=Math.max(22,Math.min(c.width-22,e.touches[0].clientX-r.left));
-        touchFiring=true;
-        shoot();
+        touchFiring=true;shoot();
       },{passive:true});
       c.addEventListener('touchend',()=>{touchFiring=false;},{passive:true});
       c.addEventListener('touchcancel',()=>{touchFiring=false;},{passive:true});
@@ -988,13 +1016,10 @@ const GamesEngine = (() => {
       if(S.over)return;animFrame=requestAnimationFrame(loop);S.frame++;
       if(S.shootCd>0)S.shootCd--;
 
-      // Movimiento por teclado
       if(keys['ArrowLeft']||keys['a'])S.px=Math.max(22,S.px-S.pSpd);
       if(keys['ArrowRight']||keys['d'])S.px=Math.min(cv.width-22,S.px+S.pSpd);
-
-      // Disparo: teclado, d-pad o auto-disparo táctil
       if(keys[' '])shoot();
-      if(touchFiring)shoot(); // auto-disparo mientras se mantiene el dedo
+      if(touchFiring)shoot();
 
       S.bullets.forEach(b=>{b.y+=b.vy;if(b.y<0)b.ok=false;});S.bullets=S.bullets.filter(b=>b.ok);
       S.bombs.forEach(b=>{b.y+=b.vy;if(b.y>cv.height)b.ok=false;});S.bombs=S.bombs.filter(b=>b.ok);
@@ -1005,18 +1030,30 @@ const GamesEngine = (() => {
       const nOff=S.offX+S.spd*S.dir;
       const lx=Math.min(...alive.map(a=>a.baseX))+nOff;
       const rx=Math.max(...alive.map(a=>a.baseX+AW))+nOff;
-      if(lx<4||rx>cv.width-4){S.dir*=-1;alive.forEach(a=>a.baseY+=18);S.spd=Math.min(2.5,S.spd+0.06);}else{S.offX=nOff;}
+      if(lx<4||rx>cv.width-4){
+        S.dir*=-1;
+        alive.forEach(a=>a.baseY+=S.dropStep); // descenso proporcional
+        S.spd=Math.min(1.8,S.spd+0.04);        // aceleración más suave
+      }else{S.offX=nOff;}
 
-      if(S.frame%55===0){
+      // Bombas: frecuencia reducida y velocidad adaptada
+      if(S.frame%70===0){
         const cols=[...new Set(alive.map(a=>a.baseX))];
-        cols.forEach(bx=>{if(Math.random()<0.28){const bot=alive.filter(a=>a.baseX===bx).sort((a,b)=>b.row-a.row)[0];if(bot)S.bombs.push({x:bot.baseX+S.offX+AW/2,y:bot.baseY+AH,vy:3.5,ok:true});}});
+        cols.forEach(bx=>{
+          if(Math.random()<S.bombFreq){
+            const bot=alive.filter(a=>a.baseX===bx).sort((a,b)=>b.row-a.row)[0];
+            if(bot)S.bombs.push({x:bot.baseX+S.offX+AW/2,y:bot.baseY+AH,vy:S.bombSpeed,ok:true});
+          }
+        });
       }
 
       S.bullets.forEach(b=>{alive.forEach(a=>{const ax=a.baseX+S.offX;if(b.ok&&b.x>=ax&&b.x<=ax+AW&&b.y>=a.baseY&&b.y<=a.baseY+AH){a.alive=false;b.ok=false;S.score+=(AROWS-a.row)*10+10;updateScore(S.score);}});});
 
       const py=cv.height-22;
       S.bombs.forEach(b=>{if(b.ok&&b.x>=S.px-22&&b.x<=S.px+22&&Math.abs(b.y-py)<18){b.ok=false;S.lives--;updateScore(`${S.score} ♥${S.lives}`);if(S.lives<=0){S.over=true;draw();gameOver(S.score);}}});
-      if(alive.some(a=>a.baseY+AH>cv.height-50)){S.over=true;draw();gameOver(S.score);}
+
+      // Game over solo si los aliens pasan la línea de la nave
+      if(alive.some(a=>a.baseY+AH>S.dangerY)){S.over=true;draw();gameOver(S.score);}
 
       draw();
     }
@@ -1025,14 +1062,18 @@ const GamesEngine = (() => {
       ctx.fillStyle='#020b10';ctx.fillRect(0,0,cv.width,cv.height);
       S.stars.forEach(s=>{ctx.fillStyle='rgba(255,255,255,0.4)';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();});
 
+      // Línea de peligro (visual)
+      ctx.strokeStyle='rgba(239,83,80,0.18)';ctx.lineWidth=1;ctx.setLineDash([4,6]);
+      ctx.beginPath();ctx.moveTo(0,S.dangerY);ctx.lineTo(cv.width,S.dangerY);ctx.stroke();ctx.setLineDash([]);
+
       const AC=['#ef5350','#ab47bc','#42a5f5','#00ffa8'];
       S.aliens.forEach(a=>{
         if(!a.alive)return;
         const ax=a.baseX+S.offX,ay=a.baseY,ac=AC[a.row];const leg=S.frame%22<11?0:3;
         ctx.fillStyle=ac;ctx.fillRect(ax+4,ay,AW-8,AH*0.65);ctx.fillRect(ax+1,ay+4,AW-2,AH*0.45);
-        ctx.fillRect(ax+4,ay-4,6,5);ctx.fillRect(ax+AW-10,ay-4,6,5);
-        ctx.fillStyle='#020b10';ctx.fillRect(ax+7,ay+3,4,4);ctx.fillRect(ax+AW-11,ay+3,4,4);
-        ctx.fillStyle=ac;ctx.fillRect(ax+leg,ay+AH*0.6,5,5);ctx.fillRect(ax+AW/2-2,ay+AH*0.6,5,5);ctx.fillRect(ax+AW-5-leg,ay+AH*0.6,5,5);
+        ctx.fillRect(ax+4,ay-4,5,4);ctx.fillRect(ax+AW-9,ay-4,5,4);
+        ctx.fillStyle='#020b10';ctx.fillRect(ax+6,ay+3,3,3);ctx.fillRect(ax+AW-9,ay+3,3,3);
+        ctx.fillStyle=ac;ctx.fillRect(ax+leg,ay+AH*0.6,4,4);ctx.fillRect(ax+AW/2-2,ay+AH*0.6,4,4);ctx.fillRect(ax+AW-4-leg,ay+AH*0.6,4,4);
       });
 
       const py=cv.height-22;
@@ -1047,7 +1088,6 @@ const GamesEngine = (() => {
       ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font='bold 13px monospace';
       ctx.fillText(`SCORE ${S.score}  ♥${S.lives}  👾${S.aliens.filter(a=>a.alive).length}`,8,20);
 
-      // Indicador táctil
       if(touchFiring){ctx.fillStyle='rgba(0,255,168,0.18)';ctx.beginPath();ctx.arc(S.px,py+6,28,0,Math.PI*2);ctx.fill();}
     }
 
