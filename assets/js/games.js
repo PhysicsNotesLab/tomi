@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   GAMES ENGINE — Lab Física UNAL  v2.0
+   GAMES ENGINE — Lab Física UNAL  v2.1
    12 juegos · Controles mejorados · Mouse + teclado + táctil
    ═══════════════════════════════════════════════════════════ */
 'use strict';
@@ -14,9 +14,9 @@ const GamesEngine = (() => {
     { id:'flappy',   emoji:'🚀', name:'FLAPPY GALAXY',  desc:'Esquiva los asteroides',        hint:'Espacio / toque para impulsar' },
     { id:'asteroids',emoji:'💥', name:'ASTEROIDS',      desc:'Destruye los asteroides',       hint:'← → rotar · ↑ impulso · Espacio: disparar' },
     { id:'pong',     emoji:'🏓', name:'PONG',           desc:'Paletas contra la IA',          hint:'Mouse/desliza para mover · ↑↓ teclado' },
-    { id:'sudoku',   emoji:'🔢', name:'SUDOKU 4×4',     desc:'Despeja la mente con lógica',   hint:'Toca celda y elige número' },
+    { id:'sudoku',   emoji:'🔢', name:'SUDOKU 9×9',     desc:'Despeja la mente con lógica',   hint:'Toca celda y elige número' },
     { id:'pacman',   emoji:'👻', name:'PAC-MAN',        desc:'Come puntos, huye fantasmas',   hint:'Flechas / WASD · Desliza en móvil' },
-    { id:'invaders', emoji:'👾', name:'SPACE INVADERS', desc:'Destruye la flota alienígena',  hint:'← → mover · Espacio: disparar' },
+    { id:'invaders', emoji:'👾', name:'SPACE INVADERS', desc:'Destruye la flota alienígena',  hint:'Desliza · Toca para disparar' },
     { id:'g2048',    emoji:'🔮', name:'2048',           desc:'Combina hasta llegar a 2048',   hint:'Flechas / WASD · Desliza en móvil' },
     { id:'mines',    emoji:'💣', name:'MINESWEEPER',    desc:'Encuentra los campos seguros',  hint:'Clic revelar · Clic largo: bandera' },
     { id:'memory',   emoji:'🧠', name:'MEMORY MATCH',   desc:'Encuentra los pares ocultos',   hint:'Toca para voltear las cartas' },
@@ -182,11 +182,11 @@ const GamesEngine = (() => {
         </div>
       </div>`;
     if(gameId==='invaders') return `
-      <div class="game-dpad always" id="gameDpad" style="flex-direction:row;justify-content:center;gap:16px;margin-top:10px">
-        <div class="game-dpad-row">
-          <button class="dpad-btn" data-dir="left" style="width:64px">←</button>
-          <button class="dpad-btn dpad-shoot" data-dir="shoot" style="width:80px">🚀 FIRE</button>
-          <button class="dpad-btn" data-dir="right" style="width:64px">→</button>
+      <div class="game-dpad always" id="gameDpad" style="flex-direction:row;justify-content:center;gap:12px;margin-top:8px">
+        <div class="game-dpad-row" style="gap:8px">
+          <button class="dpad-btn" data-dir="left" style="width:72px;height:52px;font-size:22px">←</button>
+          <button class="dpad-btn dpad-shoot" data-dir="shoot" style="width:96px;height:52px;font-size:14px;letter-spacing:1px">🚀 FIRE</button>
+          <button class="dpad-btn" data-dir="right" style="width:72px;height:52px;font-size:22px">→</button>
         </div>
       </div>`;
     return '';
@@ -293,36 +293,73 @@ const GamesEngine = (() => {
     };
   })();
 
-  /* ─────────────────── SNAKE (mejorado) ───────────────────── */
+  /* ─────────────────── SNAKE (con inicio y victoria) ──────── */
   Impls.snake = (() => {
     let cv,ctx,S,kh,iv;
     const SZ=20;
+    const WIN_LEN=20; // ¡llega a largo 20 para ganar!
+
     function spawnFood(){
       let p;
       do{p={x:Math.floor(Math.random()*S.cols),y:Math.floor(Math.random()*S.rows)};}
       while(S.snake.some(s=>s.x===p.x&&s.y===p.y));
       S.food=p;
     }
+
     function tick(){
       if(S.over)return;
+      if(!S.started){draw();return;}
       S.dir=S.nd;
       const h={x:(S.snake[0].x+S.dir.x+S.cols)%S.cols,y:(S.snake[0].y+S.dir.y+S.rows)%S.rows};
-      if(S.snake.some(s=>s.x===h.x&&s.y===h.y)){S.over=true;draw();gameOver(S.score);return;}
+      if(S.snake.some(s=>s.x===h.x&&s.y===h.y)){
+        S.over=true;S.won=false;draw();
+        showGameMsg('💀 GAME OVER',`Puntuación: ${S.score} · Largo: ${S.snake.length}`);
+        return;
+      }
       S.snake.unshift(h);
-      if(h.x===S.food.x&&h.y===S.food.y){S.score+=10;updateScore(S.score);spawnFood();if(S.score%60===0&&S.interval>70){clearInterval(iv);S.interval-=10;iv=setInterval(tick,S.interval);}}
-      else S.snake.pop();
+      if(h.x===S.food.x&&h.y===S.food.y){
+        S.score+=10;updateScore(`${S.score}  LARGO ${S.snake.length}`);spawnFood();
+        if(S.score%60===0&&S.interval>70){clearInterval(iv);S.interval-=10;iv=setInterval(tick,S.interval);}
+        if(S.snake.length>=WIN_LEN){S.over=true;S.won=true;draw();showGameMsg('🏆 ¡VICTORIA!',`Puntuación: ${S.score} · ¡Largo ${WIN_LEN} alcanzado!`);return;}
+      } else {
+        S.snake.pop();
+      }
       draw();
     }
+
     function draw(){
       ctx.fillStyle='#020b10';ctx.fillRect(0,0,cv.width,cv.height);
+
+      if(!S.started){
+        // Pantalla de inicio
+        ctx.fillStyle='rgba(2,11,16,0.92)';ctx.fillRect(0,0,cv.width,cv.height);
+        ctx.textAlign='center';
+        ctx.fillStyle='#00ffa8';ctx.font=`bold ${Math.max(28,cv.width/12)}px monospace`;
+        ctx.fillText('🐍 SNAKE',cv.width/2,cv.height/2-60);
+        ctx.fillStyle='rgba(212,160,23,0.85)';ctx.font=`bold ${Math.max(11,cv.width/34)}px monospace`;
+        ctx.fillText('Come 🔴 para crecer',cv.width/2,cv.height/2-22);
+        ctx.fillText(`¡Meta: largo ${WIN_LEN}!`,cv.width/2,cv.height/2+4);
+        ctx.fillStyle='rgba(0,255,168,0.7)';ctx.font=`bold ${Math.max(12,cv.width/30)}px monospace`;
+        ctx.fillText('▶  TOCA O PRESIONA TECLA',cv.width/2,cv.height/2+46);
+        ctx.fillStyle='rgba(74,106,114,0.6)';ctx.font=`${Math.max(10,cv.width/38)}px monospace`;
+        ctx.fillText('Flechas / WASD · Desliza en móvil',cv.width/2,cv.height/2+74);
+        ctx.textAlign='left';
+        return;
+      }
+
+      // Cuadrícula
       ctx.strokeStyle='rgba(11,59,70,0.28)';ctx.lineWidth=0.5;
       for(let x=0;x<cv.width;x+=SZ){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cv.height);ctx.stroke();}
       for(let y=0;y<cv.height;y+=SZ){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cv.width,y);ctx.stroke();}
+
+      // Comida
       const pulse=0.7+Math.sin(Date.now()*0.008)*0.3;
       ctx.shadowColor='#ef5350';ctx.shadowBlur=8*pulse;
       ctx.fillStyle='#ef5350';
       ctx.beginPath();ctx.arc(S.food.x*SZ+SZ/2,S.food.y*SZ+SZ/2,SZ*0.38,0,Math.PI*2);ctx.fill();
       ctx.shadowBlur=0;
+
+      // Serpiente
       S.snake.forEach((s,i)=>{
         const t=i/Math.max(1,S.snake.length-1);
         ctx.fillStyle=`hsl(${155-t*30},85%,${52-t*18}%)`;
@@ -330,29 +367,48 @@ const GamesEngine = (() => {
         else ctx.fillRect(s.x*SZ+1,s.y*SZ+1,SZ-2,SZ-2);
         if(i===0){
           ctx.fillStyle='#020b10';
-          const ew=S.dir.y!==0?SZ/2-2:SZ*0.65, eh=S.dir.x!==0?SZ/2-2:SZ*0.65;
+          const ew=S.dir.y!==0?SZ/2-2:SZ*0.65,eh=S.dir.x!==0?SZ/2-2:SZ*0.65;
           ctx.fillRect(s.x*SZ+(SZ-ew)/2-S.dir.x*2,s.y*SZ+SZ*0.2-S.dir.y*2,3,3);
           ctx.fillRect(s.x*SZ+(SZ-ew)/2-S.dir.x*2+ew*0.5,s.y*SZ+SZ*0.2-S.dir.y*2,3,3);
         }
       });
+
+      // HUD
       ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font='bold 13px monospace';
-      ctx.fillText(`SCORE ${S.score}  LARGO ${S.snake.length}`,8,16);
+      ctx.fillText(`SCORE ${S.score}  LARGO ${S.snake.length}/${WIN_LEN}`,8,16);
+
+      // Barra de progreso
+      const prog=Math.min(1,S.snake.length/WIN_LEN);
+      ctx.fillStyle='rgba(11,59,70,0.6)';ctx.fillRect(8,cv.height-10,cv.width-16,6);
+      const pg=ctx.createLinearGradient(8,0,8+prog*(cv.width-16),0);
+      pg.addColorStop(0,'#00ffa8');pg.addColorStop(1,'#d4a017');
+      ctx.fillStyle=pg;ctx.fillRect(8,cv.height-10,prog*(cv.width-16),6);
     }
+
     return{
       init(c){
         cv=c;ctx=c.getContext('2d');
         const cols=Math.floor(c.width/SZ),rows=Math.floor(c.height/SZ);
         const cx=Math.floor(cols/2),cy=Math.floor(rows/2);
-        S={snake:[{x:cx,y:cy},{x:cx-1,y:cy},{x:cx-2,y:cy}],dir:{x:1,y:0},nd:{x:1,y:0},food:null,score:0,cols,rows,interval:115,over:false};
+        S={snake:[{x:cx,y:cy},{x:cx-1,y:cy},{x:cx-2,y:cy}],dir:{x:1,y:0},nd:{x:1,y:0},food:null,score:0,cols,rows,interval:115,over:false,won:false,started:false};
         spawnFood();
+        updateScore(`0  LARGO 3/${WIN_LEN}`);
+
         kh=e=>{
           const m={ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},w:{x:0,y:-1},s:{x:0,y:1},a:{x:-1,y:0},d:{x:1,y:0}};
           const nd=m[e.key];
-          if(nd&&!(nd.x===-S.dir.x&&nd.y===-S.dir.y)){S.nd=nd;e.preventDefault();}
+          if(nd){
+            if(!S.started)S.started=true;
+            if(!(nd.x===-S.dir.x&&nd.y===-S.dir.y)){S.nd=nd;e.preventDefault();}
+          }
         };
         document.addEventListener('keydown',kh);
+
         let tx=0,ty=0;
-        c.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+        c.addEventListener('touchstart',e=>{
+          tx=e.touches[0].clientX;ty=e.touches[0].clientY;
+          if(!S.started){S.started=true;}
+        },{passive:true});
         c.addEventListener('touchend',e=>{
           const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
           if(Math.abs(dx)<10&&Math.abs(dy)<10)return;
@@ -361,7 +417,9 @@ const GamesEngine = (() => {
           else nd=dy>0?{x:0,y:1}:{x:0,y:-1};
           if(!(nd.x===-S.dir.x&&nd.y===-S.dir.y))S.nd=nd;
         },{passive:true});
+
         iv=setInterval(tick,S.interval);
+        draw(); // mostrar pantalla de inicio
       },
       cleanup(){if(kh)document.removeEventListener('keydown',kh);if(iv){clearInterval(iv);iv=null;}}
     };
@@ -502,16 +560,13 @@ const GamesEngine = (() => {
     function tick(){
       if(S.over)return;
       const b=S.ball,p1=S.p1,p2=S.p2;
-      // Teclado suave
       if(keys['ArrowUp']  ||keys['w']) p1.y=Math.max(0,p1.y-7);
       if(keys['ArrowDown']||keys['s']) p1.y=Math.min(cv.height-p1.h,p1.y+7);
       b.x+=b.vx;b.y+=b.vy;
       if(b.y-b.r<0){b.y=b.r;b.vy*=-1;}if(b.y+b.r>cv.height){b.y=cv.height-b.r;b.vy*=-1;}
-      // IA (más lenta y humana)
       const ac=p2.y+p2.h/2;
       if(ac<b.y-6)p2.y=Math.min(cv.height-p2.h,p2.y+2.8);
       if(ac>b.y+6)p2.y=Math.max(0,p2.y-2.8);
-      // Colisiones
       if(b.x-b.r<=p1.x+p1.w&&b.y>=p1.y-4&&b.y<=p1.y+p1.h+4&&b.vx<0){b.vx=Math.abs(b.vx)*1.05;b.vy+=(b.y-(p1.y+p1.h/2))*0.1;b.x=p1.x+p1.w+b.r;}
       if(b.x+b.r>=p2.x&&b.y>=p2.y-4&&b.y<=p2.y+p2.h+4&&b.vx>0){b.vx=-Math.abs(b.vx)*1.05;b.vy+=(b.y-(p2.y+p2.h/2))*0.1;b.x=p2.x-b.r;}
       b.vx=Math.max(-9,Math.min(9,b.vx));b.vy=Math.max(-7,Math.min(7,b.vy));
@@ -527,12 +582,10 @@ const GamesEngine = (() => {
       ctx.fillText(S.p1.score,cv.width/4,56);ctx.fillText(S.p2.score,3*cv.width/4,56);
       ctx.font='10px monospace';ctx.fillStyle='rgba(74,106,114,0.7)';
       ctx.fillText('TÚ  ← mouse/↕',cv.width/4,cv.height-6);ctx.fillText('CPU',3*cv.width/4,cv.height-6);ctx.textAlign='left';
-      // Paddles
       const pg=ctx.createLinearGradient(S.p1.x,0,S.p1.x+S.p1.w,0);pg.addColorStop(0,'#d4a017');pg.addColorStop(1,'#c25b12');ctx.fillStyle=pg;
       if(ctx.roundRect){ctx.beginPath();ctx.roundRect(S.p1.x,S.p1.y,S.p1.w,S.p1.h,6);ctx.fill();}else ctx.fillRect(S.p1.x,S.p1.y,S.p1.w,S.p1.h);
       ctx.fillStyle='#4a8a99';
       if(ctx.roundRect){ctx.beginPath();ctx.roundRect(S.p2.x,S.p2.y,S.p2.w,S.p2.h,6);ctx.fill();}else ctx.fillRect(S.p2.x,S.p2.y,S.p2.w,S.p2.h);
-      // Pelota con brillo
       const bg=ctx.createRadialGradient(S.ball.x-2,S.ball.y-2,1,S.ball.x,S.ball.y,S.ball.r);bg.addColorStop(0,'#fff');bg.addColorStop(1,'#00ffa8');ctx.fillStyle=bg;ctx.beginPath();ctx.arc(S.ball.x,S.ball.y,S.ball.r,0,Math.PI*2);ctx.fill();
     }
     return{
@@ -541,10 +594,8 @@ const GamesEngine = (() => {
         S={ball:{x:c.width/2,y:c.height/2,vx:3.5,vy:2,r:8},p1:{x:12,y:c.height/2-50,w:13,h:100,score:0},p2:{x:c.width-25,y:c.height/2-50,w:13,h:100,score:0},over:false};
         kh=e=>{keys[e.key]=true;};ku=e=>{delete keys[e.key];};
         document.addEventListener('keydown',kh);document.addEventListener('keyup',ku);
-        // Movimiento con mouse (arrastra paddle suavemente)
         mh=e=>{const r=c.getBoundingClientRect();S.p1.y=Math.max(0,Math.min(c.height-S.p1.h,e.clientY-r.top-S.p1.h/2));};
         c.addEventListener('mousemove',mh);
-        // Movimiento con toque (arrastra el dedo)
         th=e=>{e.preventDefault();const r=c.getBoundingClientRect();S.p1.y=Math.max(0,Math.min(c.height-S.p1.h,e.touches[0].clientY-r.top-S.p1.h/2));};
         c.addEventListener('touchmove',th,{passive:false});
         iv=setInterval(tick,16);
@@ -553,51 +604,172 @@ const GamesEngine = (() => {
     };
   })();
 
-  /* ─────────────────── SUDOKU 4×4 ─────────────────────────── */
+  /* ─────────────────── SUDOKU 9×9 ─────────────────────────── */
   Impls.sudoku = (() => {
+    // Tres puzzles 9×9 verificados (0 = vacío)
     const PUZZLES=[
-      {b:[[1,0,3,0],[0,4,0,2],[2,0,4,0],[0,3,0,1]],s:[[1,2,3,4],[3,4,1,2],[2,1,4,3],[4,3,2,1]]},
-      {b:[[0,1,4,0],[4,0,0,1],[1,0,0,4],[0,4,1,0]],s:[[2,1,4,3],[4,3,2,1],[1,2,3,4],[3,4,1,2]]},
-      {b:[[3,0,1,0],[0,2,0,4],[4,0,2,0],[0,1,0,3]],s:[[3,4,1,2],[1,2,3,4],[4,3,2,1],[2,1,4,3]]},
-      {b:[[1,0,2,0],[0,4,0,3],[3,0,4,0],[0,2,0,1]],s:[[1,3,2,4],[2,4,1,3],[3,1,4,2],[4,2,3,1]]},
-      {b:[[0,3,0,1],[4,0,2,0],[0,4,0,2],[1,0,3,0]],s:[[2,3,4,1],[4,1,2,3],[3,4,1,2],[1,2,3,4]]},
+      {
+        b:[
+          [5,3,0,0,7,0,0,0,0],
+          [6,0,0,1,9,5,0,0,0],
+          [0,9,8,0,0,0,0,6,0],
+          [8,0,0,0,6,0,0,0,3],
+          [4,0,0,8,0,3,0,0,1],
+          [7,0,0,0,2,0,0,0,6],
+          [0,6,0,0,0,0,2,8,0],
+          [0,0,0,4,1,9,0,0,5],
+          [0,0,0,0,8,0,0,7,9],
+        ],
+        s:[
+          [5,3,4,6,7,8,9,1,2],
+          [6,7,2,1,9,5,3,4,8],
+          [1,9,8,3,4,2,5,6,7],
+          [8,5,9,7,6,1,4,2,3],
+          [4,2,6,8,5,3,7,9,1],
+          [7,1,3,9,2,4,8,5,6],
+          [9,6,1,5,3,7,2,8,4],
+          [2,8,7,4,1,9,6,3,5],
+          [3,4,5,2,8,6,1,7,9],
+        ]
+      },
+      {
+        b:[
+          [0,0,0,2,6,0,7,0,1],
+          [6,8,0,0,7,0,0,9,0],
+          [1,9,0,0,0,4,5,0,0],
+          [8,2,0,1,0,0,0,4,0],
+          [0,0,4,6,0,2,9,0,0],
+          [0,5,0,0,0,3,0,2,8],
+          [0,0,9,3,0,0,0,7,4],
+          [0,4,0,0,5,0,0,3,6],
+          [7,0,3,0,1,8,0,0,0],
+        ],
+        s:[
+          [4,3,5,2,6,9,7,8,1],
+          [6,8,2,5,7,1,4,9,3],
+          [1,9,7,8,3,4,5,6,2],
+          [8,2,6,1,9,5,3,4,7],
+          [3,7,4,6,8,2,9,1,5],
+          [9,5,1,7,4,3,6,2,8],
+          [5,1,9,3,2,6,8,7,4],
+          [2,4,8,9,5,7,1,3,6],
+          [7,6,3,4,1,8,2,5,9],
+        ]
+      },
+      {
+        b:[
+          [0,2,0,6,0,8,0,0,0],
+          [5,8,0,0,0,9,7,0,0],
+          [0,0,0,0,4,0,0,0,0],
+          [3,7,0,0,0,0,5,0,0],
+          [6,0,0,0,0,0,0,0,4],
+          [0,0,8,0,0,0,0,1,3],
+          [0,0,0,0,2,0,0,0,0],
+          [0,0,9,8,0,0,0,3,6],
+          [0,0,0,3,0,6,0,9,0],
+        ],
+        s:[
+          [1,2,3,6,7,8,9,4,5],
+          [5,8,4,2,3,9,7,6,1],
+          [9,6,7,1,4,5,3,2,8],
+          [3,7,2,4,6,1,5,8,9],
+          [6,9,1,5,8,3,2,7,4],
+          [4,5,8,7,9,2,6,1,3],
+          [8,3,6,9,2,4,1,5,7],
+          [2,1,9,8,5,7,4,3,6],
+          [7,4,5,3,1,6,8,9,2],
+        ]
+      },
     ];
-    let pz,selected=null;
+
+    let pz, selected=null, cont;
+
     function init(container){
+      cont=container;
       const p=PUZZLES[Math.floor(Math.random()*PUZZLES.length)];
-      pz={board:p.b.map(r=>[...r]),sol:p.s,given:p.b.map(r=>r.map(v=>v!==0))};
-      selected=null;render(container);
+      pz={board:p.b.map(r=>[...r]),sol:p.s,given:p.b.map(r=>r.map(v=>v!==0)),solved:false};
+      selected=null;
+      render();
     }
-    function render(container){
-      container.innerHTML=`
-        <div class="sudoku-container">
-          <div class="sudoku-status" id="sudokuStatus">Completa el puzzle — cada fila, columna y cuadro 2×2</div>
-          <div class="sudoku-grid" id="sudokuGrid">
-            ${pz.board.map((row,r)=>row.map((v,c)=>{const ig=pz.given[r][c];return`<div class="sudoku-cell${ig?' given':''}" data-r="${r}" data-c="${c}">${v||''}</div>`;}).join('')).join('')}
+
+    function render(){
+      const sz='clamp(30px,9.8vw,40px)';
+      cont.innerHTML=`
+        <div style="display:flex;flex-direction:column;align-items:center;padding:10px 4px 20px;width:100%;user-select:none">
+          <div style="font-size:10px;color:#4a6a72;letter-spacing:1.5px;margin-bottom:4px;text-align:center">TOCA CELDA → ELIGE NÚMERO · CADA FILA, COL Y 3×3</div>
+          <div id="sudokuStatus" style="font-size:12px;color:#d4a017;margin-bottom:8px;min-height:18px;text-align:center">&nbsp;</div>
+          <div style="display:grid;grid-template-columns:repeat(9,${sz});grid-template-rows:repeat(9,${sz});gap:0;border:2px solid #d4a017;border-radius:6px;overflow:hidden;background:#0b3b46">
+            ${pz.board.map((row,r)=>row.map((v,c)=>{
+              const ig=pz.given[r][c];
+              const sel=selected&&selected.r===r&&selected.c===c;
+              const err=!ig&&v&&v!==pz.sol[r][c];
+              const ok=!ig&&v&&v===pz.sol[r][c];
+              const bb=(r+1)%3===0&&r<8?'2px solid #d4a017':'1px solid #0b3b46';
+              const br=(c+1)%3===0&&c<8?'2px solid #d4a017':'1px solid #0b3b46';
+              return`<div class="sk9-cell" data-r="${r}" data-c="${c}" style="
+                width:${sz};height:${sz};
+                background:${sel?'#1a3f55':ig?'#0d1e28':'#0b2530'};
+                border-bottom:${bb};border-right:${br};
+                display:flex;align-items:center;justify-content:center;
+                font-size:clamp(11px,3vw,15px);font-weight:${ig?'900':'700'};
+                color:${sel?'#ffd740':ig?'#d4a017':err?'#ef5350':ok?'#00ffa8':'#7ab0c0'};
+                cursor:${ig?'default':'pointer'};
+                -webkit-tap-highlight-color:transparent;
+                box-sizing:border-box;
+              ">${v||''}</div>`;
+            }).join('')).join('')}
           </div>
-          <div class="sudoku-numpad">
-            ${[1,2,3,4].map(n=>`<div class="sudoku-num" data-n="${n}">${n}</div>`).join('')}
-            <div class="sudoku-num sudoku-erase" data-n="0">⌫</div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:12px;width:min(280px,88vw)">
+            ${[1,2,3,4,5,6,7,8,9].map(n=>`<div class="sk9-num" data-n="${n}" style="
+              background:#0a1e28;border:1px solid #0b3b46;border-radius:8px;
+              padding:7px 2px;text-align:center;font-size:clamp(14px,4.5vw,18px);font-weight:800;
+              color:#d4a017;cursor:pointer;-webkit-tap-highlight-color:transparent;
+            ">${n}</div>`).join('')}
+            <div class="sk9-num" data-n="0" style="
+              background:#0a1e28;border:1px solid #0b3b46;border-radius:8px;
+              padding:7px 2px;text-align:center;font-size:clamp(14px,4.5vw,18px);font-weight:800;
+              color:#6b8a91;cursor:pointer;-webkit-tap-highlight-color:transparent;
+            ">⌫</div>
           </div>
+          ${pz.solved?`<div style="margin-top:14px;text-align:center">
+            <button onclick="GamesEngine.launch('sudoku')" style="background:linear-gradient(135deg,#d4a017,#c25b12);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 22px;cursor:pointer;margin-right:6px">↺ NUEVO PUZZLE</button>
+            <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;font-weight:700;padding:9px 16px;cursor:pointer">◀ VOLVER</button>
+          </div>`:''}
         </div>`;
-      container.querySelectorAll('.sudoku-cell').forEach(el=>{
+
+      cont.querySelectorAll('.sk9-cell').forEach(el=>{
         el.addEventListener('click',()=>{
-          if(pz.given[+el.dataset.r][+el.dataset.c])return;
-          container.querySelectorAll('.sudoku-cell').forEach(e=>e.classList.remove('selected'));
-          el.classList.add('selected');selected={r:+el.dataset.r,c:+el.dataset.c};
+          const r=+el.dataset.r,c=+el.dataset.c;
+          if(pz.given[r][c])return;
+          selected={r,c};
+          render();
         });
       });
-      container.querySelectorAll('.sudoku-num').forEach(el=>{
+
+      cont.querySelectorAll('.sk9-num').forEach(el=>{
         el.addEventListener('click',()=>{
-          if(!selected)return;const v=+el.dataset.n;pz.board[selected.r][selected.c]=v;
-          const cell=container.querySelector(`.sudoku-cell[data-r="${selected.r}"][data-c="${selected.c}"]`);
-          cell.textContent=v||'';cell.classList.remove('error','correct');
-          if(v!==0){if(v===pz.sol[selected.r][selected.c])cell.classList.add('correct');else cell.classList.add('error');}
-          if(pz.board.every((row,r)=>row.every((v2,c)=>v2===pz.sol[r][c]))){document.getElementById('sudokuStatus').textContent='🏆 ¡Resuelto! Excelente lógica.';document.getElementById('sudokuStatus').style.color='#00ffa8';updateScore('¡COMPLETADO!');}
+          if(!selected||pz.solved)return;
+          const v=+el.dataset.n;
+          pz.board[selected.r][selected.c]=v;
+          if(pz.board.every((row,r2)=>row.every((v2,c2)=>v2===pz.sol[r2][c2]))){
+            pz.solved=true;
+            updateScore('¡COMPLETADO!');
+          }
+          render();
+          // Re-marcar la celda seleccionada después de render
+          if(selected&&!pz.solved){
+            const el2=cont.querySelector(`.sk9-cell[data-r="${selected.r}"][data-c="${selected.c}"]`);
+            if(el2)el2.style.background='#1a3f55';
+          }
+          if(pz.solved){
+            const st=document.getElementById('sudokuStatus');
+            if(st){st.textContent='🏆 ¡Resuelto! Excelente lógica.';st.style.color='#00ffa8';}
+          }
         });
       });
     }
-    return{init,cleanup(){}};
+
+    return{init(c){init(c);},cleanup(){}};
   })();
 
   /* ═══════════════════════════════════════════════════════════
@@ -738,14 +910,12 @@ const GamesEngine = (() => {
           }
         }
       }
-      // Pac
       const p=S.pac;
       const px=p.c*cs+cs/2,py=oy+p.r*cs+cs/2;
       const mouth=Math.abs(Math.sin(S.frame*0.28))*0.38;
       const ang=Math.atan2(p.dir.r,p.dir.c);
       ctx.fillStyle='#d4a017';
       ctx.beginPath();ctx.moveTo(px,py);ctx.arc(px,py,cs*0.42,ang+mouth,ang+Math.PI*2-mouth);ctx.closePath();ctx.fill();
-      // Ghosts
       S.ghosts.forEach(g=>{
         if(g.mode==='house'&&g.timer>60)return;
         const gx=g.c*cs+cs/2,gy=oy+g.r*cs+cs/2,gr=cs*0.4;
@@ -760,7 +930,6 @@ const GamesEngine = (() => {
           ctx.fillStyle='#002';ctx.beginPath();ctx.arc(gx-gr*0.22+g.dir.c*gr*0.09,gy-gr*0.26+g.dir.r*gr*0.09,gr*0.1,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(gx+gr*0.28+g.dir.c*gr*0.09,gy-gr*0.26+g.dir.r*gr*0.09,gr*0.1,0,Math.PI*2);ctx.fill();
         }
       });
-      // HUD
       ctx.fillStyle='#d4a017';
       for(let i=0;i<S.pac.lives;i++){ctx.beginPath();ctx.moveTo(i*(cs+3)+cs/2,cs/2);ctx.arc(i*(cs+3)+cs/2,cs/2,cs*0.38,0.3,Math.PI*2-0.3);ctx.closePath();ctx.fill();}
       ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font='bold 13px monospace';ctx.textAlign='right';ctx.fillText(`${S.score}`,cv.width-4,cs-3);ctx.textAlign='left';
@@ -769,9 +938,10 @@ const GamesEngine = (() => {
     return{init,cleanup(){if(kh)document.removeEventListener('keydown',kh);}};
   })();
 
-  /* ─────────────────── SPACE INVADERS ─────────────────────── */
+  /* ─────────────────── SPACE INVADERS (móvil mejorado) ────── */
   Impls.invaders = (() => {
     let cv,ctx,S,kh,ku,keys={};
+    let touchFiring=false; // auto-disparo al mantener toque en canvas
     const AW=28,AH=18,AGX=12,AGY=10,ACOLS=9,AROWS=4;
 
     function shoot(){
@@ -781,7 +951,7 @@ const GamesEngine = (() => {
     }
 
     function init(c){
-      cv=c;ctx=c.getContext('2d');keys={};
+      cv=c;ctx=c.getContext('2d');keys={};touchFiring=false;
       const sx=(c.width-ACOLS*(AW+AGX))/2;
       S={
         aliens:Array.from({length:AROWS*ACOLS},(_,i)=>({baseX:sx+(i%ACOLS)*(AW+AGX),baseY:48+Math.floor(i/ACOLS)*(AH+AGY),row:Math.floor(i/ACOLS),alive:true})),
@@ -791,42 +961,70 @@ const GamesEngine = (() => {
         shootCd:0,score:0,frame:0,stars:null,over:false,won:false
       };
       S.stars=Array.from({length:55},()=>({x:Math.random()*c.width,y:Math.random()*c.height,r:Math.random()*1.2+0.3}));
+
       kh=e=>{keys[e.key]=true;e.key===' '&&e.preventDefault();};
       ku=e=>{delete keys[e.key];};
       document.addEventListener('keydown',kh);document.addEventListener('keyup',ku);
-      c.addEventListener('touchmove',e=>{e.preventDefault();const r=c.getBoundingClientRect();S.px=Math.max(22,Math.min(c.width-22,e.touches[0].clientX-r.left));},{passive:false});
-      c.addEventListener('touchstart',e=>{const r=c.getBoundingClientRect();S.px=Math.max(22,Math.min(c.width-22,e.touches[0].clientX-r.left));shoot();},{passive:true});
+
+      // Touch canvas: desliza para mover, toca para disparar, mantén para auto-disparar
+      c.addEventListener('touchmove',e=>{
+        e.preventDefault();
+        const r=c.getBoundingClientRect();
+        S.px=Math.max(22,Math.min(c.width-22,e.touches[0].clientX-r.left));
+      },{passive:false});
+      c.addEventListener('touchstart',e=>{
+        const r=c.getBoundingClientRect();
+        S.px=Math.max(22,Math.min(c.width-22,e.touches[0].clientX-r.left));
+        touchFiring=true;
+        shoot();
+      },{passive:true});
+      c.addEventListener('touchend',()=>{touchFiring=false;},{passive:true});
+      c.addEventListener('touchcancel',()=>{touchFiring=false;},{passive:true});
+
       animFrame=requestAnimationFrame(loop);
     }
 
     function loop(){
       if(S.over)return;animFrame=requestAnimationFrame(loop);S.frame++;
       if(S.shootCd>0)S.shootCd--;
+
+      // Movimiento por teclado
       if(keys['ArrowLeft']||keys['a'])S.px=Math.max(22,S.px-S.pSpd);
       if(keys['ArrowRight']||keys['d'])S.px=Math.min(cv.width-22,S.px+S.pSpd);
+
+      // Disparo: teclado, d-pad o auto-disparo táctil
       if(keys[' '])shoot();
+      if(touchFiring)shoot(); // auto-disparo mientras se mantiene el dedo
+
       S.bullets.forEach(b=>{b.y+=b.vy;if(b.y<0)b.ok=false;});S.bullets=S.bullets.filter(b=>b.ok);
       S.bombs.forEach(b=>{b.y+=b.vy;if(b.y>cv.height)b.ok=false;});S.bombs=S.bombs.filter(b=>b.ok);
+
       const alive=S.aliens.filter(a=>a.alive);
       if(!alive.length){S.over=true;S.won=true;draw();gameOver(S.score,true);return;}
+
       const nOff=S.offX+S.spd*S.dir;
       const lx=Math.min(...alive.map(a=>a.baseX))+nOff;
       const rx=Math.max(...alive.map(a=>a.baseX+AW))+nOff;
       if(lx<4||rx>cv.width-4){S.dir*=-1;alive.forEach(a=>a.baseY+=18);S.spd=Math.min(2.5,S.spd+0.06);}else{S.offX=nOff;}
+
       if(S.frame%55===0){
         const cols=[...new Set(alive.map(a=>a.baseX))];
         cols.forEach(bx=>{if(Math.random()<0.28){const bot=alive.filter(a=>a.baseX===bx).sort((a,b)=>b.row-a.row)[0];if(bot)S.bombs.push({x:bot.baseX+S.offX+AW/2,y:bot.baseY+AH,vy:3.5,ok:true});}});
       }
+
       S.bullets.forEach(b=>{alive.forEach(a=>{const ax=a.baseX+S.offX;if(b.ok&&b.x>=ax&&b.x<=ax+AW&&b.y>=a.baseY&&b.y<=a.baseY+AH){a.alive=false;b.ok=false;S.score+=(AROWS-a.row)*10+10;updateScore(S.score);}});});
+
       const py=cv.height-22;
       S.bombs.forEach(b=>{if(b.ok&&b.x>=S.px-22&&b.x<=S.px+22&&Math.abs(b.y-py)<18){b.ok=false;S.lives--;updateScore(`${S.score} ♥${S.lives}`);if(S.lives<=0){S.over=true;draw();gameOver(S.score);}}});
       if(alive.some(a=>a.baseY+AH>cv.height-50)){S.over=true;draw();gameOver(S.score);}
+
       draw();
     }
 
     function draw(){
       ctx.fillStyle='#020b10';ctx.fillRect(0,0,cv.width,cv.height);
       S.stars.forEach(s=>{ctx.fillStyle='rgba(255,255,255,0.4)';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();});
+
       const AC=['#ef5350','#ab47bc','#42a5f5','#00ffa8'];
       S.aliens.forEach(a=>{
         if(!a.alive)return;
@@ -836,18 +1034,24 @@ const GamesEngine = (() => {
         ctx.fillStyle='#020b10';ctx.fillRect(ax+7,ay+3,4,4);ctx.fillRect(ax+AW-11,ay+3,4,4);
         ctx.fillStyle=ac;ctx.fillRect(ax+leg,ay+AH*0.6,5,5);ctx.fillRect(ax+AW/2-2,ay+AH*0.6,5,5);ctx.fillRect(ax+AW-5-leg,ay+AH*0.6,5,5);
       });
+
       const py=cv.height-22;
       const pg=ctx.createLinearGradient(S.px-22,0,S.px+22,0);pg.addColorStop(0,'#d4a017');pg.addColorStop(1,'#c25b12');
       ctx.fillStyle=pg;
       if(ctx.roundRect){ctx.beginPath();ctx.roundRect(S.px-22,py,44,13,4);ctx.fill();}else ctx.fillRect(S.px-22,py,44,13);
       ctx.fillStyle='#d4a017';ctx.fillRect(S.px-4,py-10,8,12);
+
       S.bullets.forEach(b=>{ctx.shadowColor='#00ffa8';ctx.shadowBlur=6;ctx.fillStyle='#00ffa8';ctx.fillRect(b.x-2,b.y-7,4,10);ctx.shadowBlur=0;});
       S.bombs.forEach(b=>{ctx.fillStyle=S.frame%4<2?'#ef5350':'#ff7043';ctx.fillRect(b.x-2,b.y-5,4,10);});
+
       ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font='bold 13px monospace';
-      ctx.fillText(`SCORE ${S.score}  ♥${S.lives}  ENEMIGOS:${S.aliens.filter(a=>a.alive).length}`,8,20);
+      ctx.fillText(`SCORE ${S.score}  ♥${S.lives}  👾${S.aliens.filter(a=>a.alive).length}`,8,20);
+
+      // Indicador táctil
+      if(touchFiring){ctx.fillStyle='rgba(0,255,168,0.18)';ctx.beginPath();ctx.arc(S.px,py+6,28,0,Math.PI*2);ctx.fill();}
     }
 
-    return{init,cleanup(){if(kh)document.removeEventListener('keydown',kh);if(ku)document.removeEventListener('keyup',ku);}};
+    return{init,cleanup(){if(kh)document.removeEventListener('keydown',kh);if(ku)document.removeEventListener('keyup',ku);touchFiring=false;}};
   })();
 
   /* ─────────────────── 2048 ───────────────────────────────── */
@@ -872,7 +1076,12 @@ const GamesEngine = (() => {
     }
     function render(){
       cont.innerHTML=`
-        <div style="display:flex;flex-direction:column;align-items:center;padding:14px 8px 28px;user-select:none">
+        <div style="display:flex;flex-direction:column;align-items:center;padding:14px 8px 24px;user-select:none">
+          <!-- Nota de cómo se juega -->
+          <div style="background:rgba(11,59,70,0.5);border:1px solid rgba(212,160,23,0.25);border-radius:10px;padding:8px 14px;margin-bottom:10px;width:min(300px,85vw);text-align:center">
+            <div style="font-size:11px;color:#d4a017;font-weight:800;letter-spacing:1px;margin-bottom:3px">📖 CÓMO SE JUEGA</div>
+            <div style="font-size:10px;color:#6b8a91;line-height:1.5">Desliza o usa las flechas para mover las fichas.<br>Fichas iguales se fusionan: 2+2=4, 4+4=8…<br>¡Llega a la ficha <span style="color:#ffd700;font-weight:800">2048</span> para ganar!</div>
+          </div>
           <div style="font-size:11px;color:#4a6a72;letter-spacing:2px;margin-bottom:6px">DESLIZA O USA FLECHAS · META: 2048</div>
           <div style="font-size:22px;font-weight:900;color:#d4a017;margin-bottom:10px">SCORE: ${S.score}</div>
           <div id="g48grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:#0b3b46;padding:8px;border-radius:14px;width:min(300px,85vw);touch-action:none">
@@ -955,7 +1164,7 @@ const GamesEngine = (() => {
     };
   })();
 
-  /* ─────────────────── MEMORY MATCH ─────────────────────────*/
+  /* ─────────────────── MEMORY MATCH (cards más grandes) ─────*/
   Impls.memory = (() => {
     const SYMS=['⚛️','🔬','🧬','🌌','⚡','🧲','💡','🔭'];
     let S,cont;
@@ -977,18 +1186,18 @@ const GamesEngine = (() => {
         <div style="display:flex;flex-direction:column;align-items:center;padding:14px 6px 24px;width:100%;user-select:none">
           <div style="font-size:11px;color:#4a6a72;letter-spacing:2px;margin-bottom:6px">TOCA PARA VOLTEAR · ENCUENTRA LOS PARES</div>
           <div style="font-size:18px;font-weight:800;color:#d4a017;margin-bottom:12px">PARES: ${S.pairs}/8  |  MOVS: ${S.moves}</div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;width:min(300px,84vw)">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(8px,2.5vw,14px);width:min(360px,94vw)">
             ${S.cards.map((card,i)=>`
               <div data-i="${i}" style="
                 aspect-ratio:1;
                 background:${card.ok?'rgba(0,255,168,0.07)':card.up?'#142638':'#0a1e28'};
                 border:2px solid ${card.ok?'rgba(0,255,168,0.45)':card.up?'#d4a017':'#0b3b46'};
                 border-radius:14px;display:flex;align-items:center;justify-content:center;
-                font-size:clamp(20px,6vw,30px);cursor:${card.ok?'default':'pointer'};
+                font-size:clamp(26px,8vw,38px);cursor:${card.ok?'default':'pointer'};
                 transition:transform 0.12s;-webkit-tap-highlight-color:transparent;
                 ${card.up&&!card.ok?'transform:scale(1.07);':''}
-                ${card.ok?'box-shadow:0 0 12px rgba(0,255,168,0.18);':''}
-              ">${card.up||card.ok?card.sym:'<span style="color:#0b3b46;font-size:20px">◈</span>'}</div>`).join('')}
+                ${card.ok?'box-shadow:0 0 14px rgba(0,255,168,0.22);':''}
+              ">${card.up||card.ok?card.sym:'<span style="color:#0b3b46;font-size:clamp(22px,6vw,30px)">◈</span>'}</div>`).join('')}
           </div>
           ${S.over?`<div style="margin-top:16px;text-align:center">
             <div style="color:#00ffa8;font-size:16px;font-weight:800;letter-spacing:2px;margin-bottom:4px">🏆 ¡COMPLETADO!</div>
