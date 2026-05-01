@@ -1061,10 +1061,46 @@ const GamesEngine = (() => {
      NUEVOS JUEGOS
   ═══════════════════════════════════════════════════════════ */
 
-  /* ─────────────────── PAC-MAN ────────────────────────────── */
+
+  /* ─────────────────── PAC-MAN — 3 Niveles ────────────────── */
   Impls.pacman = (() => {
-    const ROWS=17,COLS=15;
+    const ROWS=17, COLS=15;
     const T={WALL:1,DOT:0,PELLET:3,EMPTY:4,GHOST:2};
+
+    /* Configuración por nivel */
+    const LEVELS=[
+      {
+        label:'NIVEL 1', badge:'👻',
+        pacSpd:8,          // frames por movimiento (menos = más rápido)
+        gSpd:11,           // frames por movimiento fantasma
+        scaredTime:220,    // duración modo asustado
+        ghostRandom:0.18,  // probabilidad de que el fantasma ignore al jugador
+        ptsDot:10, ptsPellet:50, ptsGhost:200,
+        wallColor:'#0d3347', wallStroke:'rgba(11,100,130,0.4)',
+        waveBonus:300,
+      },
+      {
+        label:'NIVEL 2', badge:'👻👻',
+        pacSpd:6,
+        gSpd:8,
+        scaredTime:140,
+        ghostRandom:0.07,
+        ptsDot:15, ptsPellet:80, ptsGhost:400,
+        wallColor:'#2a0d47', wallStroke:'rgba(100,11,130,0.5)',
+        waveBonus:600,
+      },
+      {
+        label:'NIVEL 3', badge:'👻👻👻',
+        pacSpd:5,
+        gSpd:6,
+        scaredTime:70,
+        ghostRandom:0.02,  // casi siempre persiguen
+        ptsDot:20, ptsPellet:120, ptsGhost:800,
+        wallColor:'#3d0a0a', wallStroke:'rgba(180,30,30,0.5)',
+        waveBonus:1000,
+      },
+    ];
+
     const MAP_BASE=[
       [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
       [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
@@ -1084,6 +1120,7 @@ const GamesEngine = (() => {
       [1,0,0,0,0,0,0,4,0,0,0,0,0,0,1],
       [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     ];
+
     const DIRS4=[{r:-1,c:0},{r:1,c:0},{r:0,c:-1},{r:0,c:1}];
     let cv,ctx,S,kh,cs;
 
@@ -1095,31 +1132,44 @@ const GamesEngine = (() => {
       return true;
     }
 
-    function newState(){
+    function buildLevel(lvlIdx, prevScore, prevLives){
+      const cfg=LEVELS[lvlIdx];
       const map=MAP_BASE.map(row=>[...row]);
-      let total=0;for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(map[r][c]===T.DOT||map[r][c]===T.PELLET)total++;
+      let total=0;
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+        if(map[r][c]===T.DOT||map[r][c]===T.PELLET)total++;
       return{
-        map,total,eaten:0,score:0,frame:0,spd:8,gSpd:11,over:false,won:false,
-        pac:{r:15,c:7,dir:{r:0,c:0},next:{r:0,c:-1},lives:3},
+        lvl:lvlIdx, cfg, map, total,
+        eaten:0,
+        score:prevScore||0,
+        frame:0,
+        spd:cfg.pacSpd,
+        gSpd:cfg.gSpd,
+        over:false, won:false,
+        levelCleared:false, levelTimer:0,
+        pac:{r:15,c:7,dir:{r:0,c:0},next:{r:0,c:-1},lives:prevLives!==undefined?prevLives:3},
         ghosts:[
-          {r:7,c:6,dir:{r:0,c:1},color:'#ef5350',mode:'house',timer:90,scared:0},
-          {r:7,c:7,dir:{r:0,c:-1},color:'#f48fb1',mode:'house',timer:180,scared:0},
-          {r:8,c:6,dir:{r:0,c:1},color:'#26c6da',mode:'house',timer:270,scared:0},
-          {r:8,c:7,dir:{r:0,c:-1},color:'#ffb74d',mode:'house',timer:360,scared:0},
-        ]
+          {r:7,c:6,dir:{r:0,c:1},color:'#ef5350',mode:'house',timer:60,scared:0},
+          {r:7,c:7,dir:{r:0,c:-1},color:'#f48fb1',mode:'house',timer:140,scared:0},
+          {r:8,c:6,dir:{r:0,c:1},color:'#26c6da',mode:'house',timer:220,scared:0},
+          {r:8,c:7,dir:{r:0,c:-1},color:'#ffb74d',mode:'house',timer:300,scared:0},
+        ],
       };
     }
 
     function init(c){
-      cv=c;ctx=c.getContext('2d');
+      cv=c; ctx=c.getContext('2d');
       cs=Math.floor(c.width/COLS);
       c.height=cs*(ROWS+1);
-      S=newState();
+      S=buildLevel(0,0,3);
+
       kh=e=>{
-        const m={ArrowUp:{r:-1,c:0},ArrowDown:{r:1,c:0},ArrowLeft:{r:0,c:-1},ArrowRight:{r:0,c:1},w:{r:-1,c:0},s:{r:1,c:0},a:{r:0,c:-1},d:{r:0,c:1}};
+        const m={ArrowUp:{r:-1,c:0},ArrowDown:{r:1,c:0},ArrowLeft:{r:0,c:-1},ArrowRight:{r:0,c:1},
+                 w:{r:-1,c:0},s:{r:1,c:0},a:{r:0,c:-1},d:{r:0,c:1}};
         if(m[e.key]){S.pac.next=m[e.key];e.preventDefault();}
       };
       document.addEventListener('keydown',kh);
+
       let tx=0,ty=0;
       c.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
       c.addEventListener('touchend',e=>{
@@ -1127,36 +1177,76 @@ const GamesEngine = (() => {
         if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
         S.pac.next=Math.abs(dx)>Math.abs(dy)?{r:0,c:dx>0?1:-1}:{r:dy>0?1:-1,c:0};
       },{passive:true});
+
       animFrame=requestAnimationFrame(loop);
     }
 
     function loop(){
-      if(S.over)return;
+      if(!S||S.over)return;
       animFrame=requestAnimationFrame(loop);
       S.frame++;
-      if(S.frame%S.spd===0)movePac();
-      if(S.frame%S.gSpd===0)S.ghosts.forEach(g=>moveGhost(g));
+
+      /* Transición de nivel */
+      if(S.levelCleared){
+        S.levelTimer--;
+        draw();
+        if(S.levelTimer<=0){
+          const next=S.lvl+1;
+          if(next>=LEVELS.length){
+            S.over=true; draw(); gameOver(S.score,true);
+          } else {
+            S=buildLevel(next,S.score,S.pac.lives);
+          }
+        }
+        return;
+      }
+
+      if(S.frame%S.spd===0) movePac();
+      if(S.frame%S.gSpd===0) S.ghosts.forEach(g=>moveGhost(g));
       draw();
     }
 
     function movePac(){
-      const p=S.pac;
+      const p=S.pac, cfg=S.cfg;
       if(canWalk(S.map,p.r+p.next.r,p.c+p.next.c))p.dir={...p.next};
       if(canWalk(S.map,p.r+p.dir.r,p.c+p.dir.c)){p.r+=p.dir.r;p.c+=p.dir.c;}
       const t=S.map[p.r][p.c];
-      if(t===T.DOT){S.map[p.r][p.c]=T.EMPTY;S.score+=10;S.eaten++;updateScore(S.score);}
-      else if(t===T.PELLET){S.map[p.r][p.c]=T.EMPTY;S.score+=50;S.eaten++;updateScore(S.score);S.ghosts.forEach(g=>{if(g.mode!=='house')g.scared=220;});}
-      if(S.eaten>=S.total){S.over=true;S.won=true;setTimeout(()=>gameOver(S.score,true),600);return;}
+      if(t===T.DOT){
+        S.map[p.r][p.c]=T.EMPTY; S.score+=cfg.ptsDot*(S.lvl+1); S.eaten++;
+        updateScore('NVL '+(S.lvl+1)+' · '+S.score);
+      } else if(t===T.PELLET){
+        S.map[p.r][p.c]=T.EMPTY; S.score+=cfg.ptsPellet*(S.lvl+1); S.eaten++;
+        updateScore('NVL '+(S.lvl+1)+' · '+S.score);
+        S.ghosts.forEach(g=>{if(g.mode!=='house')g.scared=cfg.scaredTime;});
+      }
+      if(S.eaten>=S.total&&!S.levelCleared){
+        S.score+=S.cfg.waveBonus;
+        S.levelCleared=true;
+        S.levelTimer=160;
+        updateScore('NVL '+(S.lvl+1)+' · '+S.score);
+        return;
+      }
       hitCheck();
     }
 
     function hitCheck(){
-      const p=S.pac;
+      const p=S.pac, cfg=S.cfg;
       S.ghosts.forEach(g=>{
         if(g.mode==='house')return;
         if(g.r===p.r&&g.c===p.c){
-          if(g.scared>0){g.scared=0;g.mode='house';g.r=7;g.c=7;g.timer=120;S.score+=200;updateScore(S.score);}
-          else{p.lives--;if(p.lives<=0){S.over=true;setTimeout(()=>gameOver(S.score),500);}else{p.r=15;p.c=7;p.dir={r:0,c:0};p.next={r:0,c:-1};S.ghosts.forEach((g2,i)=>{g2.r=i<2?7:8;g2.c=i%2===0?6:7;g2.mode='house';g2.timer=90*(i+1);g2.scared=0;});}updateScore(`${S.score} ♥${p.lives}`);}
+          if(g.scared>0){
+            g.scared=0; g.mode='house'; g.r=7; g.c=7; g.timer=100;
+            S.score+=cfg.ptsGhost*(S.lvl+1);
+            updateScore('NVL '+(S.lvl+1)+' · '+S.score);
+          } else {
+            p.lives--;
+            if(p.lives<=0){S.over=true;setTimeout(()=>gameOver(S.score),500);}
+            else{
+              p.r=15;p.c=7;p.dir={r:0,c:0};p.next={r:0,c:-1};
+              S.ghosts.forEach((g2,i)=>{g2.r=i<2?7:8;g2.c=i%2===0?6:7;g2.mode='house';g2.timer=90*(i+1);g2.scared=0;});
+            }
+            updateScore('NVL '+(S.lvl+1)+' · '+S.score+' ♥'+p.lives);
+          }
         }
       });
     }
@@ -1165,7 +1255,9 @@ const GamesEngine = (() => {
       if(g.scared>0)g.scared--;
       if(g.mode==='house'){
         g.timer--;if(g.timer>0)return;
-        if(g.r>6){if(g.c<7&&canWalk(S.map,g.r,g.c+1,true))g.c++;else if(g.c>7&&canWalk(S.map,g.r,g.c-1,true))g.c--;else if(canWalk(S.map,g.r-1,g.c,true))g.r--;}
+        if(g.r>6){if(g.c<7&&canWalk(S.map,g.r,g.c+1,true))g.c++;
+          else if(g.c>7&&canWalk(S.map,g.r,g.c-1,true))g.c--;
+          else if(canWalk(S.map,g.r-1,g.c,true))g.r--;}
         else{g.mode='chase';}
         return;
       }
@@ -1173,54 +1265,123 @@ const GamesEngine = (() => {
       const valid=DIRS4.filter(d=>!(d.r===rev.r&&d.c===rev.c)&&canWalk(S.map,g.r+d.r,g.c+d.c));
       if(!valid.length)return;
       let chosen;
-      if(g.scared>0){chosen=valid[Math.floor(Math.random()*valid.length)];}
-      else{valid.sort((a,b)=>Math.hypot((g.r+a.r)-S.pac.r,(g.c+a.c)-S.pac.c)-Math.hypot((g.r+b.r)-S.pac.r,(g.c+b.c)-S.pac.c));chosen=Math.random()<0.12&&valid.length>1?valid[1]:valid[0];}
-      g.r+=chosen.r;g.c+=chosen.c;g.dir={...chosen};
+      if(g.scared>0){
+        chosen=valid[Math.floor(Math.random()*valid.length)];
+      } else {
+        valid.sort((a,b)=>
+          Math.hypot((g.r+a.r)-S.pac.r,(g.c+a.c)-S.pac.c)-
+          Math.hypot((g.r+b.r)-S.pac.r,(g.c+b.c)-S.pac.c)
+        );
+        /* ghostRandom: nivel 1 = 18% random, nivel 3 = 2% random */
+        chosen=Math.random()<S.cfg.ghostRandom&&valid.length>1?valid[1]:valid[0];
+      }
+      g.r+=chosen.r; g.c+=chosen.c; g.dir={...chosen};
       hitCheck();
     }
 
     function draw(){
-      ctx.fillStyle='#020b10';ctx.fillRect(0,0,cv.width,cv.height);
+      if(!S)return;
+      ctx.fillStyle='#020b10'; ctx.fillRect(0,0,cv.width,cv.height);
       const oy=cs;
+      const cfg=S.cfg;
+
+      /* Mapa */
       for(let r=0;r<ROWS;r++){
         for(let c=0;c<COLS;c++){
           const x=c*cs,y=oy+r*cs,t=S.map[r][c];
           if(t===T.WALL){
-            ctx.fillStyle='#0d3347';ctx.fillRect(x,y,cs,cs);
-            ctx.strokeStyle='rgba(11,100,130,0.4)';ctx.lineWidth=0.5;ctx.strokeRect(x+0.5,y+0.5,cs-1,cs-1);
+            ctx.fillStyle=cfg.wallColor; ctx.fillRect(x,y,cs,cs);
+            ctx.strokeStyle=cfg.wallStroke; ctx.lineWidth=0.5; ctx.strokeRect(x+0.5,y+0.5,cs-1,cs-1);
           } else {
-            ctx.fillStyle='#0a1a26';ctx.fillRect(x,y,cs,cs);
-            if(t===T.DOT){ctx.fillStyle='#c8880e';ctx.beginPath();ctx.arc(x+cs/2,y+cs/2,cs*0.1,0,Math.PI*2);ctx.fill();}
-            else if(t===T.PELLET&&Math.floor(S.frame/8)%2===0){ctx.shadowColor='#00ffa8';ctx.shadowBlur=8;ctx.fillStyle='#00ffa8';ctx.beginPath();ctx.arc(x+cs/2,y+cs/2,cs*0.26,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;}
+            ctx.fillStyle='#0a1a26'; ctx.fillRect(x,y,cs,cs);
+            if(t===T.DOT){
+              ctx.fillStyle=S.lvl===0?'#c8880e':S.lvl===1?'#9b59b6':'#e74c3c';
+              ctx.beginPath(); ctx.arc(x+cs/2,y+cs/2,cs*0.1,0,Math.PI*2); ctx.fill();
+            } else if(t===T.PELLET&&Math.floor(S.frame/8)%2===0){
+              ctx.shadowColor='#00ffa8'; ctx.shadowBlur=8;
+              ctx.fillStyle='#00ffa8';
+              ctx.beginPath(); ctx.arc(x+cs/2,y+cs/2,cs*0.26,0,Math.PI*2); ctx.fill();
+              ctx.shadowBlur=0;
+            }
           }
         }
       }
+
+      /* Pac-Man */
       const p=S.pac;
-      const px=p.c*cs+cs/2,py=oy+p.r*cs+cs/2;
+      const px=p.c*cs+cs/2, py2=oy+p.r*cs+cs/2;
       const mouth=Math.abs(Math.sin(S.frame*0.28))*0.38;
       const ang=Math.atan2(p.dir.r,p.dir.c);
-      ctx.fillStyle='#d4a017';
-      ctx.beginPath();ctx.moveTo(px,py);ctx.arc(px,py,cs*0.42,ang+mouth,ang+Math.PI*2-mouth);ctx.closePath();ctx.fill();
+      /* Color pac según nivel */
+      ctx.fillStyle=S.lvl===0?'#d4a017':S.lvl===1?'#e056e0':'#ef5350';
+      ctx.beginPath(); ctx.moveTo(px,py2);
+      ctx.arc(px,py2,cs*0.42,ang+mouth,ang+Math.PI*2-mouth);
+      ctx.closePath(); ctx.fill();
+
+      /* Fantasmas */
       S.ghosts.forEach(g=>{
         if(g.mode==='house'&&g.timer>60)return;
-        const gx=g.c*cs+cs/2,gy=oy+g.r*cs+cs/2,gr=cs*0.4;
-        const scared=g.scared>0;const blink=scared&&g.scared<60&&Math.floor(S.frame/8)%2===0;
+        const gx=g.c*cs+cs/2, gy=oy+g.r*cs+cs/2, gr=cs*0.4;
+        const scared=g.scared>0;
+        const blink=scared&&g.scared<60&&Math.floor(S.frame/8)%2===0;
         ctx.fillStyle=blink?'#ffffff':scared?'#2244dd':g.color;
-        ctx.beginPath();ctx.arc(gx,gy-gr*0.1,gr,Math.PI,0);
+        ctx.beginPath(); ctx.arc(gx,gy-gr*0.1,gr,Math.PI,0);
         ctx.lineTo(gx+gr,gy+gr*0.75);
         for(let i=4;i>=0;i--){const wx=gx-gr+(i/4)*2*gr;ctx.lineTo(wx,gy+gr*0.75+(i%2===0?-gr*0.28:gr*0.28));}
-        ctx.lineTo(gx-gr,gy-gr*0.1);ctx.fill();
+        ctx.lineTo(gx-gr,gy-gr*0.1); ctx.fill();
         if(!scared){
-          ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(gx-gr*0.28,gy-gr*0.32,gr*0.19,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(gx+gr*0.28,gy-gr*0.32,gr*0.19,0,Math.PI*2);ctx.fill();
-          ctx.fillStyle='#002';ctx.beginPath();ctx.arc(gx-gr*0.22+g.dir.c*gr*0.09,gy-gr*0.26+g.dir.r*gr*0.09,gr*0.1,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(gx+gr*0.28+g.dir.c*gr*0.09,gy-gr*0.26+g.dir.r*gr*0.09,gr*0.1,0,Math.PI*2);ctx.fill();
+          ctx.fillStyle='#fff';
+          ctx.beginPath();ctx.arc(gx-gr*0.28,gy-gr*0.32,gr*0.19,0,Math.PI*2);ctx.fill();
+          ctx.beginPath();ctx.arc(gx+gr*0.28,gy-gr*0.32,gr*0.19,0,Math.PI*2);ctx.fill();
+          ctx.fillStyle='#002';
+          ctx.beginPath();ctx.arc(gx-gr*0.22+g.dir.c*gr*0.09,gy-gr*0.26+g.dir.r*gr*0.09,gr*0.1,0,Math.PI*2);ctx.fill();
+          ctx.beginPath();ctx.arc(gx+gr*0.28+g.dir.c*gr*0.09,gy-gr*0.26+g.dir.r*gr*0.09,gr*0.1,0,Math.PI*2);ctx.fill();
         }
       });
-      ctx.fillStyle='#d4a017';
-      for(let i=0;i<S.pac.lives;i++){ctx.beginPath();ctx.moveTo(i*(cs+3)+cs/2,cs/2);ctx.arc(i*(cs+3)+cs/2,cs/2,cs*0.38,0.3,Math.PI*2-0.3);ctx.closePath();ctx.fill();}
-      ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font='bold 13px monospace';ctx.textAlign='right';ctx.fillText(`${S.score}`,cv.width-4,cs-3);ctx.textAlign='left';
+
+      /* Vidas y HUD */
+      const livColor=S.lvl===0?'#d4a017':S.lvl===1?'#e056e0':'#ef5350';
+      ctx.fillStyle=livColor;
+      for(let i=0;i<S.pac.lives;i++){
+        ctx.beginPath();ctx.moveTo(i*(cs+3)+cs/2,cs/2);
+        ctx.arc(i*(cs+3)+cs/2,cs/2,cs*0.38,0.3,Math.PI*2-0.3);
+        ctx.closePath();ctx.fill();
+      }
+      ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font='bold 12px monospace';
+      ctx.textAlign='right';
+      ctx.fillText('NVL '+(S.lvl+1)+' · '+S.score,cv.width-4,cs-3);
+      ctx.textAlign='left';
+      ctx.fillStyle='rgba(212,160,23,0.45)';ctx.font='10px monospace';
+      ctx.fillText(cfg.badge,4,cs-3);
+
+      /* Pantalla de nivel completado */
+      if(S.levelCleared){
+        ctx.fillStyle='rgba(2,11,16,0.85)'; ctx.fillRect(0,0,cv.width,cv.height);
+        ctx.textAlign='center';
+        const next=S.lvl+1;
+        if(next<LEVELS.length){
+          ctx.fillStyle='#00ffa8'; ctx.font=`bold ${Math.max(16,cv.width/18)}px monospace`;
+          ctx.fillText('✅ NIVEL '+(S.lvl+1)+' COMPLETADO',cv.width/2,cv.height/2-30);
+          ctx.fillStyle='rgba(212,160,23,0.9)'; ctx.font=`bold ${Math.max(12,cv.width/26)}px monospace`;
+          ctx.fillText('SCORE: '+S.score+'  +'+S.cfg.waveBonus+' BONUS',cv.width/2,cv.height/2+4);
+          ctx.fillStyle='rgba(0,255,168,0.55)'; ctx.font=`${Math.max(10,cv.width/36)}px monospace`;
+          ctx.fillText('Preparando '+LEVELS[next].label+' '+LEVELS[next].badge+'...',cv.width/2,cv.height/2+28);
+        } else {
+          ctx.fillStyle='#ffd700'; ctx.font=`bold ${Math.max(18,cv.width/15)}px monospace`;
+          ctx.fillText('🏆 ¡CAMPEÓN!',cv.width/2,cv.height/2-28);
+          ctx.fillStyle='rgba(212,160,23,0.9)'; ctx.font=`bold ${Math.max(12,cv.width/24)}px monospace`;
+          ctx.fillText('SCORE FINAL: '+S.score,cv.width/2,cv.height/2+6);
+          ctx.fillStyle='rgba(0,255,168,0.5)'; ctx.font=`${Math.max(10,cv.width/36)}px monospace`;
+          ctx.fillText('¡3 niveles completados!',cv.width/2,cv.height/2+28);
+        }
+        ctx.textAlign='left';
+      }
     }
 
-    return{init,cleanup(){if(kh)document.removeEventListener('keydown',kh);}};
+    return{
+      init,
+      cleanup(){if(kh)document.removeEventListener('keydown',kh); S=null;}
+    };
   })();
 
   /* ─────────────────── SPACE INVADERS — 3 Niveles ─────────── */
