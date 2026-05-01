@@ -1765,63 +1765,222 @@ const GamesEngine = (() => {
     };
   })();
 
-  /* ─────────────────── MEMORY MATCH (cards más grandes) ─────*/
+
+  /* ─────────────────── MEMORY MATCH — 3 Niveles ───────────── */
   Impls.memory = (() => {
-    const SYMS=['⚛️','🔬','🧬','🌌','⚡','🧲','💡','🔭'];
-    let S,cont;
+
+    /* Configuración por nivel */
+    const LEVELS=[
+      {
+        label:'NIVEL 1', badge:'🧠',
+        cols:4, pairs:8,           // 4×4 = 16 cartas
+        flipBack:900,              // ms antes de voltear cartas incorrectas
+        timeLimit:0,               // 0 = sin límite
+        syms:['⚛️','🔬','🧬','🌌','⚡','🧲','💡','🔭'],
+        accentColor:'#00ffa8',
+        waveBonus:200,
+      },
+      {
+        label:'NIVEL 2', badge:'🧠🧠',
+        cols:5, pairs:10,          // 5×4 = 20 cartas
+        flipBack:700,
+        timeLimit:90,              // 90 segundos
+        syms:['⚛️','🔬','🧬','🌌','⚡','🧲','💡','🔭','🌡️','🔋'],
+        accentColor:'#d4a017',
+        waveBonus:400,
+      },
+      {
+        label:'NIVEL 3', badge:'🧠🧠🧠',
+        cols:6, pairs:12,          // 6×4 = 24 cartas
+        flipBack:500,
+        timeLimit:75,              // 75 segundos — ¡presión!
+        syms:['⚛️','🔬','🧬','🌌','⚡','🧲','💡','🔭','🌡️','🔋','🧪','🔩'],
+        accentColor:'#ef5350',
+        waveBonus:700,
+      },
+    ];
+
+    let S, cont, timerIv=null;
+
+    /* ── Lógica ── */
+    function shuffle(arr){
+      for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+      return arr;
+    }
+
+    function buildLevel(lvlIdx, prevScore){
+      const cfg=LEVELS[lvlIdx];
+      const cards=shuffle([...cfg.syms,...cfg.syms].map((s,i)=>({id:i,sym:s,up:false,ok:false})));
+      return{
+        lvl:lvlIdx, cfg, cards,
+        fl:[], pairs:0, moves:0, locked:false,
+        score:prevScore||0,
+        timeLeft:cfg.timeLimit||null,
+        over:false, levelCleared:false,
+      };
+    }
+
+    function startTimer(){
+      if(timerIv)clearInterval(timerIv);
+      if(!S.cfg.timeLimit)return;
+      timerIv=setInterval(()=>{
+        if(!S||S.over||S.levelCleared){clearInterval(timerIv);return;}
+        S.timeLeft--;
+        if(S.timeLeft<=0){
+          clearInterval(timerIv);
+          S.over=true;
+          S.timeOut=true;
+          render();
+        } else {
+          /* Solo actualiza el HUD del tiempo sin re-renderizar todo */
+          const el=cont.querySelector('#memTimer');
+          if(el){
+            el.textContent='⏱ '+S.timeLeft+'s';
+            el.style.color=S.timeLeft<=15?'#ef5350':S.timeLeft<=30?'#d4a017':'#4a6a72';
+          }
+        }
+      },1000);
+    }
+
     function flip(i){
-      if(S.locked||S.cards[i].up||S.cards[i].ok)return;
-      S.cards[i].up=true;S.fl.push(i);render();
+      if(S.locked||S.cards[i].up||S.cards[i].ok||S.over)return;
+      S.cards[i].up=true; S.fl.push(i); render();
       if(S.fl.length===2){
-        S.moves++;S.locked=true;
+        S.moves++; S.locked=true;
         const[a,b]=S.fl;
         if(S.cards[a].sym===S.cards[b].sym){
-          S.cards[a].ok=S.cards[b].ok=true;S.pairs++;S.fl=[];S.locked=false;
-          updateScore(`${S.moves} movs · ${S.pairs}/8`);render();
-          if(S.pairs===8){S.over=true;render();}
-        } else {setTimeout(()=>{S.cards[a].up=S.cards[b].up=false;S.fl=[];S.locked=false;render();},900);}
+          S.cards[a].ok=S.cards[b].ok=true;
+          S.pairs++; S.fl=[]; S.locked=false;
+          const bonus=Math.max(0,S.cfg.timeLimit?Math.floor(S.timeLeft/3):0);
+          S.score+=50*(S.lvl+1)+bonus;
+          updateScore('NVL '+(S.lvl+1)+' · '+S.pairs+'/'+S.cfg.pairs+' pares');
+          if(S.pairs===S.cfg.pairs){
+            clearInterval(timerIv);
+            S.score+=S.cfg.waveBonus;
+            S.levelCleared=true;
+            S.over=true;
+          }
+          render();
+        } else {
+          setTimeout(()=>{
+            if(!S)return;
+            S.cards[a].up=S.cards[b].up=false;
+            S.fl=[]; S.locked=false; render();
+          }, S.cfg.flipBack);
+        }
       }
     }
+
+    /* ── Render ── */
     function render(){
+      if(!cont)return;
+      const cfg=S.cfg;
+      const cardSize=`clamp(${S.lvl===2?'34px':'38px'},${S.lvl===2?'13.5vw':'15vw'},${S.lvl===2?'48px':'56px'})`;
+      const fontSize=`clamp(${S.lvl===2?'18px':'22px'},${S.lvl===2?'5vw':'7vw'},${S.lvl===2?'28px':'36px'})`;
+      const gridW=`min(${S.lvl===2?'340px':'330px'},96vw)`;
+
+      const timePct=cfg.timeLimit?S.timeLeft/cfg.timeLimit:1;
+      const timeColor=S.timeLeft<=15?'#ef5350':S.timeLeft<=30?'#d4a017':'#4a6a72';
+
       cont.innerHTML=`
-        <div style="display:flex;flex-direction:column;align-items:center;padding:14px 6px 24px;width:100%;user-select:none">
-          <div style="font-size:11px;color:#4a6a72;letter-spacing:2px;margin-bottom:6px">TOCA PARA VOLTEAR · ENCUENTRA LOS PARES</div>
-          <div style="font-size:18px;font-weight:800;color:#d4a017;margin-bottom:12px">PARES: ${S.pairs}/8  |  MOVS: ${S.moves}</div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(8px,2.5vw,14px);width:min(360px,94vw)">
+        <div style="display:flex;flex-direction:column;align-items:center;padding:12px 4px 20px;width:100%;user-select:none">
+
+          <!-- Header nivel -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <span style="font-size:12px;color:${cfg.accentColor};font-weight:800;letter-spacing:2px">${cfg.label}</span>
+            <span style="font-size:13px">${cfg.badge}</span>
+          </div>
+
+          <!-- HUD -->
+          <div style="display:flex;gap:18px;align-items:center;margin-bottom:8px;flex-wrap:wrap;justify-content:center">
+            <span style="font-size:15px;font-weight:800;color:${cfg.accentColor}">PARES: ${S.pairs}/${cfg.pairs}</span>
+            <span style="font-size:13px;color:#4a6a72">MOVS: ${S.moves}</span>
+            <span style="font-size:13px;font-weight:700;color:#d4a017">SCORE: ${S.score}</span>
+            ${cfg.timeLimit?`<span id="memTimer" style="font-size:13px;font-weight:800;color:${timeColor}">⏱ ${S.timeLeft}s</span>`:''}
+          </div>
+
+          <!-- Barra de progreso pares -->
+          <div style="width:${gridW};height:5px;background:#0b3b46;border-radius:4px;margin-bottom:10px;overflow:hidden">
+            <div style="height:100%;width:${(S.pairs/cfg.pairs)*100}%;background:${cfg.accentColor};border-radius:4px;transition:width 0.3s"></div>
+          </div>
+
+          ${cfg.timeLimit?`
+          <!-- Barra de tiempo -->
+          <div style="width:${gridW};height:4px;background:#0b3b46;border-radius:4px;margin-bottom:10px;overflow:hidden">
+            <div style="height:100%;width:${timePct*100}%;background:${S.timeLeft<=15?'#ef5350':S.timeLeft<=30?'#d4a017':'#26c6da'};border-radius:4px;transition:width 0.9s linear"></div>
+          </div>`:''}
+
+          <!-- Grid de cartas -->
+          <div style="display:grid;grid-template-columns:repeat(${cfg.cols},${cardSize});gap:clamp(5px,1.8vw,10px);width:${gridW};justify-content:center">
             ${S.cards.map((card,i)=>`
               <div data-i="${i}" style="
-                aspect-ratio:1;
-                background:${card.ok?'rgba(0,255,168,0.07)':card.up?'#142638':'#0a1e28'};
-                border:2px solid ${card.ok?'rgba(0,255,168,0.45)':card.up?'#d4a017':'#0b3b46'};
-                border-radius:14px;display:flex;align-items:center;justify-content:center;
-                font-size:clamp(26px,8vw,38px);cursor:${card.ok?'default':'pointer'};
-                transition:transform 0.12s;-webkit-tap-highlight-color:transparent;
-                ${card.up&&!card.ok?'transform:scale(1.07);':''}
-                ${card.ok?'box-shadow:0 0 14px rgba(0,255,168,0.22);':''}
-              ">${card.up||card.ok?card.sym:'<span style="color:#0b3b46;font-size:clamp(22px,6vw,30px)">◈</span>'}</div>`).join('')}
+                width:${cardSize};height:${cardSize};
+                background:${card.ok?`rgba(${cfg.accentColor==='#00ffa8'?'0,255,168':'ef5350'===cfg.accentColor.slice(1)?'239,83,80':'212,160,23'},0.08)`:card.up?'#142638':'#0a1e28'};
+                border:2px solid ${card.ok?cfg.accentColor+'88':card.up?cfg.accentColor:'#0b3b46'};
+                border-radius:12px;display:flex;align-items:center;justify-content:center;
+                font-size:${fontSize};cursor:${card.ok?'default':'pointer'};
+                -webkit-tap-highlight-color:transparent;
+                ${card.up&&!card.ok?'transform:scale(1.08);transition:transform 0.1s;':''}
+                ${card.ok?`box-shadow:0 0 12px ${cfg.accentColor}44;`:''}
+                box-sizing:border-box;
+              ">${card.up||card.ok
+                  ? card.sym
+                  : `<span style="color:#0b3b46;font-size:clamp(16px,5vw,24px)">◈</span>`
+              }</div>`).join('')}
           </div>
-          ${S.over?`<div style="margin-top:16px;text-align:center">
-            <div style="color:#00ffa8;font-size:16px;font-weight:800;letter-spacing:2px;margin-bottom:4px">🏆 ¡COMPLETADO!</div>
-            <div style="color:#4a6a72;font-size:12px;margin-bottom:12px">${S.moves} movimientos · Puntaje: ${Math.max(10,100-S.moves*2)}</div>
-            <button onclick="GamesEngine.launch('memory')" style="background:linear-gradient(135deg,#d4a017,#c25b12);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 22px;cursor:pointer;margin-right:6px">↺ REINICIAR</button>
-            <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;font-weight:700;padding:9px 16px;cursor:pointer">◀ VOLVER</button>
+
+          <!-- Estado final -->
+          ${S.over?`
+          <div style="margin-top:18px;text-align:center">
+            ${S.levelCleared?`
+              <div style="color:${cfg.accentColor};font-size:15px;font-weight:800;letter-spacing:2px;margin-bottom:4px">
+                ${S.lvl<LEVELS.length-1?'✅ ¡NIVEL '+(S.lvl+1)+' SUPERADO!':'🏆 ¡MAESTRO DE LA MEMORIA!'}
+              </div>
+              <div style="color:#4a6a72;font-size:12px;margin-bottom:12px">
+                ${S.moves} movimientos · +${cfg.waveBonus} bonus · SCORE: ${S.score}
+              </div>
+              ${S.lvl<LEVELS.length-1
+                ? `<button onclick="GamesEngine._memNextLevel()" style="background:linear-gradient(135deg,${cfg.accentColor},#0b8f6a);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 22px;cursor:pointer;margin-right:6px;letter-spacing:1px">▶ NIVEL ${S.lvl+2}</button>`
+                : ''
+              }
+              <button onclick="GamesEngine.launch('memory')" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;font-weight:700;padding:9px 16px;cursor:pointer;margin-right:6px">↺ REINICIAR</button>
+              <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;font-weight:700;padding:9px 14px;cursor:pointer">◀ VOLVER</button>
+            `:S.timeOut?`
+              <div style="color:#ef5350;font-size:15px;font-weight:800;letter-spacing:2px;margin-bottom:4px">⏰ ¡TIEMPO AGOTADO!</div>
+              <div style="color:#4a6a72;font-size:12px;margin-bottom:12px">${S.pairs}/${cfg.pairs} pares · SCORE: ${S.score}</div>
+              <button onclick="GamesEngine.launch('memory')" style="background:linear-gradient(135deg,#d4a017,#c25b12);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 22px;cursor:pointer;margin-right:6px">↺ REINICIAR</button>
+              <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;font-weight:700;padding:9px 16px;cursor:pointer">◀ VOLVER</button>
+            `:''}
           </div>`:''}
         </div>`;
-      if(!S.over)cont.querySelectorAll('[data-i]').forEach(el=>el.addEventListener('click',()=>flip(+el.dataset.i)));
+
+      if(!S.over)
+        cont.querySelectorAll('[data-i]').forEach(el=>el.addEventListener('click',()=>flip(+el.dataset.i)));
     }
+
+    /* Exponer función para pasar al siguiente nivel desde el HTML */
+    function nextLevel(){
+      if(!S||S.lvl>=LEVELS.length-1)return;
+      S=buildLevel(S.lvl+1,S.score);
+      render();
+      startTimer();
+    }
+
     return{
       init(c){
+        clearInterval(timerIv);
         cont=c;
-        const cards=[...SYMS,...SYMS].map((s,i)=>({id:i,sym:s,up:false,ok:false}));
-        for(let i=cards.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[cards[i],cards[j]]=[cards[j],cards[i]];}
-        S={cards,fl:[],pairs:0,moves:0,locked:false,over:false};render();
+        S=buildLevel(0,0);
+        render();
+        // Sin timer en nivel 1
       },
-      cleanup(){}
+      nextLevel,
+      cleanup(){clearInterval(timerIv);timerIv=null;S=null;}
     };
   })();
 
   /* ── API pública ──────────────────────────────────────────── */
-  return { init, launch, showSelection };
+  return { init, launch, showSelection, _memNextLevel:()=>Impls.memory.nextLevel&&Impls.memory.nextLevel() };
 
 })();
 
