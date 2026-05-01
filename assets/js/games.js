@@ -938,160 +938,275 @@ const GamesEngine = (() => {
     return{init,cleanup(){if(kh)document.removeEventListener('keydown',kh);}};
   })();
 
-  /* ─────────────────── SPACE INVADERS (móvil mejorado) ────── */
+  /* ─────────────────── SPACE INVADERS — 3 Niveles ─────────── */
   Impls.invaders = (() => {
-    let cv,ctx,S,kh,ku,keys={};
-    let touchFiring=false;
-    // Tamaño de aliens adaptado al ancho del canvas
-    let AW,AH,AGX,AGY,ACOLS,AROWS;
+    let cv,ctx,S,kh,ku,keys={},touchFiring=false;
+
+    /* Configuración por nivel */
+    const LEVELS=[
+      { label:'NIVEL 1', ACOLS:8, AROWS:5, spdMult:1.0, bombFreq:0.50, bombSpd:1.0, dropMult:1.0, color:'⬜' },
+      { label:'NIVEL 2', ACOLS:9, AROWS:5, spdMult:1.45, bombFreq:0.70, bombSpd:1.35, dropMult:1.2, color:'🟡' },
+      { label:'NIVEL 3', ACOLS:9, AROWS:5, spdMult:2.0,  bombFreq:0.90, bombSpd:1.75, dropMult:1.5, color:'🔴' },
+    ];
+
+    function buildLevel(c, lvlIdx, prevScore, prevLives){
+      const W=c.width, H=c.height;
+      const cfg=LEVELS[lvlIdx];
+
+      const AW=Math.floor(W*0.076);
+      const AH=Math.floor(AW*0.65);
+      const AGX=Math.floor(AW*0.30);
+      const AGY=Math.floor(AH*0.48);
+      const formW=cfg.ACOLS*(AW+AGX);
+      const sx=Math.floor((W-formW)/2);
+      const formH=cfg.AROWS*(AH+AGY);
+      const startY=Math.floor(H*0.08)+22;
+      const dangerY=Math.floor(H*0.80);
+      const safeStartY=Math.min(startY, dangerY-formH-55);
+
+      const baseSpd=W*0.00085;
+      const initSpd=baseSpd*cfg.spdMult;
+      const dropStep=Math.max(4,Math.floor(H*0.016))*cfg.dropMult;
+      const bombSpeed=Math.max(1.3,H*0.0038)*cfg.bombSpd;
+
+      return {
+        lvl:lvlIdx, cfg,
+        AW,AH,AGX,AGY,
+        aliens:Array.from({length:cfg.AROWS*cfg.ACOLS},(_,i)=>({
+          baseX:sx+(i%cfg.ACOLS)*(AW+AGX),
+          baseY:safeStartY+Math.floor(i/cfg.ACOLS)*(AH+AGY),
+          row:Math.floor(i/cfg.ACOLS), alive:true
+        })),
+        offX:0,dir:1,spd:initSpd,initSpd,
+        px:W/2,lives:prevLives!==undefined?prevLives:3,
+        bullets:[],bombs:[],
+        shootCd:0,score:prevScore||0,frame:0,
+        stars:Array.from({length:50},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.1+0.3})),
+        over:false,won:false,levelCleared:false,levelTimer:0,
+        dangerY,dropStep,bombSpeed,bombFreq:cfg.bombFreq,
+        maxSpd:Math.min(2.0,initSpd*3.5),
+        ACOLS:cfg.ACOLS,AROWS:cfg.AROWS,
+      };
+    }
 
     function shoot(){
-      if(S.shootCd>0)return;
+      if(!S||S.shootCd>0)return;
       if(S.bullets.filter(b=>b.ok).length>=3)return;
-      S.bullets.push({x:S.px,y:cv.height-30,vy:-10,ok:true});S.shootCd=16;
+      S.bullets.push({x:S.px,y:cv.height-28,vy:-10,ok:true});
+      S.shootCd=15;
     }
 
     function init(c){
-      cv=c;ctx=c.getContext('2d');keys={};touchFiring=false;
+      cv=c; ctx=c.getContext('2d'); keys={}; touchFiring=false;
+      S=buildLevel(c,0,0,3);
 
-      // Adaptar tamaño de la formación al canvas disponible
-      const isMobile=c.width<380;
-      ACOLS=isMobile?7:9;   // menos columnas en móvil
-      AROWS=4;
-      AW=isMobile?22:26;    // aliens más pequeños en móvil
-      AH=isMobile?15:17;
-      AGX=isMobile?9:10;    // gap horizontal
-      AGY=isMobile?8:9;     // gap vertical
-
-      // startY proporcional al canvas: ~12% desde arriba
-      const startY=Math.max(28, Math.floor(c.height*0.12));
-      const sx=(c.width-ACOLS*(AW+AGX))/2;
-
-      // drop por rebote: proporcional al canvas, mínimo 6px
-      const dropStep=Math.max(6, Math.floor(c.height*0.028));
-      // velocidad horizontal inicial más lenta
-      const initSpd=isMobile?0.35:0.45;
-      // zona segura inferior mayor para dar tiempo de reacción
-      const dangerY=c.height-45;
-      // frecuencia y velocidad de bombas reducidas en móvil
-      const bombFreq=isMobile?0.14:0.22;
-      const bombSpeed=isMobile?2.2:3.0;
-
-      S={
-        aliens:Array.from({length:AROWS*ACOLS},(_,i)=>({
-          baseX:sx+(i%ACOLS)*(AW+AGX),
-          baseY:startY+Math.floor(i/ACOLS)*(AH+AGY),
-          row:Math.floor(i/ACOLS),alive:true
-        })),
-        offX:0,dir:1,spd:initSpd,
-        px:c.width/2,pSpd:isMobile?4:5,lives:3,
-        bullets:[],bombs:[],
-        shootCd:0,score:0,frame:0,stars:null,
-        over:false,won:false,
-        dropStep,dangerY,bombFreq,bombSpeed
-      };
-      S.stars=Array.from({length:55},()=>({x:Math.random()*c.width,y:Math.random()*c.height,r:Math.random()*1.2+0.3}));
-
-      kh=e=>{keys[e.key]=true;e.key===' '&&e.preventDefault();};
+      kh=e=>{keys[e.key]=true; e.key===' '&&e.preventDefault();};
       ku=e=>{delete keys[e.key];};
-      document.addEventListener('keydown',kh);document.addEventListener('keyup',ku);
+      document.addEventListener('keydown',kh);
+      document.addEventListener('keyup',ku);
 
       c.addEventListener('touchmove',e=>{
         e.preventDefault();
         const r=c.getBoundingClientRect();
-        S.px=Math.max(22,Math.min(c.width-22,e.touches[0].clientX-r.left));
+        S.px=Math.max(22,Math.min(cv.width-22,e.touches[0].clientX-r.left));
       },{passive:false});
       c.addEventListener('touchstart',e=>{
         const r=c.getBoundingClientRect();
-        S.px=Math.max(22,Math.min(c.width-22,e.touches[0].clientX-r.left));
-        touchFiring=true;shoot();
+        S.px=Math.max(22,Math.min(cv.width-22,e.touches[0].clientX-r.left));
+        touchFiring=true; shoot();
       },{passive:true});
-      c.addEventListener('touchend',()=>{touchFiring=false;},{passive:true});
+      c.addEventListener('touchend', ()=>{touchFiring=false;},{passive:true});
       c.addEventListener('touchcancel',()=>{touchFiring=false;},{passive:true});
 
       animFrame=requestAnimationFrame(loop);
     }
 
     function loop(){
-      if(S.over)return;animFrame=requestAnimationFrame(loop);S.frame++;
+      if(!S||S.over)return;
+      animFrame=requestAnimationFrame(loop);
+      S.frame++;
+
+      /* ── Transición entre niveles ── */
+      if(S.levelCleared){
+        S.levelTimer--;
+        draw(); // sigue dibujando el mensaje
+        if(S.levelTimer<=0){
+          const nextLvl=S.lvl+1;
+          if(nextLvl>=LEVELS.length){
+            // ¡Todos los niveles completados!
+            S.over=true; draw(); gameOver(S.score,true);
+          } else {
+            S=buildLevel(cv,nextLvl,S.score,S.lives);
+          }
+        }
+        return;
+      }
+
       if(S.shootCd>0)S.shootCd--;
 
-      if(keys['ArrowLeft']||keys['a'])S.px=Math.max(22,S.px-S.pSpd);
-      if(keys['ArrowRight']||keys['d'])S.px=Math.min(cv.width-22,S.px+S.pSpd);
+      if(keys['ArrowLeft']||keys['a']) S.px=Math.max(22,S.px-4.5);
+      if(keys['ArrowRight']||keys['d'])S.px=Math.min(cv.width-22,S.px+4.5);
       if(keys[' '])shoot();
       if(touchFiring)shoot();
 
-      S.bullets.forEach(b=>{b.y+=b.vy;if(b.y<0)b.ok=false;});S.bullets=S.bullets.filter(b=>b.ok);
-      S.bombs.forEach(b=>{b.y+=b.vy;if(b.y>cv.height)b.ok=false;});S.bombs=S.bombs.filter(b=>b.ok);
+      S.bullets.forEach(b=>{b.y+=b.vy; if(b.y<0)b.ok=false;});
+      S.bullets=S.bullets.filter(b=>b.ok);
+      S.bombs.forEach(b=>{b.y+=b.vy; if(b.y>cv.height)b.ok=false;});
+      S.bombs=S.bombs.filter(b=>b.ok);
 
       const alive=S.aliens.filter(a=>a.alive);
-      if(!alive.length){S.over=true;S.won=true;draw();gameOver(S.score,true);return;}
 
-      const nOff=S.offX+S.spd*S.dir;
-      const lx=Math.min(...alive.map(a=>a.baseX))+nOff;
-      const rx=Math.max(...alive.map(a=>a.baseX+AW))+nOff;
-      if(lx<4||rx>cv.width-4){
-        S.dir*=-1;
-        alive.forEach(a=>a.baseY+=S.dropStep); // descenso proporcional
-        S.spd=Math.min(1.8,S.spd+0.04);        // aceleración más suave
-      }else{S.offX=nOff;}
-
-      // Bombas: frecuencia reducida y velocidad adaptada
-      if(S.frame%70===0){
-        const cols=[...new Set(alive.map(a=>a.baseX))];
-        cols.forEach(bx=>{
-          if(Math.random()<S.bombFreq){
-            const bot=alive.filter(a=>a.baseX===bx).sort((a,b)=>b.row-a.row)[0];
-            if(bot)S.bombs.push({x:bot.baseX+S.offX+AW/2,y:bot.baseY+AH,vy:S.bombSpeed,ok:true});
-          }
-        });
+      /* ── Nivel completado ── */
+      if(!alive.length){
+        S.levelCleared=true;
+        S.levelTimer=120; // ~2 segundos a 60fps
+        return;
       }
 
-      S.bullets.forEach(b=>{alive.forEach(a=>{const ax=a.baseX+S.offX;if(b.ok&&b.x>=ax&&b.x<=ax+AW&&b.y>=a.baseY&&b.y<=a.baseY+AH){a.alive=false;b.ok=false;S.score+=(AROWS-a.row)*10+10;updateScore(S.score);}});});
+      /* ── Movimiento horizontal ── */
+      const nOff=S.offX+S.spd*S.dir;
+      const lx=Math.min(...alive.map(a=>a.baseX))+nOff;
+      const rx=Math.max(...alive.map(a=>a.baseX+S.AW))+nOff;
+      if(lx<4||rx>cv.width-4){
+        S.dir*=-1;
+        alive.forEach(a=>a.baseY+=S.dropStep);
+        S.spd=Math.min(S.maxSpd,S.spd+0.025);
+      }else{
+        S.offX=nOff;
+      }
 
+      /* ── Bombas ── */
+      if(S.frame%75===0){
+        const cols=[...new Set(alive.map(a=>a.baseX))];
+        // Cuántas bombas lanzar según nivel
+        const nBombs=S.lvl+1;
+        for(let b=0;b<nBombs;b++){
+          if(Math.random()<S.bombFreq){
+            const chosen=cols[Math.floor(Math.random()*cols.length)];
+            const bot=alive.filter(a=>a.baseX===chosen).sort((a,b2)=>b2.row-a.row)[0];
+            if(bot)S.bombs.push({x:bot.baseX+S.offX+S.AW/2,y:bot.baseY+S.AH,vy:S.bombSpeed,ok:true});
+          }
+        }
+      }
+
+      /* ── Colisiones bala-alien ── */
+      S.bullets.forEach(b=>{
+        alive.forEach(a=>{
+          const ax=a.baseX+S.offX;
+          if(b.ok&&b.x>=ax&&b.x<=ax+S.AW&&b.y>=a.baseY&&b.y<=a.baseY+S.AH){
+            a.alive=false; b.ok=false;
+            S.score+=(S.AROWS-a.row)*10+10*(S.lvl+1);
+            updateScore('NVL '+(S.lvl+1)+' · '+S.score);
+          }
+        });
+      });
+
+      /* ── Colisiones bomba-nave ── */
       const py=cv.height-22;
-      S.bombs.forEach(b=>{if(b.ok&&b.x>=S.px-22&&b.x<=S.px+22&&Math.abs(b.y-py)<18){b.ok=false;S.lives--;updateScore(`${S.score} ♥${S.lives}`);if(S.lives<=0){S.over=true;draw();gameOver(S.score);}}});
+      S.bombs.forEach(b=>{
+        if(b.ok&&Math.abs(b.x-S.px)<24&&Math.abs(b.y-py)<16){
+          b.ok=false; S.lives--;
+          updateScore('NVL '+(S.lvl+1)+' · '+S.score+' ♥'+S.lives);
+          if(S.lives<=0){S.over=true; draw(); gameOver(S.score);}
+        }
+      });
+      if(S.over)return;
 
-      // Game over solo si los aliens pasan la línea de la nave
-      if(alive.some(a=>a.baseY+AH>S.dangerY)){S.over=true;draw();gameOver(S.score);}
+      /* ── Game over si alien llega a la nave ── */
+      if(alive.some(a=>a.baseY+S.AH>S.dangerY)){
+        S.over=true; draw(); gameOver(S.score); return;
+      }
 
       draw();
     }
 
+    const AC_ROWS=['#ef5350','#ff7043','#ab47bc','#42a5f5','#00ffa8'];
+
     function draw(){
-      ctx.fillStyle='#020b10';ctx.fillRect(0,0,cv.width,cv.height);
+      if(!S)return;
+      const W=cv.width,H=cv.height;
+      ctx.fillStyle='#020b10'; ctx.fillRect(0,0,W,H);
+
+      /* Estrellas */
       S.stars.forEach(s=>{ctx.fillStyle='rgba(255,255,255,0.4)';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();});
 
-      // Línea de peligro (visual)
-      ctx.strokeStyle='rgba(239,83,80,0.18)';ctx.lineWidth=1;ctx.setLineDash([4,6]);
-      ctx.beginPath();ctx.moveTo(0,S.dangerY);ctx.lineTo(cv.width,S.dangerY);ctx.stroke();ctx.setLineDash([]);
+      /* Línea de peligro */
+      ctx.strokeStyle='rgba(239,83,80,0.15)';ctx.lineWidth=1;ctx.setLineDash([3,7]);
+      ctx.beginPath();ctx.moveTo(0,S.dangerY);ctx.lineTo(W,S.dangerY);ctx.stroke();
+      ctx.setLineDash([]);
 
-      const AC=['#ef5350','#ab47bc','#42a5f5','#00ffa8'];
+      /* Aliens */
+      const {AW,AH}=S;
       S.aliens.forEach(a=>{
         if(!a.alive)return;
-        const ax=a.baseX+S.offX,ay=a.baseY,ac=AC[a.row];const leg=S.frame%22<11?0:3;
-        ctx.fillStyle=ac;ctx.fillRect(ax+4,ay,AW-8,AH*0.65);ctx.fillRect(ax+1,ay+4,AW-2,AH*0.45);
-        ctx.fillRect(ax+4,ay-4,5,4);ctx.fillRect(ax+AW-9,ay-4,5,4);
-        ctx.fillStyle='#020b10';ctx.fillRect(ax+6,ay+3,3,3);ctx.fillRect(ax+AW-9,ay+3,3,3);
-        ctx.fillStyle=ac;ctx.fillRect(ax+leg,ay+AH*0.6,4,4);ctx.fillRect(ax+AW/2-2,ay+AH*0.6,4,4);ctx.fillRect(ax+AW-4-leg,ay+AH*0.6,4,4);
+        const ax=a.baseX+S.offX,ay=a.baseY,ac=AC_ROWS[a.row%5];
+        const leg=S.frame%22<11?0:2;
+        ctx.fillStyle=ac;
+        ctx.fillRect(ax+3,ay,AW-6,AH*0.60);
+        ctx.fillRect(ax,ay+4,AW,AH*0.42);
+        ctx.fillRect(ax+3,ay-3,4,3); ctx.fillRect(ax+AW-7,ay-3,4,3);
+        ctx.fillStyle='#020b10';
+        ctx.fillRect(ax+5,ay+3,3,3); ctx.fillRect(ax+AW-8,ay+3,3,3);
+        ctx.fillStyle=ac;
+        ctx.fillRect(ax+leg,ay+AH*0.58,3,3);
+        ctx.fillRect(ax+AW/2-1,ay+AH*0.58,3,3);
+        ctx.fillRect(ax+AW-3-leg,ay+AH*0.58,3,3);
       });
 
-      const py=cv.height-22;
-      const pg=ctx.createLinearGradient(S.px-22,0,S.px+22,0);pg.addColorStop(0,'#d4a017');pg.addColorStop(1,'#c25b12');
+      /* Nave jugador */
+      const py=H-22;
+      const pg=ctx.createLinearGradient(S.px-22,0,S.px+22,0);
+      pg.addColorStop(0,'#d4a017'); pg.addColorStop(1,'#c25b12');
       ctx.fillStyle=pg;
-      if(ctx.roundRect){ctx.beginPath();ctx.roundRect(S.px-22,py,44,13,4);ctx.fill();}else ctx.fillRect(S.px-22,py,44,13);
-      ctx.fillStyle='#d4a017';ctx.fillRect(S.px-4,py-10,8,12);
+      if(ctx.roundRect){ctx.beginPath();ctx.roundRect(S.px-22,py,44,12,4);ctx.fill();}
+      else ctx.fillRect(S.px-22,py,44,12);
+      ctx.fillStyle='#d4a017'; ctx.fillRect(S.px-3,py-9,6,10);
 
-      S.bullets.forEach(b=>{ctx.shadowColor='#00ffa8';ctx.shadowBlur=6;ctx.fillStyle='#00ffa8';ctx.fillRect(b.x-2,b.y-7,4,10);ctx.shadowBlur=0;});
-      S.bombs.forEach(b=>{ctx.fillStyle=S.frame%4<2?'#ef5350':'#ff7043';ctx.fillRect(b.x-2,b.y-5,4,10);});
+      /* Proyectiles */
+      S.bullets.forEach(b=>{ctx.shadowColor='#00ffa8';ctx.shadowBlur=5;ctx.fillStyle='#00ffa8';ctx.fillRect(b.x-2,b.y-6,4,9);ctx.shadowBlur=0;});
+      S.bombs.forEach(b=>{ctx.fillStyle=S.frame%4<2?'#ef5350':'#ff7043';ctx.fillRect(b.x-2,b.y-4,4,8);});
 
-      ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font='bold 13px monospace';
-      ctx.fillText(`SCORE ${S.score}  ♥${S.lives}  👾${S.aliens.filter(a=>a.alive).length}`,8,20);
+      /* HUD */
+      ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font='bold 12px monospace';
+      ctx.fillText('NVL '+(S.lvl+1)+' · SCORE '+S.score+'  ♥'+S.lives+'  👾'+S.aliens.filter(a=>a.alive).length,6,18);
 
-      if(touchFiring){ctx.fillStyle='rgba(0,255,168,0.18)';ctx.beginPath();ctx.arc(S.px,py+6,28,0,Math.PI*2);ctx.fill();}
+      /* Indicador de nivel en esquina */
+      ctx.textAlign='right';
+      ctx.fillStyle='rgba(212,160,23,0.5)';ctx.font='bold 11px monospace';
+      ctx.fillText(S.cfg.label+' '+S.cfg.color, W-6, 18);
+      ctx.textAlign='left';
+
+      /* Pantalla de nivel completado */
+      if(S.levelCleared){
+        ctx.fillStyle='rgba(2,11,16,0.82)';ctx.fillRect(0,0,W,H);
+        ctx.textAlign='center';
+        const nextLvl=S.lvl+1;
+        if(nextLvl<LEVELS.length){
+          ctx.fillStyle='#00ffa8';ctx.font=`bold ${Math.max(20,W/16)}px monospace`;
+          ctx.fillText('✅ NIVEL '+(S.lvl+1)+' COMPLETADO',W/2,H/2-28);
+          ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font=`bold ${Math.max(13,W/24)}px monospace`;
+          ctx.fillText('SCORE: '+S.score,W/2,H/2+2);
+          ctx.fillStyle='rgba(0,255,168,0.6)';ctx.font=`${Math.max(11,W/32)}px monospace`;
+          ctx.fillText('Preparando '+LEVELS[nextLvl].label+'...',W/2,H/2+30);
+        } else {
+          ctx.fillStyle='#ffd700';ctx.font=`bold ${Math.max(20,W/14)}px monospace`;
+          ctx.fillText('🏆 ¡COMPLETADO!',W/2,H/2-28);
+          ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font=`bold ${Math.max(13,W/22)}px monospace`;
+          ctx.fillText('SCORE FINAL: '+S.score,W/2,H/2+8);
+        }
+        ctx.textAlign='left';
+      }
+
+      if(touchFiring&&!S.levelCleared){ctx.fillStyle='rgba(0,255,168,0.15)';ctx.beginPath();ctx.arc(S.px,py+5,26,0,Math.PI*2);ctx.fill();}
     }
 
-    return{init,cleanup(){if(kh)document.removeEventListener('keydown',kh);if(ku)document.removeEventListener('keyup',ku);touchFiring=false;}};
+    return{
+      init,
+      cleanup(){
+        if(kh){document.removeEventListener('keydown',kh);document.removeEventListener('keyup',ku);}
+        touchFiring=false; S=null;
+      }
+    };
   })();
 
   /* ─────────────────── 2048 ───────────────────────────────── */
