@@ -20,6 +20,7 @@ const GamesEngine = (() => {
     { id:'g2048',    emoji:'🔮', name:'2048',           desc:'Combina hasta llegar a 2048',   hint:'Flechas / WASD · Desliza en móvil' },
     { id:'mines',    emoji:'💣', name:'MINESWEEPER',    desc:'Encuentra los campos seguros',  hint:'Clic revelar · Clic largo: bandera' },
     { id:'memory',   emoji:'🧠', name:'MEMORY MATCH',   desc:'Encuentra los pares ocultos',   hint:'Toca para voltear las cartas' },
+    { id:'wordsearch',emoji:'🔤', name:'SOPA DE LETRAS', desc:'Encuentra palabras de física',   hint:'Arrastra sobre las letras' },
   ];
 
   function featuredIndex(subjectId) {
@@ -29,7 +30,7 @@ const GamesEngine = (() => {
   }
 
   let overlayEl=null, gameBodyEl=null, animFrame=null, currentImpl=null, currentSubjectId='';
-  const DOM_GAMES = new Set(['sudoku','g2048','mines','memory']);
+  const DOM_GAMES = new Set(['sudoku','g2048','mines','memory','wordsearch']);
 
   /* ── init ─────────────────────────────────────────────────── */
   function init() {
@@ -512,123 +513,356 @@ const GamesEngine = (() => {
     };
   })();
 
-  /* ─────────────────── SNAKE (con inicio y victoria) ──────── */
+
+  /* ─────────────────── SNAKE — 3 Niveles ──────────────────── */
   Impls.snake = (() => {
     let cv,ctx,S,kh,iv;
     const SZ=20;
-    const WIN_LEN=20; // ¡llega a largo 20 para ganar!
 
-    function spawnFood(){
+    const LEVELS=[
+      {
+        label:'NIVEL 1', badge:'🐍',
+        winLen:15,           // largo para completar el nivel
+        interval:115,        // ms entre movimientos
+        minInterval:75,      // límite de aceleración
+        accelEvery:50,       // puntos para acelerar
+        accelStep:10,        // ms que se reduce el intervalo
+        walls:false,         // sin paredes = wrap
+        foodPts:10,
+        waveBonus:200,
+        gridColor:'rgba(11,59,70,0.28)',
+        snakeHue:155,        // tono verde
+        foodColor:'#ef5350',
+        foodPulse:true,
+        extraFood:false,     // sin comida extra
+      },
+      {
+        label:'NIVEL 2', badge:'🐍🐍',
+        winLen:25,
+        interval:90,
+        minInterval:55,
+        accelEvery:40,
+        accelStep:8,
+        walls:true,          // paredes matan — sin wrap
+        foodPts:15,
+        waveBonus:450,
+        gridColor:'rgba(60,20,80,0.32)',
+        snakeHue:270,        // tono morado
+        foodColor:'#d4a017',
+        foodPulse:true,
+        extraFood:true,      // aparece comida bonus amarilla (+30 pts)
+        bonusFoodPts:30,
+        bonusFoodLife:80,    // frames antes de desaparecer
+      },
+      {
+        label:'NIVEL 3', badge:'🐍🐍🐍',
+        winLen:35,
+        interval:68,
+        minInterval:38,
+        accelEvery:30,
+        accelStep:6,
+        walls:true,
+        foodPts:20,
+        waveBonus:800,
+        gridColor:'rgba(100,15,15,0.35)',
+        snakeHue:0,          // tono rojo
+        foodColor:'#00ffa8',
+        foodPulse:true,
+        extraFood:true,
+        bonusFoodPts:50,
+        bonusFoodLife:55,
+        obstacles:true,      // bloques obstáculo en el tablero
+      },
+    ];
+
+    /* ── Helpers ── */
+    function freeCell(){
       let p;
       do{p={x:Math.floor(Math.random()*S.cols),y:Math.floor(Math.random()*S.rows)};}
-      while(S.snake.some(s=>s.x===p.x&&s.y===p.y));
-      S.food=p;
+      while(
+        S.snake.some(s=>s.x===p.x&&s.y===p.y)||
+        (S.obstacles&&S.obstacles.some(o=>o.x===p.x&&o.y===p.y))||
+        (S.food&&S.food.x===p.x&&S.food.y===p.y)
+      );
+      return p;
     }
 
+    function spawnFood(){ S.food=freeCell(); }
+
+    function spawnBonus(){
+      if(!S.cfg.extraFood)return;
+      S.bonus={...freeCell(),life:S.cfg.bonusFoodLife};
+    }
+
+    function buildObstacles(cols,rows){
+      const obs=[];
+      const n=Math.floor(cols*rows*0.06); // ~6% del tablero
+      const cx=Math.floor(cols/2),cy=Math.floor(rows/2);
+      for(let i=0;i<n;i++){
+        let p;
+        do{p={x:Math.floor(Math.random()*cols),y:Math.floor(Math.random()*rows)};}
+        while(
+          (Math.abs(p.x-cx)<3&&Math.abs(p.y-cy)<3)||
+          obs.some(o=>o.x===p.x&&o.y===p.y)
+        );
+        obs.push(p);
+      }
+      return obs;
+    }
+
+    function buildState(lvlIdx,prevScore){
+      const cfg=LEVELS[lvlIdx];
+      return{
+        lvl:lvlIdx, cfg,
+        snake:null, dir:null, nd:null,
+        food:null, bonus:null,
+        bonusTimer:0,
+        obstacles:null,
+        score:prevScore||0,
+        cols:0,rows:0,
+        interval:cfg.interval,
+        over:false,won:false,
+        levelCleared:false,levelTimer:0,
+        started:false,
+      };
+    }
+
+    /* ── Tick ── */
     function tick(){
-      if(S.over)return;
+      if(!S||S.over)return;
       if(!S.started){draw();return;}
-      S.dir=S.nd;
-      const h={x:(S.snake[0].x+S.dir.x+S.cols)%S.cols,y:(S.snake[0].y+S.dir.y+S.rows)%S.rows};
-      if(S.snake.some(s=>s.x===h.x&&s.y===h.y)){
-        S.over=true;S.won=false;draw();
-        showGameMsg('💀 GAME OVER',`Puntuación: ${S.score} · Largo: ${S.snake.length}`);
+      if(S.levelCleared){
+        S.levelTimer--;
+        draw();
+        if(S.levelTimer<=0){
+          const next=S.lvl+1;
+          clearInterval(iv);iv=null;
+          if(next>=LEVELS.length){S.over=true;draw();showGameMsg('🏆 ¡MAESTRO SNAKE!','Score: '+S.score);return;}
+          initLevel(next,S.score);
+        }
         return;
       }
-      S.snake.unshift(h);
-      if(h.x===S.food.x&&h.y===S.food.y){
-        S.score+=10;updateScore(`${S.score}  LARGO ${S.snake.length}`);spawnFood();
-        if(S.score%60===0&&S.interval>70){clearInterval(iv);S.interval-=10;iv=setInterval(tick,S.interval);}
-        if(S.snake.length>=WIN_LEN){S.over=true;S.won=true;draw();showGameMsg('🏆 ¡VICTORIA!',`Puntuación: ${S.score} · ¡Largo ${WIN_LEN} alcanzado!`);return;}
-      } else {
-        S.snake.pop();
+
+      /* Bonus food countdown */
+      if(S.bonus){
+        S.bonus.life--;
+        if(S.bonus.life<=0)S.bonus=null;
       }
+      /* Spawn bonus periódicamente */
+      if(S.cfg.extraFood&&!S.bonus&&Math.random()<0.004)spawnBonus();
+
+      S.dir=S.nd;
+      let nx=S.snake[0].x+S.dir.x;
+      let ny=S.snake[0].y+S.dir.y;
+
+      /* Paredes */
+      if(S.cfg.walls){
+        if(nx<0||nx>=S.cols||ny<0||ny>=S.rows){
+          S.over=true;draw();showGameMsg('💀 GAME OVER','Chocaste con la pared · Score: '+S.score);return;
+        }
+      } else {
+        nx=(nx+S.cols)%S.cols; ny=(ny+S.rows)%S.rows;
+      }
+      const h={x:nx,y:ny};
+
+      /* Auto-colisión */
+      if(S.snake.some(s=>s.x===h.x&&s.y===h.y)){
+        S.over=true;draw();showGameMsg('💀 GAME OVER','Te mordiste · Score: '+S.score);return;
+      }
+      /* Obstáculos */
+      if(S.obstacles&&S.obstacles.some(o=>o.x===h.x&&o.y===h.y)){
+        S.over=true;draw();showGameMsg('💀 GAME OVER','Chocaste con un bloque · Score: '+S.score);return;
+      }
+
+      S.snake.unshift(h);
+      let grew=false;
+
+      /* Comer comida normal */
+      if(h.x===S.food.x&&h.y===S.food.y){
+        S.score+=S.cfg.foodPts*(S.lvl+1);
+        grew=true; spawnFood();
+        updateScore('NVL '+(S.lvl+1)+' · '+S.score+' LARGO '+S.snake.length+'/'+S.cfg.winLen);
+        /* Acelerar */
+        if(S.score%(S.cfg.accelEvery*(S.lvl+1))===0&&S.interval>S.cfg.minInterval){
+          clearInterval(iv); S.interval=Math.max(S.cfg.minInterval,S.interval-S.cfg.accelStep);
+          iv=setInterval(tick,S.interval);
+        }
+        /* ¿Nivel completado? */
+        if(S.snake.length>=S.cfg.winLen&&!S.levelCleared){
+          S.score+=S.cfg.waveBonus;
+          S.levelCleared=true; S.levelTimer=160;
+          clearInterval(iv); iv=null;
+          updateScore('NVL '+(S.lvl+1)+' · '+S.score);
+        }
+      }
+
+      /* Comer comida bonus */
+      if(S.bonus&&h.x===S.bonus.x&&h.y===S.bonus.y){
+        S.score+=S.cfg.bonusFoodPts*(S.lvl+1);
+        grew=true; S.bonus=null;
+        updateScore('NVL '+(S.lvl+1)+' · '+S.score+' LARGO '+S.snake.length+'/'+S.cfg.winLen);
+      }
+
+      if(!grew)S.snake.pop();
       draw();
     }
 
+    /* ── Draw ── */
     function draw(){
+      if(!S)return;
       ctx.fillStyle='#020b10';ctx.fillRect(0,0,cv.width,cv.height);
 
+      /* Pantalla de inicio */
       if(!S.started){
-        // Pantalla de inicio
-        ctx.fillStyle='rgba(2,11,16,0.92)';ctx.fillRect(0,0,cv.width,cv.height);
         ctx.textAlign='center';
-        ctx.fillStyle='#00ffa8';ctx.font=`bold ${Math.max(28,cv.width/12)}px monospace`;
-        ctx.fillText('🐍 SNAKE',cv.width/2,cv.height/2-60);
-        ctx.fillStyle='rgba(212,160,23,0.85)';ctx.font=`bold ${Math.max(11,cv.width/34)}px monospace`;
-        ctx.fillText('Come 🔴 para crecer',cv.width/2,cv.height/2-22);
-        ctx.fillText(`¡Meta: largo ${WIN_LEN}!`,cv.width/2,cv.height/2+4);
+        const cfg=S.cfg;
+        const snakeCol=`hsl(${cfg.snakeHue},85%,52%)`;
+        ctx.fillStyle=snakeCol;
+        ctx.font=`bold ${Math.max(24,cv.width/13)}px monospace`;
+        ctx.fillText('🐍 '+cfg.label,cv.width/2,cv.height/2-65);
+        ctx.font=`bold ${Math.max(11,cv.width/34)}px monospace`;
+        ctx.fillStyle='rgba(212,160,23,0.85)';
+        ctx.fillText('Meta: largo '+cfg.winLen+' · '+cfg.badge,cv.width/2,cv.height/2-28);
+        ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font=`${Math.max(10,cv.width/38)}px monospace`;
+        ctx.fillText(cfg.walls?'⚠ Hay paredes · No chocas':'↩ Puedes atravesar bordes',cv.width/2,cv.height/2-4);
+        if(cfg.obstacles)ctx.fillText('⬛ Evita los bloques',cv.width/2,cv.height/2+16);
+        if(cfg.extraFood)ctx.fillText('⭐ Comida bonus aparece y desaparece',cv.width/2,cv.height/2+(cfg.obstacles?36:22));
         ctx.fillStyle='rgba(0,255,168,0.7)';ctx.font=`bold ${Math.max(12,cv.width/30)}px monospace`;
-        ctx.fillText('▶  TOCA O PRESIONA TECLA',cv.width/2,cv.height/2+46);
-        ctx.fillStyle='rgba(74,106,114,0.6)';ctx.font=`${Math.max(10,cv.width/38)}px monospace`;
-        ctx.fillText('Flechas / WASD · Desliza en móvil',cv.width/2,cv.height/2+74);
+        ctx.fillText('▶ TOCA O PRESIONA TECLA',cv.width/2,cv.height/2+66);
         ctx.textAlign='left';
         return;
       }
 
-      // Cuadrícula
-      ctx.strokeStyle='rgba(11,59,70,0.28)';ctx.lineWidth=0.5;
+      /* Cuadrícula */
+      ctx.strokeStyle=S.cfg.gridColor;ctx.lineWidth=0.5;
       for(let x=0;x<cv.width;x+=SZ){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cv.height);ctx.stroke();}
       for(let y=0;y<cv.height;y+=SZ){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cv.width,y);ctx.stroke();}
 
-      // Comida
+      /* Paredes (borde rojo en niveles con paredes) */
+      if(S.cfg.walls){
+        ctx.strokeStyle=`hsl(${S.cfg.snakeHue},80%,35%)`;ctx.lineWidth=2;
+        ctx.strokeRect(1,1,cv.width-2,cv.height-2);
+      }
+
+      /* Obstáculos */
+      if(S.obstacles){
+        ctx.fillStyle='#1a1a2e';
+        S.obstacles.forEach(o=>{
+          ctx.fillRect(o.x*SZ+1,o.y*SZ+1,SZ-2,SZ-2);
+          ctx.fillStyle='rgba(255,255,255,0.04)';ctx.fillRect(o.x*SZ+1,o.y*SZ+1,SZ-2,4);
+          ctx.fillStyle='#1a1a2e';
+        });
+      }
+
+      /* Comida normal */
       const pulse=0.7+Math.sin(Date.now()*0.008)*0.3;
-      ctx.shadowColor='#ef5350';ctx.shadowBlur=8*pulse;
-      ctx.fillStyle='#ef5350';
+      ctx.shadowColor=S.cfg.foodColor;ctx.shadowBlur=8*pulse;
+      ctx.fillStyle=S.cfg.foodColor;
       ctx.beginPath();ctx.arc(S.food.x*SZ+SZ/2,S.food.y*SZ+SZ/2,SZ*0.38,0,Math.PI*2);ctx.fill();
       ctx.shadowBlur=0;
 
-      // Serpiente
+      /* Comida bonus */
+      if(S.bonus){
+        const bp=S.bonus.life/S.cfg.bonusFoodLife;
+        ctx.shadowColor='#ffd700';ctx.shadowBlur=10;
+        ctx.fillStyle=`rgba(255,215,0,${0.5+bp*0.5})`;
+        ctx.beginPath();
+        ctx.moveTo(S.bonus.x*SZ+SZ/2,S.bonus.y*SZ+2);
+        for(let i=0;i<5;i++){
+          const a1=Math.PI*2/5*i-Math.PI/2;
+          const a2=a1+Math.PI/5;
+          ctx.lineTo(S.bonus.x*SZ+SZ/2+Math.cos(a1)*(SZ*0.42),S.bonus.y*SZ+SZ/2+Math.sin(a1)*(SZ*0.42));
+          ctx.lineTo(S.bonus.x*SZ+SZ/2+Math.cos(a2)*(SZ*0.22),S.bonus.y*SZ+SZ/2+Math.sin(a2)*(SZ*0.22));
+        }
+        ctx.closePath();ctx.fill();
+        ctx.shadowBlur=0;
+      }
+
+      /* Serpiente */
       S.snake.forEach((s,i)=>{
         const t=i/Math.max(1,S.snake.length-1);
-        ctx.fillStyle=`hsl(${155-t*30},85%,${52-t*18}%)`;
+        ctx.fillStyle=`hsl(${S.cfg.snakeHue-t*25},85%,${52-t*18}%)`;
         if(ctx.roundRect){ctx.beginPath();ctx.roundRect(s.x*SZ+1,s.y*SZ+1,SZ-2,SZ-2,4);ctx.fill();}
         else ctx.fillRect(s.x*SZ+1,s.y*SZ+1,SZ-2,SZ-2);
         if(i===0){
           ctx.fillStyle='#020b10';
-          const ew=S.dir.y!==0?SZ/2-2:SZ*0.65,eh=S.dir.x!==0?SZ/2-2:SZ*0.65;
-          ctx.fillRect(s.x*SZ+(SZ-ew)/2-S.dir.x*2,s.y*SZ+SZ*0.2-S.dir.y*2,3,3);
-          ctx.fillRect(s.x*SZ+(SZ-ew)/2-S.dir.x*2+ew*0.5,s.y*SZ+SZ*0.2-S.dir.y*2,3,3);
+          ctx.fillRect(s.x*SZ+(SZ-S.dir.y*2)/2-S.dir.x*2,s.y*SZ+SZ*0.2-S.dir.y*2,3,3);
+          ctx.fillRect(s.x*SZ+(SZ-S.dir.y*2)/2-S.dir.x*2+5,s.y*SZ+SZ*0.2-S.dir.y*2,3,3);
         }
       });
 
-      // HUD
-      ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font='bold 13px monospace';
-      ctx.fillText(`SCORE ${S.score}  LARGO ${S.snake.length}/${WIN_LEN}`,8,16);
+      /* HUD */
+      ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font='bold 12px monospace';
+      ctx.fillText('NVL '+(S.lvl+1)+' · '+S.score+'  LARGO '+S.snake.length+'/'+S.cfg.winLen,6,15);
 
-      // Barra de progreso
-      const prog=Math.min(1,S.snake.length/WIN_LEN);
-      ctx.fillStyle='rgba(11,59,70,0.6)';ctx.fillRect(8,cv.height-10,cv.width-16,6);
-      const pg=ctx.createLinearGradient(8,0,8+prog*(cv.width-16),0);
-      pg.addColorStop(0,'#00ffa8');pg.addColorStop(1,'#d4a017');
-      ctx.fillStyle=pg;ctx.fillRect(8,cv.height-10,prog*(cv.width-16),6);
+      /* Barra de progreso */
+      const prog=Math.min(1,S.snake.length/S.cfg.winLen);
+      ctx.fillStyle='rgba(11,59,70,0.55)';ctx.fillRect(6,cv.height-9,cv.width-12,5);
+      const pg=ctx.createLinearGradient(6,0,6+prog*(cv.width-12),0);
+      pg.addColorStop(0,`hsl(${S.cfg.snakeHue},85%,52%)`);
+      pg.addColorStop(1,'#d4a017');
+      ctx.fillStyle=pg;ctx.fillRect(6,cv.height-9,prog*(cv.width-12),5);
+
+      /* Pantalla de nivel completado */
+      if(S.levelCleared){
+        ctx.fillStyle='rgba(2,11,16,0.88)';ctx.fillRect(0,0,cv.width,cv.height);
+        ctx.textAlign='center';
+        const next=S.lvl+1;
+        if(next<LEVELS.length){
+          ctx.fillStyle=`hsl(${S.cfg.snakeHue},85%,60%)`;
+          ctx.font=`bold ${Math.max(16,cv.width/18)}px monospace`;
+          ctx.fillText('✅ NIVEL '+(S.lvl+1)+' COMPLETADO',cv.width/2,cv.height/2-30);
+          ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font=`bold ${Math.max(12,cv.width/26)}px monospace`;
+          ctx.fillText('SCORE: '+S.score+'  +'+S.cfg.waveBonus+' BONUS',cv.width/2,cv.height/2+4);
+          ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font=`${Math.max(10,cv.width/36)}px monospace`;
+          ctx.fillText('Preparando '+LEVELS[next].label+' '+LEVELS[next].badge+'...',cv.width/2,cv.height/2+28);
+        }else{
+          ctx.fillStyle='#ffd700';ctx.font=`bold ${Math.max(18,cv.width/14)}px monospace`;
+          ctx.fillText('🏆 ¡MAESTRO SNAKE!',cv.width/2,cv.height/2-28);
+          ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font=`bold ${Math.max(12,cv.width/22)}px monospace`;
+          ctx.fillText('SCORE FINAL: '+S.score,cv.width/2,cv.height/2+6);
+        }
+        ctx.textAlign='left';
+      }
+    }
+
+    /* ── initLevel ── */
+    function initLevel(lvlIdx,prevScore){
+      if(iv){clearInterval(iv);iv=null;}
+      S=buildState(lvlIdx,prevScore);
+      const cols=Math.floor(cv.width/SZ),rows=Math.floor(cv.height/SZ);
+      S.cols=cols;S.rows=rows;
+      const cx=Math.floor(cols/2),cy=Math.floor(rows/2);
+      S.snake=[{x:cx,y:cy},{x:cx-1,y:cy},{x:cx-2,y:cy}];
+      S.dir={x:1,y:0};S.nd={x:1,y:0};
+      if(S.cfg.obstacles)S.obstacles=buildObstacles(cols,rows);
+      spawnFood();
+      updateScore('NVL '+(lvlIdx+1)+' · '+(prevScore||0)+' LARGO 3/'+S.cfg.winLen);
+      draw();
+      iv=setInterval(tick,S.interval);
     }
 
     return{
       init(c){
         cv=c;ctx=c.getContext('2d');
-        const cols=Math.floor(c.width/SZ),rows=Math.floor(c.height/SZ);
-        const cx=Math.floor(cols/2),cy=Math.floor(rows/2);
-        S={snake:[{x:cx,y:cy},{x:cx-1,y:cy},{x:cx-2,y:cy}],dir:{x:1,y:0},nd:{x:1,y:0},food:null,score:0,cols,rows,interval:115,over:false,won:false,started:false};
-        spawnFood();
-        updateScore(`0  LARGO 3/${WIN_LEN}`);
-
+        S=null;
         kh=e=>{
-          const m={ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},w:{x:0,y:-1},s:{x:0,y:1},a:{x:-1,y:0},d:{x:1,y:0}};
+          const m={ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},
+                   w:{x:0,y:-1},s:{x:0,y:1},a:{x:-1,y:0},d:{x:1,y:0}};
           const nd=m[e.key];
-          if(nd){
+          if(nd&&S){
             if(!S.started)S.started=true;
             if(!(nd.x===-S.dir.x&&nd.y===-S.dir.y)){S.nd=nd;e.preventDefault();}
           }
         };
         document.addEventListener('keydown',kh);
-
         let tx=0,ty=0;
         c.addEventListener('touchstart',e=>{
           tx=e.touches[0].clientX;ty=e.touches[0].clientY;
-          if(!S.started){S.started=true;}
+          if(S&&!S.started)S.started=true;
         },{passive:true});
         c.addEventListener('touchend',e=>{
+          if(!S)return;
           const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
           if(Math.abs(dx)<10&&Math.abs(dy)<10)return;
           let nd;
@@ -636,14 +870,15 @@ const GamesEngine = (() => {
           else nd=dy>0?{x:0,y:1}:{x:0,y:-1};
           if(!(nd.x===-S.dir.x&&nd.y===-S.dir.y))S.nd=nd;
         },{passive:true});
-
-        iv=setInterval(tick,S.interval);
-        draw(); // mostrar pantalla de inicio
+        initLevel(0,0);
       },
-      cleanup(){if(kh)document.removeEventListener('keydown',kh);if(iv){clearInterval(iv);iv=null;}}
+      cleanup(){
+        if(kh)document.removeEventListener('keydown',kh);
+        if(iv){clearInterval(iv);iv=null;}
+        S=null;
+      }
     };
   })();
-
 
   /* ─────────────────── BREAKOUT — 3 Niveles ───────────────── */
   Impls.breakout = (() => {
@@ -2684,6 +2919,358 @@ const GamesEngine = (() => {
         // Sin timer en nivel 1
       },
       nextLevel,
+      cleanup(){clearInterval(timerIv);timerIv=null;S=null;}
+    };
+  })();
+
+
+  /* ═══════════════════════════════════════════════════════════
+     SOPA DE LETRAS — 3 Niveles
+  ═══════════════════════════════════════════════════════════ */
+  Impls.wordsearch = (() => {
+
+    /* ── Niveles ────────────────────────────────────────────── */
+    const LEVELS = [
+      {
+        label:'NIVEL 1', badge:'🔤',
+        size: 9,
+        timeLimit: 0,           // sin límite
+        dirs: [[0,1],[1,0]],    // solo horizontal y vertical
+        accentColor:'#00ffa8',
+        waveBonus: 300,
+        words: ['ATOMO','FUERZA','LUZ','MASA','ONDA','CALOR','ION'],
+      },
+      {
+        label:'NIVEL 2', badge:'🔤🔤',
+        size: 12,
+        timeLimit: 120,         // 2 minutos
+        dirs: [[0,1],[1,0],[1,1],[1,-1]], // + diagonales
+        accentColor:'#d4a017',
+        waveBonus: 600,
+        words: ['ELECTRON','PROTON','NEUTRON','ENERGIA','CAMPO','VOLTAJE','CIRCUITO','FRECUENCIA'],
+      },
+      {
+        label:'NIVEL 3', badge:'🔤🔤🔤',
+        size: 15,
+        timeLimit: 150,         // 2.5 minutos
+        dirs: [[0,1],[1,0],[1,1],[1,-1],[0,-1],[-1,0],[-1,-1],[-1,1]], // todas + inversas
+        accentColor:'#ef5350',
+        waveBonus: 1000,
+        words: ['MAGNETISMO','RESISTENCIA','TERMODINAMICA','ACELERACION','GRAVITACION','CAPACITANCIA','INDUCTANCIA','OSCILACION','REFRACCION','DIFRACCION'],
+      },
+    ];
+
+    let S, cont, timerIv=null;
+
+    /* ── Construir grilla ─────────────────────────────────────── */
+    function buildGrid(size, words, dirs) {
+      const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const grid  = Array.from({length:size}, ()=>Array(size).fill(''));
+      const placed = [];   // {word, cells:[{r,c}]}
+
+      function tryPlace(word) {
+        const shuffledDirs = [...dirs].sort(()=>Math.random()-0.5);
+        for (let attempt=0; attempt<120; attempt++) {
+          const dir = shuffledDirs[attempt % shuffledDirs.length];
+          const dr=dir[0], dc=dir[1];
+          const r0 = Math.floor(Math.random()*size);
+          const c0 = Math.floor(Math.random()*size);
+          const r1 = r0 + dr*(word.length-1);
+          const c1 = c0 + dc*(word.length-1);
+          if(r1<0||r1>=size||c1<0||c1>=size) continue;
+          const cells = [];
+          let ok = true;
+          for(let i=0;i<word.length;i++){
+            const r=r0+dr*i, c=c0+dc*i;
+            if(grid[r][c]!==''&&grid[r][c]!==word[i]){ok=false;break;}
+            cells.push({r,c});
+          }
+          if(!ok) continue;
+          cells.forEach((cell,i)=>{ grid[cell.r][cell.c]=word[i]; });
+          placed.push({word, cells});
+          return true;
+        }
+        return false;
+      }
+
+      // Ordenar por longitud desc para colocar las más largas primero
+      const sorted = [...words].sort((a,b)=>b.length-a.length);
+      sorted.forEach(w=>tryPlace(w));
+
+      // Rellenar con letras aleatorias
+      for(let r=0;r<size;r++)
+        for(let c=0;c<size;c++)
+          if(grid[r][c]==='') grid[r][c]=ALPHA[Math.floor(Math.random()*ALPHA.length)];
+
+      return {grid, placed};
+    }
+
+    /* ── Inicializar nivel ────────────────────────────────────── */
+    function buildState(lvlIdx, prevScore) {
+      const cfg  = LEVELS[lvlIdx];
+      const {grid, placed} = buildGrid(cfg.size, cfg.words, cfg.dirs);
+      return {
+        lvl:lvlIdx, cfg, grid,
+        placed,                              // palabras colocadas en la grilla
+        words: placed.map(p=>p.word),        // solo las que se lograron colocar
+        found: [],                           // palabras encontradas
+        score: prevScore||0,
+        timeLeft: cfg.timeLimit||null,
+        drag: null,     // {r0,c0,r,c} celda inicio y celda actual del arrastre
+        over: false,
+        levelCleared: false,
+      };
+    }
+
+    /* ── Timer ─────────────────────────────────────────────── */
+    function startTimer() {
+      if(timerIv) clearInterval(timerIv);
+      if(!S.cfg.timeLimit) return;
+      timerIv = setInterval(()=>{
+        if(!S||S.over||S.levelCleared){clearInterval(timerIv);return;}
+        S.timeLeft--;
+        const el=cont.querySelector('#wsTimer');
+        if(el){
+          el.textContent='⏱ '+S.timeLeft+'s';
+          el.style.color=S.timeLeft<=20?'#ef5350':S.timeLeft<=40?'#d4a017':'#4a6a72';
+        }
+        const bar=cont.querySelector('#wsTimerBar');
+        if(bar) bar.style.width=(S.timeLeft/S.cfg.timeLimit*100)+'%';
+        if(S.timeLeft<=0){
+          clearInterval(timerIv);
+          S.over=true; S.timeOut=true;
+          render();
+        }
+      },1000);
+    }
+
+    /* ── Lógica de selección ──────────────────────────────────── */
+    function getCellsInLine(r0,c0,r1,c1) {
+      // Devuelve celdas en línea recta entre (r0,c0) y (r1,c1) si es válido
+      const dr=r1-r0, dc=c1-c0;
+      const len=Math.max(Math.abs(dr),Math.abs(dc));
+      if(len===0) return [{r:r0,c:c0}];
+      // Debe ser horizontal, vertical o diagonal exacta
+      if(dr!==0&&dc!==0&&Math.abs(dr)!==Math.abs(dc)) return null;
+      const sr=dr===0?0:dr/Math.abs(dr);
+      const sc=dc===0?0:dc/Math.abs(dc);
+      const cells=[];
+      for(let i=0;i<=len;i++) cells.push({r:r0+sr*i,c:c0+sc*i});
+      return cells;
+    }
+
+    function checkSelection(r0,c0,r1,c1) {
+      const cells=getCellsInLine(r0,c0,r1,c1);
+      if(!cells||cells.length<2) return null;
+      const word=cells.map(cell=>S.grid[cell.r][cell.c]).join('');
+      // Buscar coincidencia en palabras pendientes
+      for(const p of S.placed) {
+        if(S.found.includes(p.word)) continue;
+        const pWord=p.cells.map(cell=>S.grid[cell.r][cell.c]).join('');
+        if(word===pWord) {
+          // Verificar que las celdas coincidan
+          if(cells.length===p.cells.length &&
+             cells.every((cell,i)=>cell.r===p.cells[i].r&&cell.c===p.cells[i].c)){
+            return p.word;
+          }
+        }
+      }
+      return null;
+    }
+
+    /* ── Render ─────────────────────────────────────────────── */
+    function render() {
+      if(!cont||!S) return;
+      const cfg=S.cfg;
+      const size=cfg.size;
+
+      // Tamaño de celda adaptado al contenedor
+      const cellPx=`clamp(${size>=15?'17px':size>=12?'22px':'28px'}, ${size>=15?'5.5vw':size>=12?'7vw':'9vw'}, ${size>=15?'26px':size>=12?'32px':'38px'})`;
+      const fontPx=`clamp(${size>=15?'8px':size>=12?'10px':'12px'}, ${size>=15?'2.2vw':size>=12?'2.8vw':'3.5vw'}, ${size>=15?'13px':size>=12?'16px':'18px'})`;
+      const timePct=cfg.timeLimit&&S.timeLeft!=null?S.timeLeft/cfg.timeLimit:1;
+
+      // Celdas resaltadas por el arrastre actual
+      let dragCells=[];
+      if(S.drag&&S.drag.active){
+        const cells=getCellsInLine(S.drag.r0,S.drag.c0,S.drag.r,S.drag.c);
+        if(cells) dragCells=cells;
+      }
+
+      // Celdas de palabras encontradas
+      const foundCells={};
+      S.placed.forEach(p=>{
+        if(S.found.includes(p.word))
+          p.cells.forEach(cell=>{ foundCells[cell.r+','+cell.c]=p.word; });
+      });
+
+      cont.innerHTML=`
+        <div style="display:flex;flex-direction:column;align-items:center;padding:10px 4px 20px;width:100%;user-select:none;-webkit-user-select:none">
+
+          <!-- Header -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">
+            <span style="font-size:12px;color:${cfg.accentColor};font-weight:800;letter-spacing:2px">${cfg.label}</span>
+            <span style="font-size:12px">${cfg.badge}</span>
+            ${cfg.timeLimit?`<span id="wsTimer" style="font-size:13px;font-weight:800;color:#4a6a72">⏱ ${S.timeLeft!=null?S.timeLeft:cfg.timeLimit}s</span>`:''}
+          </div>
+
+          <!-- Barra de tiempo -->
+          ${cfg.timeLimit?`
+          <div style="width:min(${size>=15?'420px':'360px'},94vw);height:4px;background:#0b3b46;border-radius:4px;margin-bottom:8px;overflow:hidden">
+            <div id="wsTimerBar" style="height:100%;width:${timePct*100}%;background:${S.timeLeft<=20?'#ef5350':S.timeLeft<=40?'#d4a017':'#26c6da'};border-radius:4px;transition:width 0.9s linear"></div>
+          </div>`:
+          '<div style="margin-bottom:8px"></div>'}
+
+          <!-- HUD progreso -->
+          <div style="font-size:13px;font-weight:800;color:${cfg.accentColor};margin-bottom:8px">
+            ${S.found.length}/${S.words.length} palabras · SCORE: ${S.score}
+          </div>
+
+          <!-- Instrucción -->
+          <div style="font-size:10px;color:#2a4a52;margin-bottom:8px;text-align:center">
+            ${cfg.dirs.length<=2?'↔ Solo horizontal y vertical':''}
+            ${cfg.dirs.length===4?'↔ ↕ ↗ ↘ Horizontal, vertical y diagonal':''}
+            ${cfg.dirs.length===8?'↔ ↕ ↗ ↘ Todas las direcciones + inversas':''}
+          </div>
+
+          <!-- Grilla -->
+          <div id="wsGrid" style="display:grid;grid-template-columns:repeat(${size},${cellPx});gap:2px;background:#0b3b46;padding:4px;border-radius:10px;touch-action:none;cursor:crosshair">
+            ${S.grid.map((row,r)=>row.map((letter,c)=>{
+              const key=r+','+c;
+              const isFound=foundCells[key]!==undefined;
+              const isDrag=dragCells.some(d=>d.r===r&&d.c===c);
+              let bg='#0a1e28', color='#7ab0c0', border='none';
+              if(isFound){bg=cfg.accentColor+'22'; color=cfg.accentColor; border=`1px solid ${cfg.accentColor}55`;}
+              if(isDrag){bg='#1a3f55'; color='#ffd740'; border='1px solid #ffd74055';}
+              return `<div class="ws-cell" data-r="${r}" data-c="${c}" style="
+                width:${cellPx};height:${cellPx};
+                background:${bg};border:${border};
+                border-radius:5px;display:flex;align-items:center;justify-content:center;
+                font-size:${fontPx};font-weight:800;color:${color};
+                box-sizing:border-box;-webkit-tap-highlight-color:transparent;
+              ">${letter}</div>`;
+            }).join('')).join('')}
+          </div>
+
+          <!-- Lista de palabras -->
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;justify-content:center;width:min(${size>=15?'420px':'360px'},94vw)">
+            ${S.words.map(w=>{
+              const done=S.found.includes(w);
+              return `<span style="
+                font-size:clamp(9px,2.8vw,12px);font-weight:800;letter-spacing:1px;
+                padding:3px 8px;border-radius:6px;
+                background:${done?cfg.accentColor+'22':'#0a1e28'};
+                color:${done?cfg.accentColor:'#2a4a52'};
+                border:1px solid ${done?cfg.accentColor+'55':'#0b3b46'};
+                text-decoration:${done?'line-through':'none'};
+              ">${w}</span>`;
+            }).join('')}
+          </div>
+
+          <!-- Estado final -->
+          ${S.over?`
+          <div style="margin-top:18px;text-align:center">
+            ${S.levelCleared?`
+              <div style="color:${cfg.accentColor};font-size:15px;font-weight:800;letter-spacing:2px;margin-bottom:6px">
+                ${S.lvl<LEVELS.length-1?'✅ ¡NIVEL '+(S.lvl+1)+' COMPLETADO!':'🏆 ¡MAESTRO LÉXICO!'}
+              </div>
+              <div style="color:#4a6a72;font-size:11px;margin-bottom:12px">+${cfg.waveBonus} bonus · SCORE: ${S.score}</div>
+              ${S.lvl<LEVELS.length-1
+                ?`<button id="wsNextBtn" style="background:linear-gradient(135deg,${cfg.accentColor},#0a8f6a);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 20px;cursor:pointer;margin-right:6px">▶ NIVEL ${S.lvl+2}</button>`
+                :''}
+              <button onclick="GamesEngine.launch('wordsearch')" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;padding:9px 14px;cursor:pointer;margin-right:6px">↺ REINICIAR</button>
+              <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;padding:9px 14px;cursor:pointer">◀ VOLVER</button>
+            `:`
+              <div style="color:#ef5350;font-size:15px;font-weight:800;letter-spacing:2px;margin-bottom:6px">⏰ ¡TIEMPO AGOTADO!</div>
+              <div style="color:#4a6a72;font-size:11px;margin-bottom:12px">${S.found.length}/${S.words.length} palabras · SCORE: ${S.score}</div>
+              <button onclick="GamesEngine.launch('wordsearch')" style="background:linear-gradient(135deg,#d4a017,#c25b12);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 20px;cursor:pointer;margin-right:6px">↺ REINICIAR</button>
+              <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;padding:9px 14px;cursor:pointer">◀ VOLVER</button>
+            `}
+          </div>`:''}
+        </div>`;
+
+      attachGridEvents();
+
+      // Botón siguiente nivel
+      const nBtn=cont.querySelector('#wsNextBtn');
+      if(nBtn) nBtn.addEventListener('click',()=>nextLevel());
+    }
+
+    /* ── Eventos de la grilla ─────────────────────────────────── */
+    function attachGridEvents() {
+      const grid=cont.querySelector('#wsGrid');
+      if(!grid||S.over) return;
+
+      function cellAt(e) {
+        const touch=e.touches?e.touches[0]:(e.changedTouches?e.changedTouches[0]:e);
+        const el=document.elementFromPoint(touch.clientX,touch.clientY);
+        if(!el||!el.dataset.r) return null;
+        return {r:+el.dataset.r, c:+el.dataset.c};
+      }
+
+      function startDrag(e) {
+        const cell=cellAt(e);
+        if(!cell) return;
+        S.drag={r0:cell.r,c0:cell.c,r:cell.r,c:cell.c,active:true};
+        render();
+      }
+
+      function moveDrag(e) {
+        if(!S.drag||!S.drag.active) return;
+        e.preventDefault();
+        const cell=cellAt(e);
+        if(!cell) return;
+        if(S.drag.r!==cell.r||S.drag.c!==cell.c){
+          S.drag.r=cell.r; S.drag.c=cell.c;
+          render();
+        }
+      }
+
+      function endDrag(e) {
+        if(!S.drag||!S.drag.active) return;
+        const cell=cellAt(e)||{r:S.drag.r,c:S.drag.c};
+        S.drag.active=false;
+        const found=checkSelection(S.drag.r0,S.drag.c0,cell.r,cell.c);
+        if(found&&!S.found.includes(found)){
+          S.found.push(found);
+          S.score+=found.length*10*(S.lvl+1);
+          // Bonus de tiempo restante
+          if(S.cfg.timeLimit&&S.timeLeft) S.score+=Math.floor(S.timeLeft/5);
+          if(S.found.length===S.words.length){
+            clearInterval(timerIv);
+            S.score+=S.cfg.waveBonus;
+            S.levelCleared=true; S.over=true;
+          }
+        }
+        S.drag=null;
+        render();
+      }
+
+      // Mouse
+      grid.addEventListener('mousedown',startDrag);
+      grid.addEventListener('mousemove',e=>{if(e.buttons===1)moveDrag(e);});
+      grid.addEventListener('mouseup',endDrag);
+      grid.addEventListener('mouseleave',e=>{if(S.drag&&S.drag.active)endDrag(e);});
+
+      // Touch
+      grid.addEventListener('touchstart',e=>{e.preventDefault();startDrag(e);},{passive:false});
+      grid.addEventListener('touchmove', e=>{e.preventDefault();moveDrag(e); },{passive:false});
+      grid.addEventListener('touchend',  e=>{e.preventDefault();endDrag(e);  },{passive:false});
+    }
+
+    function nextLevel(){
+      clearInterval(timerIv);
+      S=buildState(S.lvl+1,S.score);
+      render();
+      startTimer();
+    }
+
+    return {
+      init(c){
+        clearInterval(timerIv);
+        cont=c; S=buildState(0,0);
+        render();
+        // Nivel 1 no tiene timer
+      },
       cleanup(){clearInterval(timerIv);timerIv=null;S=null;}
     };
   })();
