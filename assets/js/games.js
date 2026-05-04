@@ -631,17 +631,7 @@ const GamesEngine = (() => {
     function tick(){
       if(!S||S.over)return;
       if(!S.started){draw();return;}
-      if(S.levelCleared){
-        S.levelTimer--;
-        draw();
-        if(S.levelTimer<=0){
-          const next=S.lvl+1;
-          clearInterval(iv);iv=null;
-          if(next>=LEVELS.length){S.over=true;draw();showGameMsg('🏆 ¡MAESTRO SNAKE!','Score: '+S.score);return;}
-          initLevel(next,S.score);
-        }
-        return;
-      }
+      if(S.levelCleared){ draw(); return; }
 
       /* Bonus food countdown */
       if(S.bonus){
@@ -690,8 +680,15 @@ const GamesEngine = (() => {
         /* ¿Nivel completado? */
         if(S.snake.length>=S.cfg.winLen&&!S.levelCleared){
           S.score+=S.cfg.waveBonus;
-          S.levelCleared=true; S.levelTimer=160;
+          S.levelCleared=true;
           updateScore('NVL '+(S.lvl+1)+' · '+S.score);
+          clearInterval(iv); iv=null;
+          setTimeout(()=>{
+            if(!S||!S.levelCleared) return;
+            const next=S.lvl+1;
+            if(next>=LEVELS.length){S.over=true;draw();showGameMsg('🏆 ¡MAESTRO SNAKE!','Score final: '+S.score);return;}
+            initLevel(next,S.score);
+          }, 2200);
         }
       }
 
@@ -3053,13 +3050,13 @@ const GamesEngine = (() => {
       const cells=lineFrom(r0,c0,r1,c1);
       if(!cells||cells.length<2) return null;
       const word=cells.map(({r,c})=>S.grid[r][c]).join('');
-      for(const p of S.placed){
-        if(S.found.includes(p.word)) continue;
-        const pw=p.cells.map(({r,c})=>S.grid[r][c]).join('');
-        if(word===pw&&cells.length===p.cells.length&&
-           cells.every(({r,c},i)=>r===p.cells[i].r&&c===p.cells[i].c))
-          return p.word;
-      }
+      // Match solo por string — robusto ante imprecisión del dedo
+      const fwd=S.placed.find(p=>!S.found.includes(p.word)&&p.word===word);
+      if(fwd) return fwd.word;
+      // También aceptar la palabra al revés (arrastre en sentido contrario)
+      const rev=word.split('').reverse().join('');
+      const bwd=S.placed.find(p=>!S.found.includes(p.word)&&p.word===rev);
+      if(bwd) return bwd.word;
       return null;
     }
 
@@ -3146,14 +3143,15 @@ const GamesEngine = (() => {
       const done=S.found.includes(w);
       const col=S.foundColors[w]||cfg.accentColor;
       return `<span style="
-        font-size:clamp(9px,2.6vw,12px);font-weight:800;letter-spacing:1px;padding:4px 9px;
-        border-radius:7px;transition:all 0.3s;
-        background:${done?col+'28':'#0a1e28'};
-        color:${done?col:'#1e3a42'};
-        border:1.5px solid ${done?col+'77':'#0b3b46'};
+        font-size:clamp(9px,2.8vw,13px);font-weight:800;letter-spacing:1px;padding:5px 11px;
+        border-radius:8px;transition:all 0.35s;
+        background:${done?col:'#0a1e28'};
+        color:${done?'#020b10':'#2a5a6a'};
+        border:2px solid ${done?col:'#0f3a46'};
         text-decoration:${done?'line-through':'none'};
-        box-shadow:${done?`0 0 8px ${col}44`:'none'};
-      ">${done?'✔ ':''} ${w}</span>`;
+        box-shadow:${done?`0 0 12px ${col}88`:'none'};
+        opacity:${done?'1':'0.6'};
+      ">${done?'✔ '+w:w}</span>`;
     }).join('')}
   </div>
 
