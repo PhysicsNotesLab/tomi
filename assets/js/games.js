@@ -2927,350 +2927,356 @@ const GamesEngine = (() => {
   /* ═══════════════════════════════════════════════════════════
      SOPA DE LETRAS — 3 Niveles
   ═══════════════════════════════════════════════════════════ */
+
+  /* ═══════════════════════════════════════════════════════════
+     SOPA DE LETRAS — 3 Niveles  (v2 — feedback visual completo)
+  ═══════════════════════════════════════════════════════════ */
   Impls.wordsearch = (() => {
 
-    /* ── Niveles ────────────────────────────────────────────── */
     const LEVELS = [
       {
         label:'NIVEL 1', badge:'🔤',
-        size: 9,
-        timeLimit: 0,           // sin límite
-        dirs: [[0,1],[1,0]],    // solo horizontal y vertical
-        accentColor:'#00ffa8',
-        waveBonus: 300,
-        words: ['ATOMO','FUERZA','LUZ','MASA','ONDA','CALOR','ION'],
+        size:9, timeLimit:0,
+        dirs:[[0,1],[1,0],[0,-1],[-1,0]],   // H y V (sin diagonal)
+        accentColor:'#00ffa8', accentRGB:'0,255,168',
+        waveBonus:300,
+        words:['ATOMO','FUERZA','LUZ','MASA','ONDA','CALOR','ION'],
+        colors:['#00ffa8','#42a5f5','#ab47bc','#ff7043','#ffd740','#26c6da','#66bb6a'],
       },
       {
         label:'NIVEL 2', badge:'🔤🔤',
-        size: 12,
-        timeLimit: 120,         // 2 minutos
-        dirs: [[0,1],[1,0],[1,1],[1,-1]], // + diagonales
-        accentColor:'#d4a017',
-        waveBonus: 600,
-        words: ['ELECTRON','PROTON','NEUTRON','ENERGIA','CAMPO','VOLTAJE','CIRCUITO','FRECUENCIA'],
+        size:12, timeLimit:120,
+        dirs:[[0,1],[1,0],[0,-1],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]],
+        accentColor:'#d4a017', accentRGB:'212,160,23',
+        waveBonus:600,
+        words:['ELECTRON','PROTON','NEUTRON','ENERGIA','CAMPO','VOLTAJE','CIRCUITO','FRECUENCIA'],
+        colors:['#d4a017','#ef5350','#ab47bc','#42a5f5','#00ffa8','#ff7043','#26c6da','#ffd740'],
       },
       {
         label:'NIVEL 3', badge:'🔤🔤🔤',
-        size: 15,
-        timeLimit: 150,         // 2.5 minutos
-        dirs: [[0,1],[1,0],[1,1],[1,-1],[0,-1],[-1,0],[-1,-1],[-1,1]], // todas + inversas
-        accentColor:'#ef5350',
-        waveBonus: 1000,
-        words: ['MAGNETISMO','RESISTENCIA','TERMODINAMICA','ACELERACION','GRAVITACION','CAPACITANCIA','INDUCTANCIA','OSCILACION','REFRACCION','DIFRACCION'],
+        size:15, timeLimit:150,
+        dirs:[[0,1],[1,0],[0,-1],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]],
+        accentColor:'#ef5350', accentRGB:'239,83,80',
+        waveBonus:1000,
+        words:['MAGNETISMO','RESISTENCIA','ACELERACION','GRAVITACION','CAPACITANCIA','INDUCTANCIA','OSCILACION','REFRACCION','DIFRACCION','TERMODINAMICA'],
+        colors:['#ef5350','#ff7043','#ffd740','#00ffa8','#42a5f5','#ab47bc','#26c6da','#66bb6a','#d4a017','#f48fb1'],
       },
     ];
 
     let S, cont, timerIv=null;
 
-    /* ── Construir grilla ─────────────────────────────────────── */
-    function buildGrid(size, words, dirs) {
-      const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      const grid  = Array.from({length:size}, ()=>Array(size).fill(''));
-      const placed = [];   // {word, cells:[{r,c}]}
+    /* ── Construir grilla ──────────────────────────────────── */
+    function buildGrid(size, words, dirs){
+      const ALPHA='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const grid=Array.from({length:size},()=>Array(size).fill(''));
+      const placed=[];
+      const sorted=[...words].sort((a,b)=>b.length-a.length);
 
-      function tryPlace(word) {
-        const shuffledDirs = [...dirs].sort(()=>Math.random()-0.5);
-        for (let attempt=0; attempt<120; attempt++) {
-          const dir = shuffledDirs[attempt % shuffledDirs.length];
-          const dr=dir[0], dc=dir[1];
-          const r0 = Math.floor(Math.random()*size);
-          const c0 = Math.floor(Math.random()*size);
-          const r1 = r0 + dr*(word.length-1);
-          const c1 = c0 + dc*(word.length-1);
+      sorted.forEach(word=>{
+        const shuffled=[...dirs].sort(()=>Math.random()-0.5);
+        for(let att=0;att<200;att++){
+          const [dr,dc]=shuffled[att%shuffled.length];
+          const r0=Math.floor(Math.random()*size);
+          const c0=Math.floor(Math.random()*size);
+          const r1=r0+dr*(word.length-1), c1=c0+dc*(word.length-1);
           if(r1<0||r1>=size||c1<0||c1>=size) continue;
-          const cells = [];
-          let ok = true;
+          const cells=[];
+          let ok=true;
           for(let i=0;i<word.length;i++){
             const r=r0+dr*i, c=c0+dc*i;
             if(grid[r][c]!==''&&grid[r][c]!==word[i]){ok=false;break;}
             cells.push({r,c});
           }
           if(!ok) continue;
-          cells.forEach((cell,i)=>{ grid[cell.r][cell.c]=word[i]; });
-          placed.push({word, cells});
-          return true;
+          cells.forEach((cell,i)=>{grid[cell.r][cell.c]=word[i];});
+          placed.push({word,cells});
+          break;
         }
-        return false;
-      }
+      });
 
-      // Ordenar por longitud desc para colocar las más largas primero
-      const sorted = [...words].sort((a,b)=>b.length-a.length);
-      sorted.forEach(w=>tryPlace(w));
-
-      // Rellenar con letras aleatorias
       for(let r=0;r<size;r++)
         for(let c=0;c<size;c++)
           if(grid[r][c]==='') grid[r][c]=ALPHA[Math.floor(Math.random()*ALPHA.length)];
 
-      return {grid, placed};
+      return {grid,placed};
     }
 
-    /* ── Inicializar nivel ────────────────────────────────────── */
-    function buildState(lvlIdx, prevScore) {
-      const cfg  = LEVELS[lvlIdx];
-      const {grid, placed} = buildGrid(cfg.size, cfg.words, cfg.dirs);
-      return {
-        lvl:lvlIdx, cfg, grid,
-        placed,                              // palabras colocadas en la grilla
-        words: placed.map(p=>p.word),        // solo las que se lograron colocar
-        found: [],                           // palabras encontradas
-        score: prevScore||0,
-        timeLeft: cfg.timeLimit||null,
-        drag: null,     // {r0,c0,r,c} celda inicio y celda actual del arrastre
-        over: false,
-        levelCleared: false,
+    /* ── Estado ───────────────────────────────────────────── */
+    function buildState(lvlIdx, prevScore){
+      const cfg=LEVELS[lvlIdx];
+      const {grid,placed}=buildGrid(cfg.size,cfg.words,cfg.dirs);
+      return{
+        lvl:lvlIdx, cfg, grid, placed,
+        words:placed.map(p=>p.word),
+        found:[],           // palabras encontradas
+        foundColors:{},     // word -> color asignado
+        foundCells:{},      // "r,c" -> color de la celda encontrada
+        score:prevScore||0,
+        timeLeft:cfg.timeLimit||null,
+        drag:null,
+        flash:null,         // {word, until} — palabra recién encontrada
+        over:false, levelCleared:false, timeOut:false,
       };
     }
 
-    /* ── Timer ─────────────────────────────────────────────── */
-    function startTimer() {
+    /* ── Timer ────────────────────────────────────────────── */
+    function startTimer(){
       if(timerIv) clearInterval(timerIv);
       if(!S.cfg.timeLimit) return;
-      timerIv = setInterval(()=>{
-        if(!S||S.over||S.levelCleared){clearInterval(timerIv);return;}
+      timerIv=setInterval(()=>{
+        if(!S||S.over){clearInterval(timerIv);return;}
         S.timeLeft--;
-        const el=cont.querySelector('#wsTimer');
-        if(el){
-          el.textContent='⏱ '+S.timeLeft+'s';
-          el.style.color=S.timeLeft<=20?'#ef5350':S.timeLeft<=40?'#d4a017':'#4a6a72';
-        }
-        const bar=cont.querySelector('#wsTimerBar');
-        if(bar) bar.style.width=(S.timeLeft/S.cfg.timeLimit*100)+'%';
-        if(S.timeLeft<=0){
-          clearInterval(timerIv);
-          S.over=true; S.timeOut=true;
-          render();
-        }
+        updateTimerUI();
+        if(S.timeLeft<=0){clearInterval(timerIv);S.over=true;S.timeOut=true;render();}
       },1000);
     }
 
-    /* ── Lógica de selección ──────────────────────────────────── */
-    function getCellsInLine(r0,c0,r1,c1) {
-      // Devuelve celdas en línea recta entre (r0,c0) y (r1,c1) si es válido
+    function updateTimerUI(){
+      const el=cont&&cont.querySelector('#wsTimer');
+      if(!el) return;
+      el.textContent='⏱ '+S.timeLeft+'s';
+      el.style.color=S.timeLeft<=20?'#ef5350':S.timeLeft<=40?'#d4a017':'#4a6a72';
+      const bar=cont.querySelector('#wsTimerBar');
+      if(bar) bar.style.width=(S.timeLeft/S.cfg.timeLimit*100)+'%';
+    }
+
+    /* ── Selección ────────────────────────────────────────── */
+    function lineFrom(r0,c0,r1,c1){
       const dr=r1-r0, dc=c1-c0;
       const len=Math.max(Math.abs(dr),Math.abs(dc));
       if(len===0) return [{r:r0,c:c0}];
-      // Debe ser horizontal, vertical o diagonal exacta
       if(dr!==0&&dc!==0&&Math.abs(dr)!==Math.abs(dc)) return null;
-      const sr=dr===0?0:dr/Math.abs(dr);
-      const sc=dc===0?0:dc/Math.abs(dc);
-      const cells=[];
-      for(let i=0;i<=len;i++) cells.push({r:r0+sr*i,c:c0+sc*i});
-      return cells;
+      const sr=dr===0?0:dr/Math.abs(dr), sc=dc===0?0:dc/Math.abs(dc);
+      return Array.from({length:len+1},(_,i)=>({r:r0+sr*i,c:c0+sc*i}));
     }
 
-    function checkSelection(r0,c0,r1,c1) {
-      const cells=getCellsInLine(r0,c0,r1,c1);
+    function tryMatch(r0,c0,r1,c1){
+      const cells=lineFrom(r0,c0,r1,c1);
       if(!cells||cells.length<2) return null;
-      const word=cells.map(cell=>S.grid[cell.r][cell.c]).join('');
-      // Buscar coincidencia en palabras pendientes
-      for(const p of S.placed) {
+      const word=cells.map(({r,c})=>S.grid[r][c]).join('');
+      for(const p of S.placed){
         if(S.found.includes(p.word)) continue;
-        const pWord=p.cells.map(cell=>S.grid[cell.r][cell.c]).join('');
-        if(word===pWord) {
-          // Verificar que las celdas coincidan
-          if(cells.length===p.cells.length &&
-             cells.every((cell,i)=>cell.r===p.cells[i].r&&cell.c===p.cells[i].c)){
-            return p.word;
-          }
-        }
+        const pw=p.cells.map(({r,c})=>S.grid[r][c]).join('');
+        if(word===pw&&cells.length===p.cells.length&&
+           cells.every(({r,c},i)=>r===p.cells[i].r&&c===p.cells[i].c))
+          return p.word;
       }
       return null;
     }
 
-    /* ── Render ─────────────────────────────────────────────── */
-    function render() {
+    /* ── Render principal ─────────────────────────────────── */
+    function render(){
       if(!cont||!S) return;
-      const cfg=S.cfg;
-      const size=cfg.size;
+      const cfg=S.cfg, size=cfg.size;
 
-      // Tamaño de celda adaptado al contenedor
-      const cellPx=`clamp(${size>=15?'17px':size>=12?'22px':'28px'}, ${size>=15?'5.5vw':size>=12?'7vw':'9vw'}, ${size>=15?'26px':size>=12?'32px':'38px'})`;
-      const fontPx=`clamp(${size>=15?'8px':size>=12?'10px':'12px'}, ${size>=15?'2.2vw':size>=12?'2.8vw':'3.5vw'}, ${size>=15?'13px':size>=12?'16px':'18px'})`;
-      const timePct=cfg.timeLimit&&S.timeLeft!=null?S.timeLeft/cfg.timeLimit:1;
+      const cpx=size>=15?'clamp(17px,5.2vw,24px)':size>=12?'clamp(22px,6.5vw,30px)':'clamp(28px,8.5vw,38px)';
+      const fpx=size>=15?'clamp(8px,2vw,12px)':size>=12?'clamp(10px,2.5vw,14px)':'clamp(12px,3.2vw,17px)';
 
-      // Celdas resaltadas por el arrastre actual
+      // Celdas del drag actual
       let dragCells=[];
-      if(S.drag&&S.drag.active){
-        const cells=getCellsInLine(S.drag.r0,S.drag.c0,S.drag.r,S.drag.c);
-        if(cells) dragCells=cells;
+      if(S.drag){
+        const c=lineFrom(S.drag.r0,S.drag.c0,S.drag.r,S.drag.c);
+        if(c) dragCells=c;
       }
 
-      // Celdas de palabras encontradas
-      const foundCells={};
-      S.placed.forEach(p=>{
-        if(S.found.includes(p.word))
-          p.cells.forEach(cell=>{ foundCells[cell.r+','+cell.c]=p.word; });
-      });
+      const timePct=cfg.timeLimit&&S.timeLeft!=null?S.timeLeft/cfg.timeLimit:1;
+      const foundN=S.found.length, totalN=S.words.length;
+      const pct=foundN/totalN;
 
       cont.innerHTML=`
-        <div style="display:flex;flex-direction:column;align-items:center;padding:10px 4px 20px;width:100%;user-select:none;-webkit-user-select:none">
+<div style="display:flex;flex-direction:column;align-items:center;padding:10px 4px 18px;width:100%;user-select:none;-webkit-user-select:none">
 
-          <!-- Header -->
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">
-            <span style="font-size:12px;color:${cfg.accentColor};font-weight:800;letter-spacing:2px">${cfg.label}</span>
-            <span style="font-size:12px">${cfg.badge}</span>
-            ${cfg.timeLimit?`<span id="wsTimer" style="font-size:13px;font-weight:800;color:#4a6a72">⏱ ${S.timeLeft!=null?S.timeLeft:cfg.timeLimit}s</span>`:''}
-          </div>
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+    <span style="font-size:12px;color:${cfg.accentColor};font-weight:800;letter-spacing:2px">${cfg.label} ${cfg.badge}</span>
+    ${cfg.timeLimit?`<span id="wsTimer" style="font-size:13px;font-weight:800;color:#4a6a72">⏱ ${S.timeLeft!=null?S.timeLeft:cfg.timeLimit}s</span>`:''}
+  </div>
 
-          <!-- Barra de tiempo -->
-          ${cfg.timeLimit?`
-          <div style="width:min(${size>=15?'420px':'360px'},94vw);height:4px;background:#0b3b46;border-radius:4px;margin-bottom:8px;overflow:hidden">
-            <div id="wsTimerBar" style="height:100%;width:${timePct*100}%;background:${S.timeLeft<=20?'#ef5350':S.timeLeft<=40?'#d4a017':'#26c6da'};border-radius:4px;transition:width 0.9s linear"></div>
-          </div>`:
-          '<div style="margin-bottom:8px"></div>'}
+  <!-- Barra de tiempo -->
+  ${cfg.timeLimit?`
+  <div style="width:min(${size>=15?'420px':'360px'},94vw);height:4px;background:#0b3b46;border-radius:4px;margin-bottom:6px;overflow:hidden">
+    <div id="wsTimerBar" style="height:100%;width:${timePct*100}%;background:${S.timeLeft<=20?'#ef5350':S.timeLeft<=40?'#d4a017':'#26c6da'};border-radius:4px;transition:width 0.9s linear"></div>
+  </div>`:'<div style="margin-bottom:4px"></div>'}
 
-          <!-- HUD progreso -->
-          <div style="font-size:13px;font-weight:800;color:${cfg.accentColor};margin-bottom:8px">
-            ${S.found.length}/${S.words.length} palabras · SCORE: ${S.score}
-          </div>
+  <!-- Progreso palabras -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;width:min(${size>=15?'420px':'360px'},94vw)">
+    <span style="font-size:13px;font-weight:800;color:${cfg.accentColor}">${foundN}/${totalN}</span>
+    <div style="flex:1;height:7px;background:#0b3b46;border-radius:4px;overflow:hidden">
+      <div style="height:100%;width:${pct*100}%;background:${cfg.accentColor};border-radius:4px;transition:width 0.4s"></div>
+    </div>
+    <span style="font-size:12px;color:#d4a017;font-weight:700">SCORE: ${S.score}</span>
+  </div>
 
-          <!-- Instrucción -->
-          <div style="font-size:10px;color:#2a4a52;margin-bottom:8px;text-align:center">
-            ${cfg.dirs.length<=2?'↔ Solo horizontal y vertical':''}
-            ${cfg.dirs.length===4?'↔ ↕ ↗ ↘ Horizontal, vertical y diagonal':''}
-            ${cfg.dirs.length===8?'↔ ↕ ↗ ↘ Todas las direcciones + inversas':''}
-          </div>
+  <!-- Flash palabra encontrada -->
+  <div id="wsFlash" style="height:22px;margin-bottom:4px;text-align:center;font-size:13px;font-weight:800;letter-spacing:2px;transition:opacity 0.3s;opacity:${S.flash?1:0};color:${S.flash?S.foundColors[S.flash]||cfg.accentColor:'transparent'}">
+    ${S.flash?'✔ '+S.flash:'&nbsp;'}
+  </div>
 
-          <!-- Grilla -->
-          <div id="wsGrid" style="display:grid;grid-template-columns:repeat(${size},${cellPx});gap:2px;background:#0b3b46;padding:4px;border-radius:10px;touch-action:none;cursor:crosshair">
-            ${S.grid.map((row,r)=>row.map((letter,c)=>{
-              const key=r+','+c;
-              const isFound=foundCells[key]!==undefined;
-              const isDrag=dragCells.some(d=>d.r===r&&d.c===c);
-              let bg='#0a1e28', color='#7ab0c0', border='none';
-              if(isFound){bg=cfg.accentColor+'22'; color=cfg.accentColor; border=`1px solid ${cfg.accentColor}55`;}
-              if(isDrag){bg='#1a3f55'; color='#ffd740'; border='1px solid #ffd74055';}
-              return `<div class="ws-cell" data-r="${r}" data-c="${c}" style="
-                width:${cellPx};height:${cellPx};
-                background:${bg};border:${border};
-                border-radius:5px;display:flex;align-items:center;justify-content:center;
-                font-size:${fontPx};font-weight:800;color:${color};
-                box-sizing:border-box;-webkit-tap-highlight-color:transparent;
-              ">${letter}</div>`;
-            }).join('')).join('')}
-          </div>
+  <!-- Grilla -->
+  <div id="wsGrid" style="display:grid;grid-template-columns:repeat(${size},${cpx});gap:2px;background:#0b3b46;padding:4px;border-radius:10px;touch-action:none;cursor:crosshair">
+    ${S.grid.map((row,r)=>row.map((L,c)=>{
+      const key=r+','+c;
+      const foundColor=S.foundCells[key];
+      const isDrag=dragCells.some(d=>d.r===r&&d.c===c);
+      let bg='#0a1e28', fg='#4a7a8a', brd='transparent', fw='700', shadow='none';
+      if(foundColor){
+        bg=foundColor+'28'; fg=foundColor; brd=foundColor+'66';
+        shadow=`0 0 6px ${foundColor}55`;
+      }
+      if(isDrag){bg='#1e3f5a'; fg='#ffd740'; brd='#ffd74088'; fw='900';}
+      return `<div class="wsc" data-r="${r}" data-c="${c}" style="
+        width:${cpx};height:${cpx};background:${bg};
+        border:1.5px solid ${brd};border-radius:5px;
+        display:flex;align-items:center;justify-content:center;
+        font-size:${fpx};font-weight:${fw};color:${fg};
+        box-shadow:${shadow};box-sizing:border-box;
+        -webkit-tap-highlight-color:transparent;
+        transition:background 0.15s,color 0.15s;
+      ">${L}</div>`;
+    }).join('')).join('')}
+  </div>
 
-          <!-- Lista de palabras -->
-          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;justify-content:center;width:min(${size>=15?'420px':'360px'},94vw)">
-            ${S.words.map(w=>{
-              const done=S.found.includes(w);
-              return `<span style="
-                font-size:clamp(9px,2.8vw,12px);font-weight:800;letter-spacing:1px;
-                padding:3px 8px;border-radius:6px;
-                background:${done?cfg.accentColor+'22':'#0a1e28'};
-                color:${done?cfg.accentColor:'#2a4a52'};
-                border:1px solid ${done?cfg.accentColor+'55':'#0b3b46'};
-                text-decoration:${done?'line-through':'none'};
-              ">${w}</span>`;
-            }).join('')}
-          </div>
+  <!-- Instrucción dirección -->
+  <div style="font-size:10px;color:#1e3a42;margin-top:5px;text-align:center">
+    ${cfg.dirs.length<=4?'↔ ↕  Solo horizontal y vertical':'↔ ↕ ↗  Horizontal, vertical y diagonal · ${cfg.dirs.length>=8?"+ inversas":""}'}
+  </div>
 
-          <!-- Estado final -->
-          ${S.over?`
-          <div style="margin-top:18px;text-align:center">
-            ${S.levelCleared?`
-              <div style="color:${cfg.accentColor};font-size:15px;font-weight:800;letter-spacing:2px;margin-bottom:6px">
-                ${S.lvl<LEVELS.length-1?'✅ ¡NIVEL '+(S.lvl+1)+' COMPLETADO!':'🏆 ¡MAESTRO LÉXICO!'}
-              </div>
-              <div style="color:#4a6a72;font-size:11px;margin-bottom:12px">+${cfg.waveBonus} bonus · SCORE: ${S.score}</div>
-              ${S.lvl<LEVELS.length-1
-                ?`<button id="wsNextBtn" style="background:linear-gradient(135deg,${cfg.accentColor},#0a8f6a);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 20px;cursor:pointer;margin-right:6px">▶ NIVEL ${S.lvl+2}</button>`
-                :''}
-              <button onclick="GamesEngine.launch('wordsearch')" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;padding:9px 14px;cursor:pointer;margin-right:6px">↺ REINICIAR</button>
-              <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;padding:9px 14px;cursor:pointer">◀ VOLVER</button>
-            `:`
-              <div style="color:#ef5350;font-size:15px;font-weight:800;letter-spacing:2px;margin-bottom:6px">⏰ ¡TIEMPO AGOTADO!</div>
-              <div style="color:#4a6a72;font-size:11px;margin-bottom:12px">${S.found.length}/${S.words.length} palabras · SCORE: ${S.score}</div>
-              <button onclick="GamesEngine.launch('wordsearch')" style="background:linear-gradient(135deg,#d4a017,#c25b12);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 20px;cursor:pointer;margin-right:6px">↺ REINICIAR</button>
-              <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;padding:9px 14px;cursor:pointer">◀ VOLVER</button>
-            `}
-          </div>`:''}
-        </div>`;
+  <!-- Lista de palabras -->
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;justify-content:center;width:min(${size>=15?'420px':'360px'},94vw)">
+    ${S.words.map(w=>{
+      const done=S.found.includes(w);
+      const col=S.foundColors[w]||cfg.accentColor;
+      return `<span style="
+        font-size:clamp(9px,2.6vw,12px);font-weight:800;letter-spacing:1px;padding:4px 9px;
+        border-radius:7px;transition:all 0.3s;
+        background:${done?col+'28':'#0a1e28'};
+        color:${done?col:'#1e3a42'};
+        border:1.5px solid ${done?col+'77':'#0b3b46'};
+        text-decoration:${done?'line-through':'none'};
+        box-shadow:${done?`0 0 8px ${col}44`:'none'};
+      ">${done?'✔ ':''} ${w}</span>`;
+    }).join('')}
+  </div>
 
-      attachGridEvents();
+  <!-- Estado final -->
+  ${S.over?`
+  <div style="margin-top:16px;text-align:center">
+    ${S.levelCleared?`
+      <div style="color:${cfg.accentColor};font-size:15px;font-weight:800;letter-spacing:2px;margin-bottom:6px">
+        ${S.lvl<LEVELS.length-1?'✅ ¡NIVEL '+(S.lvl+1)+' COMPLETADO!':'🏆 ¡MAESTRO LÉXICO!'}
+      </div>
+      <div style="color:#4a6a72;font-size:11px;margin-bottom:12px">+${cfg.waveBonus} bonus · SCORE: ${S.score}</div>
+      ${S.lvl<LEVELS.length-1?`<button id="wsNext" style="background:linear-gradient(135deg,${cfg.accentColor},#0a7a5a);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 20px;cursor:pointer;margin-right:6px">▶ NIVEL ${S.lvl+2}</button>`:''}
+      <button onclick="GamesEngine.launch('wordsearch')" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;padding:9px 14px;cursor:pointer;margin-right:6px">↺ REINICIAR</button>
+      <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;padding:9px 14px;cursor:pointer">◀ VOLVER</button>
+    `:`
+      <div style="color:#ef5350;font-size:15px;font-weight:800;letter-spacing:2px;margin-bottom:6px">⏰ ¡TIEMPO AGOTADO!</div>
+      <div style="color:#4a6a72;font-size:11px;margin-bottom:12px">${S.found.length}/${S.words.length} · SCORE: ${S.score}</div>
+      <button onclick="GamesEngine.launch('wordsearch')" style="background:linear-gradient(135deg,#d4a017,#c25b12);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 20px;cursor:pointer;margin-right:6px">↺ REINICIAR</button>
+      <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;padding:9px 14px;cursor:pointer">◀ VOLVER</button>
+    `}
+  </div>`:''}
+</div>`;
 
       // Botón siguiente nivel
-      const nBtn=cont.querySelector('#wsNextBtn');
-      if(nBtn) nBtn.addEventListener('click',()=>nextLevel());
+      const nb=cont.querySelector('#wsNext');
+      if(nb) nb.addEventListener('click',nextLevel);
+
+      if(!S.over) attachEvents();
     }
 
-    /* ── Eventos de la grilla ─────────────────────────────────── */
-    function attachGridEvents() {
-      const grid=cont.querySelector('#wsGrid');
-      if(!grid||S.over) return;
+    /* ── Eventos drag ─────────────────────────────────────── */
+    function attachEvents(){
+      const grid=cont&&cont.querySelector('#wsGrid');
+      if(!grid) return;
 
-      function cellAt(e) {
-        const touch=e.touches?e.touches[0]:(e.changedTouches?e.changedTouches[0]:e);
-        const el=document.elementFromPoint(touch.clientX,touch.clientY);
-        if(!el||!el.dataset.r) return null;
-        return {r:+el.dataset.r, c:+el.dataset.c};
+      function cellFrom(e){
+        const src=e.touches?e.touches[0]:(e.changedTouches||[e])[0];
+        const el=document.elementFromPoint(src.clientX,src.clientY);
+        return el&&el.dataset.r!=null?{r:+el.dataset.r,c:+el.dataset.c}:null;
       }
 
-      function startDrag(e) {
-        const cell=cellAt(e);
-        if(!cell) return;
-        S.drag={r0:cell.r,c0:cell.c,r:cell.r,c:cell.c,active:true};
-        render();
+      function onStart(e){
+        const cell=cellFrom(e); if(!cell) return;
+        S.drag={r0:cell.r,c0:cell.c,r:cell.r,c:cell.c};
+        updateDragUI();
       }
-
-      function moveDrag(e) {
-        if(!S.drag||!S.drag.active) return;
+      function onMove(e){
         e.preventDefault();
-        const cell=cellAt(e);
-        if(!cell) return;
-        if(S.drag.r!==cell.r||S.drag.c!==cell.c){
-          S.drag.r=cell.r; S.drag.c=cell.c;
-          render();
-        }
+        if(!S.drag) return;
+        const cell=cellFrom(e); if(!cell) return;
+        if(S.drag.r!==cell.r||S.drag.c!==cell.c){S.drag.r=cell.r;S.drag.c=cell.c;updateDragUI();}
       }
-
-      function endDrag(e) {
-        if(!S.drag||!S.drag.active) return;
-        const cell=cellAt(e)||{r:S.drag.r,c:S.drag.c};
-        S.drag.active=false;
-        const found=checkSelection(S.drag.r0,S.drag.c0,cell.r,cell.c);
-        if(found&&!S.found.includes(found)){
-          S.found.push(found);
-          S.score+=found.length*10*(S.lvl+1);
-          // Bonus de tiempo restante
-          if(S.cfg.timeLimit&&S.timeLeft) S.score+=Math.floor(S.timeLeft/5);
+      function onEnd(e){
+        if(!S.drag) return;
+        const cell=cellFrom(e)||{r:S.drag.r,c:S.drag.c};
+        const matched=tryMatch(S.drag.r0,S.drag.c0,cell.r,cell.c);
+        S.drag=null;
+        if(matched&&!S.found.includes(matched)){
+          const colorIdx=S.found.length%S.cfg.colors.length;
+          const col=S.cfg.colors[colorIdx];
+          S.foundColors[matched]=col;
+          S.placed.find(p=>p.word===matched).cells.forEach(({r,c})=>{S.foundCells[r+','+c]=col;});
+          S.found.push(matched);
+          S.score+=matched.length*10*(S.lvl+1)+(S.cfg.timeLimit&&S.timeLeft?Math.floor(S.timeLeft/5):0);
+          S.flash=matched;
+          setTimeout(()=>{if(S){S.flash=null;const f=cont&&cont.querySelector('#wsFlash');if(f)f.style.opacity='0';}},1800);
           if(S.found.length===S.words.length){
             clearInterval(timerIv);
             S.score+=S.cfg.waveBonus;
             S.levelCleared=true; S.over=true;
           }
+          render();
+        } else {
+          updateDragUI(); // limpiar resaltado drag
         }
-        S.drag=null;
-        render();
       }
 
-      // Mouse
-      grid.addEventListener('mousedown',startDrag);
-      grid.addEventListener('mousemove',e=>{if(e.buttons===1)moveDrag(e);});
-      grid.addEventListener('mouseup',endDrag);
-      grid.addEventListener('mouseleave',e=>{if(S.drag&&S.drag.active)endDrag(e);});
+      grid.addEventListener('mousedown',onStart);
+      grid.addEventListener('mousemove',e=>{if(e.buttons)onMove(e);});
+      grid.addEventListener('mouseup',onEnd);
+      grid.addEventListener('mouseleave',e=>{if(S.drag)onEnd(e);});
+      grid.addEventListener('touchstart',e=>{e.preventDefault();onStart(e);},{passive:false});
+      grid.addEventListener('touchmove', e=>{e.preventDefault();onMove(e); },{passive:false});
+      grid.addEventListener('touchend',  e=>{e.preventDefault();onEnd(e);  },{passive:false});
+    }
 
-      // Touch
-      grid.addEventListener('touchstart',e=>{e.preventDefault();startDrag(e);},{passive:false});
-      grid.addEventListener('touchmove', e=>{e.preventDefault();moveDrag(e); },{passive:false});
-      grid.addEventListener('touchend',  e=>{e.preventDefault();endDrag(e);  },{passive:false});
+    /* Actualiza solo las celdas visualmente durante el drag, sin re-render completo */
+    function updateDragUI(){
+      if(!cont) return;
+      const allCells=cont.querySelectorAll('.wsc');
+      const dragCells=[];
+      if(S.drag){
+        const line=lineFrom(S.drag.r0,S.drag.c0,S.drag.r,S.drag.c);
+        if(line) line.forEach(({r,c})=>dragCells.push(r+','+c));
+      }
+      allCells.forEach(el=>{
+        const key=el.dataset.r+','+el.dataset.c;
+        const foundCol=S.foundCells[key];
+        const isDrag=dragCells.includes(key);
+        if(isDrag){
+          el.style.background='#1e3f5a'; el.style.color='#ffd740';
+          el.style.borderColor='#ffd74088'; el.style.fontWeight='900';
+        } else if(foundCol){
+          el.style.background=foundCol+'28'; el.style.color=foundCol;
+          el.style.borderColor=foundCol+'66'; el.style.fontWeight='700';
+          el.style.boxShadow=`0 0 6px ${foundCol}55`;
+        } else {
+          el.style.background='#0a1e28'; el.style.color='#4a7a8a';
+          el.style.borderColor='transparent'; el.style.fontWeight='700';
+          el.style.boxShadow='none';
+        }
+      });
     }
 
     function nextLevel(){
       clearInterval(timerIv);
       S=buildState(S.lvl+1,S.score);
-      render();
-      startTimer();
+      render(); startTimer();
     }
 
-    return {
-      init(c){
-        clearInterval(timerIv);
-        cont=c; S=buildState(0,0);
-        render();
-        // Nivel 1 no tiene timer
-      },
+    return{
+      init(c){clearInterval(timerIv);cont=c;S=buildState(0,0);render();},
       cleanup(){clearInterval(timerIv);timerIv=null;S=null;}
     };
   })();
