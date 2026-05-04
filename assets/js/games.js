@@ -691,7 +691,6 @@ const GamesEngine = (() => {
         if(S.snake.length>=S.cfg.winLen&&!S.levelCleared){
           S.score+=S.cfg.waveBonus;
           S.levelCleared=true; S.levelTimer=160;
-          clearInterval(iv); iv=null;
           updateScore('NVL '+(S.lvl+1)+' · '+S.score);
         }
       }
