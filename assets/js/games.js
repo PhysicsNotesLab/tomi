@@ -21,6 +21,8 @@ const GamesEngine = (() => {
     { id:'mines',    emoji:'💣', name:'MINESWEEPER',    desc:'Encuentra los campos seguros',  hint:'Clic revelar · Clic largo: bandera' },
     { id:'memory',   emoji:'🧠', name:'MEMORY MATCH',   desc:'Encuentra los pares ocultos',   hint:'Toca para voltear las cartas' },
     { id:'wordsearch',emoji:'🔤', name:'SOPA DE LETRAS', desc:'Encuentra palabras de física',   hint:'Arrastra sobre las letras' },
+    { id:'projectile',emoji:'🎯', name:'TIRO PARABÓLICO', desc:'Acierta el blanco con física real', hint:'Ajusta ángulo y velocidad' },
+    { id:'quiz',      emoji:'🧪', name:'QUIZ DE FÍSICA',  desc:'Pon a prueba tu conocimiento',   hint:'Elige la respuesta correcta' },
   ];
 
   function featuredIndex(subjectId) {
@@ -30,7 +32,7 @@ const GamesEngine = (() => {
   }
 
   let overlayEl=null, gameBodyEl=null, animFrame=null, currentImpl=null, currentSubjectId='';
-  const DOM_GAMES = new Set(['sudoku','g2048','mines','memory','wordsearch']);
+  const DOM_GAMES = new Set(['sudoku','g2048','mines','memory','wordsearch','projectile','quiz']);
 
   /* ── init ─────────────────────────────────────────────────── */
   function init() {
@@ -3321,6 +3323,569 @@ const GamesEngine = (() => {
     return{
       init(c){clearInterval(timerIv);cont=c;S=buildState(0,0);render();},
       cleanup(){clearInterval(timerIv);timerIv=null;S=null;}
+    };
+  })();
+
+
+  /* ═══════════════════════════════════════════════════════════
+     TIRO PARABÓLICO — 3 Niveles
+  ═══════════════════════════════════════════════════════════ */
+  Impls.projectile = (() => {
+    const G = 9.8;
+
+    const LEVELS = [
+      {
+        label:'NIVEL 1', badge:'🎯',
+        targets:5, wind:0, heightOffset:0,
+        vMin:10, vMax:60, angleHint:true,
+        accentColor:'#00ffa8',
+        waveBonus:300,
+        desc:'Sin viento · Terreno plano',
+      },
+      {
+        label:'NIVEL 2', badge:'🎯🎯',
+        targets:5, windRange:[-8,8], heightOffset:0,
+        vMin:15, vMax:80, angleHint:false,
+        accentColor:'#d4a017',
+        waveBonus:600,
+        desc:'Con viento aleatorio',
+      },
+      {
+        label:'NIVEL 3', badge:'🎯🎯🎯',
+        targets:6, windRange:[-14,14], heightRange:[-30,30],
+        vMin:15, vMax:100, angleHint:false,
+        accentColor:'#ef5350',
+        waveBonus:1000,
+        desc:'Viento + altura inicial variable',
+      },
+    ];
+
+    let S, cont;
+
+    function rnd(a,b){ return a + Math.random()*(b-a); }
+
+    function buildState(lvlIdx, prevScore){
+      const cfg = LEVELS[lvlIdx];
+      const wind = cfg.windRange ? rnd(...cfg.windRange) : 0;
+      const h0   = cfg.heightRange ? rnd(...cfg.heightRange) : 0;
+      return {
+        lvl:lvlIdx, cfg,
+        angle:45, velocity:30,
+        wind: parseFloat(wind.toFixed(1)),
+        h0: parseFloat(h0.toFixed(1)),
+        target: null,
+        trail: [],
+        result: null,   // 'hit'|'miss'|null
+        targetsLeft: cfg.targets,
+        score: prevScore||0,
+        shots: 0,
+        over:false, levelCleared:false,
+      };
+    }
+
+    function newTarget(state){
+      const cfg = state.cfg;
+      // Distancia horizontal aleatoria entre 40 y 180 m según nivel
+      const minD = 40 + state.lvl*20;
+      const maxD = 120 + state.lvl*40;
+      state.target = { x: rnd(minD, maxD), tolerance: 5 - state.lvl };
+      state.trail = [];
+      state.result = null;
+    }
+
+    /* Calcular trayectoria completa */
+    function calcTrajectory(v0, angleDeg, wind, h0){
+      const rad = angleDeg * Math.PI/180;
+      const vx0 = v0 * Math.cos(rad);
+      const vy0 = v0 * Math.sin(rad);
+      const pts = [];
+      const dt = 0.05;
+      let t = 0;
+      while(t < 30){
+        const x = vx0*t + 0.5*wind*t*t;
+        const y = h0 + vy0*t - 0.5*G*t*t;
+        pts.push({x, y, t});
+        if(y < 0 && t > 0.1) break;
+        t += dt;
+      }
+      return pts;
+    }
+
+    function fire(){
+      if(!S || S.result !== null || S.over) return;
+      S.shots++;
+      const pts = calcTrajectory(S.velocity, S.angle, S.wind, S.h0);
+      S.trail = pts;
+      const last = pts[pts.length-1];
+      const landX = last.x + (last.y < 0 ? 0 : 0); // approximate landing
+      // Interpolate exact landing x
+      if(pts.length >= 2){
+        const p1 = pts[pts.length-2], p2 = pts[pts.length-1];
+        const frac = p1.y/(p1.y-p2.y);
+        const exactX = p1.x + frac*(p2.x-p1.x);
+        const tol = 4 - S.lvl * 0.8;
+        const hit = Math.abs(exactX - S.target.x) <= Math.max(2, tol);
+        S.result = hit ? 'hit' : 'miss';
+        if(hit){
+          const bonus = Math.max(0, 50 - S.shots*8);
+          S.score += 100*(S.lvl+1) + bonus;
+          S.targetsLeft--;
+          if(S.targetsLeft <= 0){
+            S.score += S.cfg.waveBonus;
+            S.levelCleared = true; S.over = true;
+          }
+        }
+      }
+      render();
+    }
+
+    function nextShot(){
+      if(!S || S.levelCleared) return;
+      S.shots = 0;
+      newTarget(S);
+      render();
+    }
+
+    function nextLevel(){
+      const next = S.lvl+1;
+      if(next >= LEVELS.length){ render(); return; }
+      S = buildState(next, S.score);
+      newTarget(S);
+      render();
+    }
+
+    /* ── Render ─────────────────────────────────────────────── */
+    function render(){
+      if(!cont || !S) return;
+      const cfg = S.cfg;
+      const W = Math.min(cont.clientWidth, 500);
+      // Canvas scale: 1px = how many meters
+      const maxX = 220 + S.lvl*60;
+      const scale = (W - 40) / maxX;
+      const canH = Math.min(220, Math.round(W*0.48));
+
+      // Trajectory points in canvas coords
+      const originX = 24, originY = canH - 24;
+      const h0px = S.h0 * scale;
+
+      function toCanv(x,y){ return { cx: originX + x*scale, cy: originY - y*scale - h0px }; }
+
+      // Build SVG trajectory
+      let trailSVG = '';
+      if(S.trail.length > 1){
+        const d = S.trail.map((p,i)=>{
+          const {cx,cy} = toCanv(p.x, Math.max(0,p.y));
+          return (i===0?'M':'L')+cx.toFixed(1)+' '+cy.toFixed(1);
+        }).join(' ');
+        trailSVG = `<path d="${d}" fill="none" stroke="${cfg.accentColor}" stroke-width="2" stroke-dasharray="4 2" opacity="0.8"/>`;
+
+        // Landing marker
+        if(S.trail.length >= 2){
+          const p1=S.trail[S.trail.length-2], p2=S.trail[S.trail.length-1];
+          const frac=p1.y/(p1.y-p2.y);
+          const lx=p1.x+frac*(p2.x-p1.x);
+          const {cx:lc} = toCanv(lx,0);
+          trailSVG += `<circle cx="${lc.toFixed(1)}" cy="${originY}" r="5" fill="${S.result==='hit'?'#00ffa8':'#ef5350'}" opacity="0.9"/>`;
+        }
+      }
+
+      // Target marker
+      let targetSVG = '';
+      if(S.target){
+        const {cx:tx} = toCanv(S.target.x, 0);
+        targetSVG = `
+          <rect x="${(tx-8).toFixed(1)}" y="${(originY-18).toFixed(1)}" width="16" height="18" fill="#d4a017" rx="2"/>
+          <rect x="${(tx-14).toFixed(1)}" y="${(originY-4).toFixed(1)}" width="28" height="4" fill="#a07010" rx="1"/>
+          <text x="${tx.toFixed(1)}" y="${(originY-6).toFixed(1)}" fill="#020b10" font-size="9" text-anchor="middle" font-weight="800">🎯</text>`;
+      }
+
+      // Cannon
+      const rad = S.angle * Math.PI/180;
+      const cannonLen = 22;
+      const cx2 = originX + Math.cos(rad)*cannonLen;
+      const cy2 = originY - Math.sin(rad)*cannonLen - h0px;
+      const cannonSVG = `
+        <circle cx="${originX}" cy="${(originY - h0px).toFixed(1)}" r="8" fill="#4a6a72"/>
+        <line x1="${originX}" y1="${(originY-h0px).toFixed(1)}" x2="${cx2.toFixed(1)}" y2="${cy2.toFixed(1)}" stroke="#d4a017" stroke-width="5" stroke-linecap="round"/>`;
+
+      // Ground
+      const groundSVG = `<line x1="${originX}" y1="${originY}" x2="${W-8}" y2="${originY}" stroke="#0b3b46" stroke-width="2"/>`;
+
+      // Height offset marker
+      let heightSVG = '';
+      if(Math.abs(S.h0) > 1){
+        const hpx = S.h0*scale;
+        heightSVG = `
+          <line x1="${originX}" y1="${originY}" x2="${originX}" y2="${(originY-hpx).toFixed(1)}" stroke="#ab47bc" stroke-width="1.5" stroke-dasharray="3 2"/>
+          <text x="${originX+4}" y="${(originY-hpx/2).toFixed(1)}" fill="#ab47bc" font-size="9">${S.h0>0?'+':''}${S.h0}m</text>`;
+      }
+
+      // Physics info box
+      const rad2 = S.angle*Math.PI/180;
+      const vx = (S.velocity*Math.cos(rad2)).toFixed(1);
+      const vy = (S.velocity*Math.sin(rad2)).toFixed(1);
+      const tFlight = S.h0>=0
+        ? ((vy*1 + Math.sqrt(vy*vy + 2*G*S.h0))/G).toFixed(2)
+        : ((vy*1 + Math.sqrt(Math.max(0,vy*vy + 2*G*S.h0)))/G).toFixed(2);
+      const xMax = (S.velocity*Math.cos(rad2)*parseFloat(tFlight) + 0.5*S.wind*parseFloat(tFlight)**2).toFixed(1);
+      const yMax = (S.h0 + vy*vy/(2*G)).toFixed(1);
+
+      cont.innerHTML = `
+<div style="display:flex;flex-direction:column;align-items:center;padding:10px 8px 20px;width:100%;user-select:none;font-family:monospace">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+    <span style="font-size:12px;color:${cfg.accentColor};font-weight:800;letter-spacing:2px">${cfg.label} ${cfg.badge}</span>
+    <span style="font-size:11px;color:#2a5a6a">${cfg.desc}</span>
+  </div>
+
+  <!-- HUD -->
+  <div style="display:flex;gap:14px;margin-bottom:8px;flex-wrap:wrap;justify-content:center">
+    <span style="font-size:13px;font-weight:800;color:${cfg.accentColor}">🎯 ${S.targetsLeft} blancos</span>
+    <span style="font-size:13px;color:#d4a017;font-weight:700">SCORE: ${S.score}</span>
+    ${S.wind!==0?`<span style="font-size:12px;color:#ab47bc">💨 Viento: ${S.wind>0?'+':''}${S.wind} m/s²</span>`:''}
+  </div>
+
+  <!-- Canvas SVG -->
+  <svg width="${W}" height="${canH}" style="background:#020b10;border-radius:10px;border:1px solid #0b3b46;display:block">
+    ${groundSVG}${heightSVG}${targetSVG}${trailSVG}${cannonSVG}
+    <text x="${W-6}" y="14" fill="rgba(212,160,23,0.4)" font-size="9" text-anchor="end" font-family="monospace">0────${Math.round(maxX/2)}────${maxX} m</text>
+  </svg>
+
+  <!-- Ecuaciones en tiempo real -->
+  <div style="background:#0a1e28;border:1px solid #0b3b46;border-radius:8px;padding:7px 12px;margin:8px 0;width:min(340px,95vw);display:grid;grid-template-columns:1fr 1fr;gap:3px 14px">
+    <span style="font-size:10px;color:#4a7a8a">vₓ = v·cos θ</span>
+    <span style="font-size:10px;color:#00ffa8;font-weight:700">${vx} m/s</span>
+    <span style="font-size:10px;color:#4a7a8a">vᵧ = v·sin θ</span>
+    <span style="font-size:10px;color:#00ffa8;font-weight:700">${vy} m/s</span>
+    <span style="font-size:10px;color:#4a7a8a">t vuelo ≈</span>
+    <span style="font-size:10px;color:#ffd740;font-weight:700">${tFlight} s</span>
+    <span style="font-size:10px;color:#4a7a8a">x máx ≈</span>
+    <span style="font-size:10px;color:#ffd740;font-weight:700">${xMax} m</span>
+    <span style="font-size:10px;color:#4a7a8a">y máx ≈</span>
+    <span style="font-size:10px;color:#ab47bc;font-weight:700">${yMax} m</span>
+    ${S.target?`<span style="font-size:10px;color:#4a7a8a">Blanco en</span><span style="font-size:10px;color:#d4a017;font-weight:800">${S.target.x.toFixed(0)} m</span>`:''}
+  </div>
+
+  <!-- Sliders -->
+  <div style="width:min(340px,95vw)">
+
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <span style="font-size:12px;color:#d4a017;font-weight:800;width:54px">θ ${S.angle}°</span>
+      <input type="range" min="1" max="89" value="${S.angle}" id="slAngle"
+        style="flex:1;height:6px;accent-color:#d4a017;cursor:pointer">
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <span style="font-size:12px;color:#42a5f5;font-weight:800;width:54px">v ${S.velocity}</span>
+      <input type="range" min="${cfg.vMin}" max="${cfg.vMax}" value="${S.velocity}" id="slVel"
+        style="flex:1;height:6px;accent-color:#42a5f5;cursor:pointer">
+    </div>
+
+    ${cfg.angleHint&&S.target?`
+    <div style="font-size:10px;color:#1e3a42;text-align:center;margin-bottom:8px">
+      💡 Pista: θ óptimo ≈ 45° · sin viento: x = v²·sin(2θ)/g
+    </div>`:''}
+
+  </div>
+
+  <!-- Resultado y botones -->
+  ${S.result?`
+  <div style="text-align:center;margin-bottom:10px">
+    <div style="font-size:16px;font-weight:800;letter-spacing:2px;color:${S.result==='hit'?'#00ffa8':'#ef5350'};margin-bottom:4px">
+      ${S.result==='hit'?'🎯 ¡IMPACTO!':'💨 FALLADO'}
+    </div>
+    ${S.result==='hit'&&!S.levelCleared?`<button id="btnNext" style="background:linear-gradient(135deg,#00ffa8,#0b8f6a);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 24px;cursor:pointer">▶ SIGUIENTE BLANCO</button>`:''}
+  </div>`:`
+  <button id="btnFire" style="background:linear-gradient(135deg,${cfg.accentColor},#0b6a4a);border:none;border-radius:12px;color:#020b10;font-size:15px;font-weight:800;padding:12px 32px;cursor:pointer;letter-spacing:1px;-webkit-tap-highlight-color:transparent">
+    🚀 DISPARAR
+  </button>`}
+
+  <!-- Nivel completado -->
+  ${S.levelCleared?`
+  <div style="margin-top:14px;text-align:center">
+    <div style="color:${cfg.accentColor};font-size:15px;font-weight:800;letter-spacing:2px;margin-bottom:4px">
+      ${S.lvl<LEVELS.length-1?'✅ ¡NIVEL '+(S.lvl+1)+' COMPLETADO!':'🏆 ¡FÍSICO EXPERTO!'}
+    </div>
+    <div style="color:#4a6a72;font-size:11px;margin-bottom:12px">+${cfg.waveBonus} bonus · SCORE: ${S.score}</div>
+    ${S.lvl<LEVELS.length-1?`<button id="btnNextLvl" style="background:linear-gradient(135deg,${cfg.accentColor},#0a7a5a);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 20px;cursor:pointer;margin-right:8px">▶ NIVEL ${S.lvl+2}</button>`:''}
+    <button onclick="GamesEngine.launch('projectile')" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;padding:9px 14px;cursor:pointer;margin-right:6px">↺ REINICIAR</button>
+    <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;padding:9px 14px;cursor:pointer">◀ VOLVER</button>
+  </div>`:''}
+</div>`;
+
+      // Eventos sliders
+      const slA = cont.querySelector('#slAngle');
+      const slV = cont.querySelector('#slVel');
+      if(slA) slA.addEventListener('input',e=>{ S.angle=+e.target.value; S.trail=[]; S.result=null; render(); });
+      if(slV) slV.addEventListener('input',e=>{ S.velocity=+e.target.value; S.trail=[]; S.result=null; render(); });
+
+      const btnFire = cont.querySelector('#btnFire');
+      if(btnFire) btnFire.addEventListener('click', fire);
+      const btnNext = cont.querySelector('#btnNext');
+      if(btnNext) btnNext.addEventListener('click', nextShot);
+      const btnNL = cont.querySelector('#btnNextLvl');
+      if(btnNL) btnNL.addEventListener('click', nextLevel);
+    }
+
+    return {
+      init(c){ cont=c; S=buildState(0,0); newTarget(S); render(); },
+      cleanup(){ S=null; }
+    };
+  })();
+
+  /* ═══════════════════════════════════════════════════════════
+     QUIZ DE FÍSICA — 3 Niveles
+  ═══════════════════════════════════════════════════════════ */
+  Impls.quiz = (() => {
+
+    const QUESTION_BANK = {
+      1: [
+        { q:'¿Cuál es la unidad del Sistema Internacional de Fuerza?', a:1, opts:['Joule','Newton','Pascal','Watt'], exp:'Newton (N) = kg·m/s². El Joule es energía, Pascal presión, Watt potencia.' },
+        { q:'¿Qué describe la Primera Ley de Newton?', a:2, opts:['F=ma','Inercia','Acción y reacción','Conservación de energía'], exp:'La Ley de Inercia: un cuerpo en reposo o MRU permanece así si no actúa fuerza neta.' },
+        { q:'Un objeto cae desde el reposo. ¿Qué velocidad tiene a los 3 s? (g=10 m/s²)', a:0, opts:['30 m/s','25 m/s','10 m/s','15 m/s'], exp:'v = g·t = 10·3 = 30 m/s.' },
+        { q:'¿Cuál es la fórmula del trabajo mecánico?', a:3, opts:['W=mv²','W=Pt','W=mgh','W=F·d·cos θ'], exp:'W = F·d·cos θ. Cuando θ=0°, W=F·d. La fuerza debe tener componente en la dirección del desplazamiento.' },
+        { q:'¿Qué tipo de energía tiene un objeto en movimiento?', a:1, opts:['Potencial','Cinética','Térmica','Elástica'], exp:'Ec = ½mv². Depende de la masa y el cuadrado de la velocidad.' },
+        { q:'¿Cuánto mide g en la superficie terrestre?', a:2, opts:['10.8 m/s²','8.9 m/s²','9.8 m/s²','11.2 m/s²'], exp:'g ≈ 9.8 m/s² (usamos 10 m/s² como aproximación en cálculos rápidos).' },
+        { q:'Un bloque de 5 kg se mueve a 4 m/s. ¿Cuál es su energía cinética?', a:0, opts:['40 J','20 J','80 J','10 J'], exp:'Ec = ½mv² = ½·5·16 = 40 J.' },
+        { q:'¿Cuál es la unidad del impulso?', a:3, opts:['J','W','N','kg·m/s'], exp:'Impulso J = F·Δt = Δp. Sus unidades son kg·m/s = N·s.' },
+        { q:'¿Qué mide la densidad?', a:1, opts:['Fuerza por área','Masa por volumen','Peso por área','Velocidad por tiempo'], exp:'ρ = m/V. Unidades: kg/m³.' },
+        { q:'¿Cuál de estas magnitudes es vectorial?', a:2, opts:['Masa','Temperatura','Velocidad','Densidad'], exp:'La velocidad tiene módulo y dirección. La masa, temperatura y densidad son escalares.' },
+        { q:'¿Qué es la presión?', a:0, opts:['Fuerza por unidad de área','Fuerza por unidad de masa','Energía por unidad de tiempo','Masa por unidad de volumen'], exp:'P = F/A. Unidad: Pascal (Pa) = N/m².' },
+        { q:'¿Cuál es la unidad de potencia?', a:1, opts:['Joule','Watt','Newton','Pascal'], exp:'W = J/s = kg·m²/s³. 1 caballo de fuerza ≈ 746 W.' },
+        { q:'Un auto frena uniformemente de 20 m/s a 0 en 5 s. ¿Cuál es su desaceleración?', a:3, opts:['2 m/s²','6 m/s²','8 m/s²','4 m/s²'], exp:'a = Δv/t = (0-20)/5 = -4 m/s². La magnitud es 4 m/s².' },
+        { q:'¿Qué conserva el Principio de Conservación de Momento Lineal?', a:2, opts:['Energía cinética','Fuerza total','Momento total del sistema aislado','Aceleración'], exp:'En un sistema aislado (sin fuerzas externas), el momento total p = Σmv se conserva.' },
+        { q:'¿Cuál es la relación entre posición y velocidad?', a:0, opts:['v = dx/dt','v = x·t','v = x²','v = d²x/dt²'], exp:'La velocidad es la derivada de la posición respecto al tiempo. v = dx/dt.' },
+      ],
+      2: [
+        { q:'¿Cuál es la ley de Coulomb para dos cargas puntuales?', a:2, opts:['F=qE','F=kq/r','F=kq₁q₂/r²','F=q·v×B'], exp:'F = k·q₁·q₂/r². k ≈ 9×10⁹ N·m²/C². La fuerza es inversamente proporcional al cuadrado de la distancia.' },
+        { q:'¿Qué establece la Ley de Gauss?', a:1, opts:['∮B·dA=0','∮E·dA=Q/ε₀','∮E·dl=-dΦB/dt','∇×B=μ₀J'], exp:'El flujo eléctrico total a través de una superficie cerrada es Q_enc/ε₀.' },
+        { q:'¿Cuál es la frecuencia de un péndulo simple de 1 m? (g=9.8 m/s²)', a:3, opts:['2.0 Hz','1.5 Hz','0.8 Hz','0.5 Hz'], exp:'f = (1/2π)√(g/L) = (1/2π)√(9.8/1) ≈ 0.5 Hz.' },
+        { q:'¿Qué tipo de onda es el sonido?', a:0, opts:['Longitudinal mecánica','Transversal mecánica','Transversal electromagnética','Longitudinal electromagnética'], exp:'El sonido es una onda de presión longitudinal que necesita medio material para propagarse.' },
+        { q:'¿Cuál es la velocidad del sonido en el aire a 20°C?', a:2, opts:['200 m/s','500 m/s','343 m/s','1480 m/s'], exp:'v ≈ 343 m/s en aire a 20°C. En agua ≈ 1480 m/s. Depende del medio y temperatura.' },
+        { q:'¿Qué mide el número de Reynolds?', a:1, opts:['Viscosidad','Razón entre fuerzas inerciales y viscosas','Presión en fluidos','Calor específico'], exp:'Re = ρvL/μ. Re < 2300: flujo laminar. Re > 4000: flujo turbulento.' },
+        { q:'¿Cuál es la primera ley de la termodinámica?', a:3, opts:['S≥0','PV=nRT','Q=mcΔT','ΔU=Q-W'], exp:'ΔU = Q - W. La variación de energía interna = calor absorbido menos trabajo realizado.' },
+        { q:'En un proceso isotérmico, ¿qué es constante?', a:0, opts:['Temperatura','Presión','Volumen','Entropía'], exp:'Isotérmico = temperatura constante. Isobárico = presión. Isocórico = volumen.' },
+        { q:'¿Cuál es la velocidad de la luz en el vacío?', a:2, opts:['2×10⁸ m/s','3.5×10⁸ m/s','3×10⁸ m/s','2.5×10⁸ m/s'], exp:'c = 2.998×10⁸ m/s ≈ 3×10⁸ m/s. Es una constante fundamental de la naturaleza.' },
+        { q:'¿Qué es el efecto Doppler?', a:1, opts:['Reflexión de luz','Cambio de frecuencia por movimiento relativo','Difracción de ondas','Interferencia destructiva'], exp:'Al acercarse una fuente, f aumenta. Al alejarse, f disminuye. Aplica a sonido y luz.' },
+        { q:'¿Cuál es la unidad de capacitancia eléctrica?', a:3, opts:['Ohm','Henry','Tesla','Faradio'], exp:'Faradio (F) = C/V. El Ohm es resistencia, Henry inductancia, Tesla campo magnético.' },
+        { q:'¿Qué ley relaciona campo magnético y corriente eléctrica?', a:0, opts:['Ley de Ampère','Ley de Faraday','Ley de Gauss magnética','Ley de Biot-Savart'], exp:'∮B·dl = μ₀I_enc. Ampère relaciona la circulación de B con la corriente encerrada.' },
+        { q:'¿Qué es la impedancia en un circuito AC?', a:2, opts:['Solo resistencia','Solo reactancia','Combinación de resistencia y reactancia','Capacitancia total'], exp:'Z = √(R² + X²). Combina resistencia (R) y reactancia (X = XL - XC).' },
+        { q:'¿Cuál es la longitud de onda de la luz visible?', a:1, opts:['1-10 nm','380-700 nm','700-1000 nm','0.1-1 nm'], exp:'La luz visible va de ~380 nm (violeta) a ~700 nm (rojo). UV < 380 nm, IR > 700 nm.' },
+        { q:'¿Qué es la entropía?', a:3, opts:['Energía total','Calor específico','Temperatura absoluta','Medida del desorden termodinámico'], exp:'S mide el desorden. ΔS = Q_rev/T. La 2ª ley: ΔS_universo ≥ 0.' },
+      ],
+      3: [
+        { q:'¿Cuál es la relación de De Broglie?', a:0, opts:['λ=h/p','λ=hf','λ=E/c','λ=mc²'], exp:'λ = h/p = h/(mv). Toda partícula con momento p tiene longitud de onda asociada.' },
+        { q:'¿Qué dice el principio de incertidumbre de Heisenberg?', a:2, opts:['E=hf','hν=φ+Ec','Δx·Δp ≥ ℏ/2','ψ²=probabilidad'], exp:'No se puede conocer simultáneamente posición y momento con precisión arbitraria. Δx·Δp ≥ ℏ/2.' },
+        { q:'En relatividad especial, ¿cómo varía la masa relativista?', a:1, opts:['m=m₀/γ','m=γm₀','m=m₀/c²','m=m₀+E/c²'], exp:'m = γm₀ donde γ = 1/√(1-v²/c²). Al acercarse a c, la masa relativista tiende a infinito.' },
+        { q:'¿Cuál es la energía del fotón?', a:3, opts:['E=mv²','E=hλ','E=pc','E=hf'], exp:'E = hf = hc/λ. h = 6.626×10⁻³⁴ J·s es la constante de Planck.' },
+        { q:'¿Qué describe la ecuación de Schrödinger?', a:0, opts:['La evolución temporal de la función de onda','La masa relativista','La energía de enlace nuclear','El flujo de probabilidad'], exp:'iℏ∂ψ/∂t = Ĥψ. La función de onda ψ contiene toda la información del sistema cuántico.' },
+        { q:'¿Cuál es la constante de estructura fina α?', a:2, opts:['1/100','1/10','1/137','1/1000'], exp:'α = e²/(4πε₀ℏc) ≈ 1/137. Mide la intensidad de la interacción electromagnética.' },
+        { q:'¿Qué son los bosones de gauge?', a:1, opts:['Partículas de materia','Partículas portadoras de fuerza','Antipartículas','Quarks de segunda generación'], exp:'Fotón (EM), W/Z (débil), gluón (fuerte), gravitón (gravitacional). Tienen espín entero.' },
+        { q:'En el modelo estándar, ¿cuántos quarks existen?', a:3, opts:['3','4','5','6'], exp:'Up, down, charm, strange, top, bottom. Se combinan en hadrones (bariones y mesones).' },
+        { q:'¿Qué es la constante de Hubble?', a:0, opts:['Tasa de expansión del universo','Energía de enlace nuclear','Constante gravitacional','Frecuencia de rotación galáctica'], exp:'H₀ ≈ 70 km/s/Mpc. Relaciona la velocidad de recesión de galaxias con su distancia.' },
+        { q:'¿Cuál es la relación entre energía y masa de Einstein?', a:2, opts:['E=mv','E=mgh','E=mc²','E=mv²'], exp:'E = mc². Implica que masa y energía son equivalentes. c² ≈ 9×10¹⁶ m²/s².' },
+        { q:'¿Qué es la radiación de Hawking?', a:1, opts:['Radiación de acreción de agujero negro','Emisión térmica cuántica de agujeros negros','Rayos gamma de pulsares','Radiación de fondo de microondas'], exp:'Efecto cuántico en el horizonte de eventos: pares virtuales donde uno cae y el otro escapa.' },
+        { q:'¿Cuál es la temperatura de la radiación de fondo de microondas?', a:3, opts:['10 K','5 K','1 K','2.73 K'], exp:'T_CMB ≈ 2.73 K. Remanente del Big Bang (380,000 años después). Descubierta en 1965.' },
+        { q:'¿Qué es la supersimetría (SUSY)?', a:0, opts:['Simetría entre bosones y fermiones','Simetría de carga eléctrica','Invarianza de Lorentz','Simetría de color en QCD'], exp:'SUSY predice un supercompañero para cada partícula. No confirmada experimentalmente aún.' },
+        { q:'¿Qué describe la QCD (Cromodinámica Cuántica)?', a:2, opts:['Interacción electromagnética','Interacción débil','Interacción fuerte entre quarks','Gravedad cuántica'], exp:'QCD describe la fuerza fuerte con gluones como mediadores y carga de color (RGB).' },
+        { q:'¿Cuántas dimensiones propone la teoría de cuerdas M?', a:1, opts:['10','11','12','26'], exp:'La teoría M (unificación de las 5 teorías de cuerdas) requiere 11 dimensiones espacio-temporales.' },
+      ],
+    };
+
+    const LEVEL_CFG = [
+      { label:'NIVEL 1', badge:'🧪', topic:'Mecánica Clásica', color:'#00ffa8', timePerQ:25, qCount:8, poolKey:1, waveBonus:400 },
+      { label:'NIVEL 2', badge:'🧪🧪', topic:'Ondas · Termodinámica · Electromagnetismo', color:'#d4a017', timePerQ:20, qCount:8, poolKey:2, waveBonus:700 },
+      { label:'NIVEL 3', badge:'🧪🧪🧪', topic:'Física Moderna · Cuántica · Cosmología', color:'#ef5350', timePerQ:18, qCount:8, poolKey:3, waveBonus:1200 },
+    ];
+
+    let S, cont, timerIv=null;
+
+    function shuffle(arr){ for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr; }
+
+    function buildState(lvlIdx, prevScore){
+      const cfg = LEVEL_CFG[lvlIdx];
+      const pool = shuffle([...QUESTION_BANK[cfg.poolKey]]).slice(0, cfg.qCount);
+      return {
+        lvl:lvlIdx, cfg, pool,
+        qIdx:0, score:prevScore||0,
+        streak:0, maxStreak:0,
+        chosen:null, showExp:false,
+        timeLeft:cfg.timePerQ,
+        correct:0, wrong:0,
+        over:false, levelCleared:false,
+      };
+    }
+
+    function startTimer(){
+      if(timerIv) clearInterval(timerIv);
+      timerIv = setInterval(()=>{
+        if(!S||S.showExp||S.over){return;}
+        S.timeLeft--;
+        const el = cont&&cont.querySelector('#qTimer');
+        if(el){
+          el.textContent = S.timeLeft+'s';
+          el.style.color = S.timeLeft<=5?'#ef5350':S.timeLeft<=10?'#d4a017':'#4a6a72';
+        }
+        const bar = cont&&cont.querySelector('#qTimerBar');
+        if(bar) bar.style.width = (S.timeLeft/S.cfg.timePerQ*100)+'%';
+        if(S.timeLeft<=0){
+          clearInterval(timerIv);
+          S.chosen=-1; S.showExp=true;
+          S.streak=0; S.wrong++;
+          render();
+        }
+      },1000);
+    }
+
+    function choose(idx){
+      if(!S||S.showExp||S.chosen!==null) return;
+      clearInterval(timerIv);
+      S.chosen = idx;
+      S.showExp = true;
+      const q = S.pool[S.qIdx];
+      if(idx === q.a){
+        const bonus = Math.floor(S.timeLeft*2*(S.lvl+1));
+        const streakBonus = S.streak>=2 ? S.streak*10 : 0;
+        S.score += 100*(S.lvl+1) + bonus + streakBonus;
+        S.streak++; S.correct++;
+        if(S.streak>S.maxStreak) S.maxStreak=S.streak;
+      } else {
+        S.streak=0; S.wrong++;
+      }
+      render();
+    }
+
+    function nextQuestion(){
+      if(!S) return;
+      S.qIdx++;
+      if(S.qIdx >= S.pool.length){
+        clearInterval(timerIv);
+        S.score += S.cfg.waveBonus;
+        S.levelCleared = true; S.over = true;
+        render(); return;
+      }
+      S.chosen=null; S.showExp=false; S.timeLeft=S.cfg.timePerQ;
+      render();
+      startTimer();
+    }
+
+    function nextLevel(){
+      clearInterval(timerIv);
+      S = buildState(S.lvl+1, S.score);
+      render();
+      startTimer();
+    }
+
+    function render(){
+      if(!cont||!S) return;
+      const cfg = S.cfg;
+      const q = S.pool[S.qIdx];
+      const progress = S.qIdx/S.pool.length;
+      const timePct = S.timeLeft/cfg.timePerQ;
+
+      cont.innerHTML = `
+<div style="display:flex;flex-direction:column;align-items:center;padding:12px 8px 20px;width:100%;user-select:none">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;justify-content:center">
+    <span style="font-size:12px;color:${cfg.color};font-weight:800;letter-spacing:2px">${cfg.label} ${cfg.badge}</span>
+    <span style="font-size:10px;color:#2a5a6a;text-align:center">${cfg.topic}</span>
+  </div>
+
+  <!-- Progreso preguntas -->
+  <div style="display:flex;align-items:center;gap:8px;width:min(380px,95vw);margin-bottom:6px">
+    <span style="font-size:11px;color:${cfg.color};font-weight:800;white-space:nowrap">${S.qIdx+1}/${S.pool.length}</span>
+    <div style="flex:1;height:6px;background:#0b3b46;border-radius:4px;overflow:hidden">
+      <div style="height:100%;width:${progress*100}%;background:${cfg.color};border-radius:4px;transition:width 0.4s"></div>
+    </div>
+    <span style="font-size:11px;color:#d4a017;font-weight:700;white-space:nowrap">SCORE ${S.score}</span>
+  </div>
+
+  <!-- Timer -->
+  <div style="display:flex;align-items:center;gap:8px;width:min(380px,95vw);margin-bottom:10px">
+    <span id="qTimer" style="font-size:13px;font-weight:800;color:#4a6a72;width:32px">${S.timeLeft}s</span>
+    <div style="flex:1;height:4px;background:#0b3b46;border-radius:4px;overflow:hidden">
+      <div id="qTimerBar" style="height:100%;width:${timePct*100}%;background:${S.timeLeft<=5?'#ef5350':S.timeLeft<=10?'#d4a017':'#26c6da'};border-radius:4px;transition:width 0.9s linear"></div>
+    </div>
+    ${S.streak>=2?`<span style="font-size:11px;color:#ffd740;font-weight:800">🔥×${S.streak}</span>`:'<span style="width:36px"></span>'}
+  </div>
+
+  <!-- HUD aciertos/fallos -->
+  <div style="display:flex;gap:16px;margin-bottom:10px">
+    <span style="font-size:12px;color:#00ffa8;font-weight:800">✔ ${S.correct}</span>
+    <span style="font-size:12px;color:#ef5350;font-weight:800">✘ ${S.wrong}</span>
+    ${S.maxStreak>=3?`<span style="font-size:11px;color:#ffd740">🏅 Racha: ${S.maxStreak}</span>`:''}
+  </div>
+
+  <!-- Pregunta -->
+  <div style="background:#0a1e28;border:1px solid #0b3b46;border-radius:12px;padding:14px 16px;margin-bottom:12px;width:min(380px,95vw);text-align:center">
+    <div style="font-size:clamp(12px,3.5vw,15px);color:#d0e8f0;font-weight:700;line-height:1.5">${q.q}</div>
+  </div>
+
+  <!-- Opciones -->
+  <div style="display:flex;flex-direction:column;gap:8px;width:min(380px,95vw)">
+    ${q.opts.map((opt,i)=>{
+      let bg='#0a1e28', border='#0b3b46', color='#7ab0c0', icon='';
+      if(S.showExp){
+        if(i===q.a){ bg='rgba(0,255,168,0.15)'; border='#00ffa8'; color='#00ffa8'; icon='✔ '; }
+        else if(i===S.chosen){ bg='rgba(239,83,80,0.15)'; border='#ef5350'; color='#ef5350'; icon='✘ '; }
+        else { color='#1e3a42'; }
+      }
+      return `<button data-i="${i}" style="
+        background:${bg};border:2px solid ${border};border-radius:10px;
+        color:${color};font-size:clamp(12px,3.2vw,14px);font-weight:700;
+        padding:12px 14px;text-align:left;cursor:${S.showExp?'default':'pointer'};
+        -webkit-tap-highlight-color:transparent;transition:all 0.2s;
+        width:100%;
+      ">${icon}${String.fromCharCode(65+i)}) ${opt}</button>`;
+    }).join('')}
+  </div>
+
+  <!-- Explicación -->
+  ${S.showExp?`
+  <div style="background:${S.chosen===q.a?'rgba(0,255,168,0.08)':'rgba(239,83,80,0.08)'};border:1px solid ${S.chosen===q.a?'#00ffa855':'#ef535055'};border-radius:10px;padding:10px 14px;margin-top:10px;width:min(380px,95vw)">
+    <div style="font-size:11px;color:#4a7a8a;margin-bottom:3px;font-weight:800">💡 EXPLICACIÓN</div>
+    <div style="font-size:clamp(11px,3vw,13px);color:#7ab0c0;line-height:1.5">${q.exp}</div>
+  </div>
+  <button id="btnNextQ" style="background:linear-gradient(135deg,${cfg.color},#0a6a4a);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:11px 28px;cursor:pointer;margin-top:12px;-webkit-tap-highlight-color:transparent">
+    ${S.qIdx+1<S.pool.length?'SIGUIENTE ▶':'VER RESULTADO ▶'}
+  </button>`:''}
+
+  <!-- Final -->
+  ${S.over&&S.levelCleared?`
+  <div style="margin-top:14px;text-align:center">
+    <div style="color:${cfg.color};font-size:15px;font-weight:800;letter-spacing:2px;margin-bottom:4px">
+      ${S.lvl<LEVEL_CFG.length-1?'✅ ¡NIVEL '+(S.lvl+1)+' COMPLETADO!':'🏆 ¡DOCTOR EN FÍSICA!'}
+    </div>
+    <div style="color:#4a6a72;font-size:11px;margin-bottom:12px">
+      ${S.correct}/${S.pool.length} correctas · Racha max: ${S.maxStreak} · +${cfg.waveBonus} bonus · SCORE: ${S.score}
+    </div>
+    ${S.lvl<LEVEL_CFG.length-1?`<button id="btnNL" style="background:linear-gradient(135deg,${cfg.color},#0a6a4a);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 20px;cursor:pointer;margin-right:8px">▶ NIVEL ${S.lvl+2}</button>`:''}
+    <button onclick="GamesEngine.launch('quiz')" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;padding:9px 14px;cursor:pointer;margin-right:6px">↺ REINICIAR</button>
+    <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;padding:9px 14px;cursor:pointer">◀ VOLVER</button>
+  </div>`:''}
+</div>`;
+
+      // Eventos opciones
+      if(!S.showExp){
+        cont.querySelectorAll('[data-i]').forEach(btn=>{
+          btn.addEventListener('click',()=>choose(+btn.dataset.i));
+        });
+      }
+      const bnq = cont.querySelector('#btnNextQ');
+      if(bnq) bnq.addEventListener('click', nextQuestion);
+      const bnl = cont.querySelector('#btnNL');
+      if(bnl) bnl.addEventListener('click', nextLevel);
+    }
+
+    return {
+      init(c){
+        clearInterval(timerIv);
+        cont=c; S=buildState(0,0);
+        render(); startTimer();
+      },
+      cleanup(){ clearInterval(timerIv); timerIv=null; S=null; }
     };
   })();
 
