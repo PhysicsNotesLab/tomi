@@ -3174,8 +3174,8 @@ const GamesEngine = (() => {
   </div>
 
   <!-- Instrucción dirección -->
-  <div style="font-size:10px;color:#1e3a42;margin-top:5px;text-align:center">
-    ${cfg.dirs.length<=4?'↔ ↕  Solo horizontal y vertical':'↔ ↕ ↗  Horizontal, vertical y diagonal · ${cfg.dirs.length>=8?"+ inversas":""}'}
+  <div style="font-size:10px;color:#2a5a6a;margin-top:5px;text-align:center">
+    ${cfg.poolKey===1?'Palabras en horizontal y vertical':'Palabras en todas las direcciones, incluso en diagonal'}
   </div>
 
   <!-- Lista de palabras -->
