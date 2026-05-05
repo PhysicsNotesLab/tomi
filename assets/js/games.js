@@ -2932,33 +2932,70 @@ const GamesEngine = (() => {
   ═══════════════════════════════════════════════════════════ */
   Impls.wordsearch = (() => {
 
+    // ── Repositorios amplios de palabras por nivel ──────────────
+    const WORD_POOL = {
+      1: [
+        'ATOMO','FUERZA','LUZ','MASA','ONDA','CALOR','ION','GAS','SOL',
+        'PESO','CALOR','RAYO','POLO','ARCO','FLUJO','CAMPO','CARGA','SPIN',
+        'NODO','TONO','CAIDA','PULSO','FLUIDO','PRISMA','VAPOR','SUELO',
+        'CHOQUE','OPTICA','PLASMA','TIEMPO','RADAR','LASER','FOTON','QUARK',
+      ],
+      2: [
+        'ELECTRON','PROTON','NEUTRON','ENERGIA','VOLTAJE','CIRCUITO','PRESION',
+        'DENSIDAD','TENSION','MOMENTO','IMPULSO','TRABAJO','POTENCIA','TORQUE',
+        'ENTROPIA','INERCIA','GRAVEDAD','ESPECTRO','PENDULO','FRICCION',
+        'REFRACCION','REFLEXION','MAGNETON','INDUCTOR','RESISTOR','CAPACITOR',
+        'DIFUSION','COLISION','TURBINA','REACTOR','NEUTRINO','FERMION','BOSON',
+        'ORBITA','CALORICO','TERMINO','ISOTOPO','FOSFORO','CUANTICO','FOTON',
+      ],
+      3: [
+        'MAGNETISMO','RESISTENCIA','ACELERACION','GRAVITACION','CAPACITANCIA',
+        'INDUCTANCIA','OSCILACION','DIFRACCION','TERMODINAMICA','ELECTROSTTICA',
+        'SUPERCONDUCTOR','INTERFERENCIA','RADIOACTIVIDAD','ELECTROMAGNETISMO',
+        'RELATIVIDAD','MECANICACUANTICA','TERMONUCLEAR','SEMICONDUCTORES',
+        'FISIONNUCLEAR','FUSIONNUCLEAR','SUPERSIMETRIA','ANTIMATERIA',
+        'ESPINTRONICA','ASTROFISICA','COSMOLOGIA','ESPECTROSCOPIA',
+        'PIEZOELECTRICO','FERROMAGNETICO','DIAMAGNETISMO','PARAMAGNETISMO',
+        'SUPERCONDUCTIVIDAD','NANOTECNOLOGIA','CRISTALOGRAFIA',
+      ],
+    };
+
+    function pickWords(level, count){
+      const pool=[...WORD_POOL[level]];
+      // Fisher-Yates shuffle
+      for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+      return pool.slice(0,count);
+    }
+
+    const COLORS_POOL=['#00ffa8','#42a5f5','#ab47bc','#ff7043','#ffd740','#26c6da','#66bb6a','#d4a017','#ef5350','#f48fb1','#80cbc4','#ce93d8','#ffcc80','#80deea','#a5d6a7'];
+
     const LEVELS = [
       {
         label:'NIVEL 1', badge:'🔤',
-        size:9, timeLimit:0,
-        dirs:[[0,1],[1,0],[0,-1],[-1,0]],   // H y V (sin diagonal)
-        accentColor:'#00ffa8', accentRGB:'0,255,168',
+        size:9, timeLimit:0, wordCount:7,
+        dirs:[[0,1],[1,0],[0,-1],[-1,0],[0,1],[1,0],[0,-1],[-1,0],[1,1],[1,-1]],
+        accentColor:'#00ffa8',
         waveBonus:300,
-        words:['ATOMO','FUERZA','LUZ','MASA','ONDA','CALOR','ION'],
-        colors:['#00ffa8','#42a5f5','#ab47bc','#ff7043','#ffd740','#26c6da','#66bb6a'],
+        poolKey:1,
+        colors:COLORS_POOL,
       },
       {
         label:'NIVEL 2', badge:'🔤🔤',
-        size:12, timeLimit:120,
-        dirs:[[0,1],[1,0],[0,-1],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]],
-        accentColor:'#d4a017', accentRGB:'212,160,23',
+        size:12, timeLimit:120, wordCount:8,
+        dirs:[[0,1],[1,0],[0,-1],[-1,0],[0,1],[1,0],[1,1],[1,-1],[-1,1],[-1,-1]],
+        accentColor:'#d4a017',
         waveBonus:600,
-        words:['ELECTRON','PROTON','NEUTRON','ENERGIA','CAMPO','VOLTAJE','CIRCUITO','FRECUENCIA'],
-        colors:['#d4a017','#ef5350','#ab47bc','#42a5f5','#00ffa8','#ff7043','#26c6da','#ffd740'],
+        poolKey:2,
+        colors:COLORS_POOL,
       },
       {
         label:'NIVEL 3', badge:'🔤🔤🔤',
-        size:15, timeLimit:150,
-        dirs:[[0,1],[1,0],[0,-1],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]],
-        accentColor:'#ef5350', accentRGB:'239,83,80',
+        size:15, timeLimit:150, wordCount:10,
+        dirs:[[0,1],[1,0],[0,-1],[-1,0],[0,1],[1,0],[1,1],[1,-1],[-1,1],[-1,-1],[-1,1],[-1,-1]],
+        accentColor:'#ef5350',
         waveBonus:1000,
-        words:['MAGNETISMO','RESISTENCIA','ACELERACION','GRAVITACION','CAPACITANCIA','INDUCTANCIA','OSCILACION','REFRACCION','DIFRACCION','TERMODINAMICA'],
-        colors:['#ef5350','#ff7043','#ffd740','#00ffa8','#42a5f5','#ab47bc','#26c6da','#66bb6a','#d4a017','#f48fb1'],
+        poolKey:3,
+        colors:COLORS_POOL,
       },
     ];
 
@@ -3003,7 +3040,8 @@ const GamesEngine = (() => {
     /* ── Estado ───────────────────────────────────────────── */
     function buildState(lvlIdx, prevScore){
       const cfg=LEVELS[lvlIdx];
-      const {grid,placed}=buildGrid(cfg.size,cfg.words,cfg.dirs);
+      const words=pickWords(cfg.poolKey, cfg.wordCount);
+      const {grid,placed}=buildGrid(cfg.size,words,cfg.dirs);
       return{
         lvl:lvlIdx, cfg, grid, placed,
         words:placed.map(p=>p.word),
