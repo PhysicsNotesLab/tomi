@@ -1921,6 +1921,46 @@ const GamesEngine = (() => {
       render();
     }
 
+    function renderFinal(){
+      if(!cont||!S) return;
+      const cfg = S.cfg;
+      cont.innerHTML = `
+<div style="display:flex;flex-direction:column;align-items:center;padding:20px 12px;width:100%;text-align:center">
+  <div style="font-size:48px;margin-bottom:10px">${S.lvl<LEVEL_CFG.length-1?'✅':'🏆'}</div>
+  <div style="font-size:16px;font-weight:800;letter-spacing:2px;color:${cfg.color};margin-bottom:6px">
+    ${S.lvl<LEVEL_CFG.length-1?'¡NIVEL '+(S.lvl+1)+' COMPLETADO!':'¡DOCTOR EN FÍSICA!'}
+  </div>
+  <div style="background:#0a1e28;border:1px solid #0b3b46;border-radius:12px;padding:14px 20px;margin:14px 0;width:min(320px,90vw)">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="text-align:center">
+        <div style="font-size:28px;font-weight:900;color:#00ffa8">${S.correct}</div>
+        <div style="font-size:10px;color:#4a6a72">CORRECTAS</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:28px;font-weight:900;color:#ef5350">${S.wrong}</div>
+        <div style="font-size:10px;color:#4a6a72">INCORRECTAS</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:28px;font-weight:900;color:#ffd740">${S.maxStreak}</div>
+        <div style="font-size:10px;color:#4a6a72">RACHA MAX</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:28px;font-weight:900;color:#d4a017">${S.score}</div>
+        <div style="font-size:10px;color:#4a6a72">SCORE FINAL</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:#2a5a6a">+${cfg.waveBonus} bonus de nivel incluido</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;width:min(280px,85vw)">
+    ${S.lvl<LEVEL_CFG.length-1?`<button id="btnNL" style="background:linear-gradient(135deg,${cfg.color},#0a6a4a);border:none;border-radius:12px;color:#020b10;font-size:14px;font-weight:800;padding:13px 20px;cursor:pointer;-webkit-tap-highlight-color:transparent">▶ NIVEL ${S.lvl+2}: ${LEVEL_CFG[S.lvl+1].topic.split('·')[0].trim()}</button>`:''}
+    <button onclick="GamesEngine.launch('quiz')" style="background:transparent;border:1px solid #0b3b46;border-radius:12px;color:#6b8a91;font-size:13px;padding:11px;cursor:pointer">↺ REINICIAR DESDE NIVEL 1</button>
+    <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:12px;color:#6b8a91;font-size:13px;padding:11px;cursor:pointer">◀ SELECCIÓN DE JUEGOS</button>
+  </div>
+</div>`;
+      const bnl = cont.querySelector('#btnNL');
+      if(bnl) bnl.addEventListener('click', nextLevel);
+    }
+
     function render(){
       const sz='clamp(30px,9.8vw,40px)';
       cont.innerHTML=`
@@ -3780,7 +3820,12 @@ const GamesEngine = (() => {
     function render(){
       if(!cont||!S) return;
       const cfg = S.cfg;
+      // Si ya se terminaron todas las preguntas, mostrar solo la pantalla de resultados
+      if(S.over && S.levelCleared && S.qIdx >= S.pool.length){
+        renderFinal(); return;
+      }
       const q = S.pool[S.qIdx];
+      if(!q) return; // guard extra
       const progress = S.qIdx/S.pool.length;
       const timePct = S.timeLeft/cfg.timePerQ;
 
