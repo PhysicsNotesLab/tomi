@@ -1921,46 +1921,6 @@ const GamesEngine = (() => {
       render();
     }
 
-    function renderFinal(){
-      if(!cont||!S) return;
-      const cfg = S.cfg;
-      cont.innerHTML = `
-<div style="display:flex;flex-direction:column;align-items:center;padding:20px 12px;width:100%;text-align:center">
-  <div style="font-size:48px;margin-bottom:10px">${S.lvl<LEVEL_CFG.length-1?'✅':'🏆'}</div>
-  <div style="font-size:16px;font-weight:800;letter-spacing:2px;color:${cfg.color};margin-bottom:6px">
-    ${S.lvl<LEVEL_CFG.length-1?'¡NIVEL '+(S.lvl+1)+' COMPLETADO!':'¡DOCTOR EN FÍSICA!'}
-  </div>
-  <div style="background:#0a1e28;border:1px solid #0b3b46;border-radius:12px;padding:14px 20px;margin:14px 0;width:min(320px,90vw)">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div style="text-align:center">
-        <div style="font-size:28px;font-weight:900;color:#00ffa8">${S.correct}</div>
-        <div style="font-size:10px;color:#4a6a72">CORRECTAS</div>
-      </div>
-      <div style="text-align:center">
-        <div style="font-size:28px;font-weight:900;color:#ef5350">${S.wrong}</div>
-        <div style="font-size:10px;color:#4a6a72">INCORRECTAS</div>
-      </div>
-      <div style="text-align:center">
-        <div style="font-size:28px;font-weight:900;color:#ffd740">${S.maxStreak}</div>
-        <div style="font-size:10px;color:#4a6a72">RACHA MAX</div>
-      </div>
-      <div style="text-align:center">
-        <div style="font-size:28px;font-weight:900;color:#d4a017">${S.score}</div>
-        <div style="font-size:10px;color:#4a6a72">SCORE FINAL</div>
-      </div>
-    </div>
-    <div style="margin-top:10px;font-size:11px;color:#2a5a6a">+${cfg.waveBonus} bonus de nivel incluido</div>
-  </div>
-  <div style="display:flex;flex-direction:column;gap:8px;width:min(280px,85vw)">
-    ${S.lvl<LEVEL_CFG.length-1?`<button id="btnNL" style="background:linear-gradient(135deg,${cfg.color},#0a6a4a);border:none;border-radius:12px;color:#020b10;font-size:14px;font-weight:800;padding:13px 20px;cursor:pointer;-webkit-tap-highlight-color:transparent">▶ NIVEL ${S.lvl+2}: ${LEVEL_CFG[S.lvl+1].topic.split('·')[0].trim()}</button>`:''}
-    <button onclick="GamesEngine.launch('quiz')" style="background:transparent;border:1px solid #0b3b46;border-radius:12px;color:#6b8a91;font-size:13px;padding:11px;cursor:pointer">↺ REINICIAR DESDE NIVEL 1</button>
-    <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:12px;color:#6b8a91;font-size:13px;padding:11px;cursor:pointer">◀ SELECCIÓN DE JUEGOS</button>
-  </div>
-</div>`;
-      const bnl = cont.querySelector('#btnNL');
-      if(bnl) bnl.addEventListener('click', nextLevel);
-    }
-
     function render(){
       const sz='clamp(30px,9.8vw,40px)';
       cont.innerHTML=`
@@ -3607,19 +3567,43 @@ const GamesEngine = (() => {
     ${S.target?`<span style="font-size:10px;color:#4a7a8a">Blanco en</span><span style="font-size:10px;color:#d4a017;font-weight:800">${S.target.x.toFixed(0)} m</span>`:''}
   </div>
 
-  <!-- Sliders -->
+  <!-- Botones +/- táctiles grandes para ángulo -->
   <div style="width:min(340px,95vw)">
 
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-      <span style="font-size:12px;color:#d4a017;font-weight:800;width:54px">θ ${S.angle}°</span>
-      <input type="range" min="1" max="89" value="${S.angle}" id="slAngle"
-        style="flex:1;height:6px;accent-color:#d4a017;cursor:pointer">
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:13px;color:#d4a017;font-weight:800">🎯 Ángulo: ${S.angle}°</span>
+        <span style="font-size:10px;color:#2a5a6a">θ = ${S.angle}°</span>
+      </div>
+      <!-- Track personalizado -->
+      <div style="position:relative;height:12px;background:#0b3b46;border-radius:6px;margin-bottom:8px;cursor:pointer" id="trackAngle">
+        <div style="position:absolute;left:0;top:0;height:100%;width:${((S.angle-1)/88*100).toFixed(1)}%;background:#d4a017;border-radius:6px;pointer-events:none"></div>
+        <div style="position:absolute;top:50%;left:${((S.angle-1)/88*100).toFixed(1)}%;transform:translate(-50%,-50%);width:28px;height:28px;background:#d4a017;border-radius:50%;border:3px solid #020b10;box-shadow:0 0 8px rgba(212,160,23,0.6);pointer-events:none"></div>
+      </div>
+      <!-- Botones ± grandes -->
+      <div style="display:flex;gap:6px">
+        <button class="sl-btn" data-sl="a" data-d="-10" style="flex:1;padding:10px 0;background:#0a1e28;border:1px solid #0b3b46;border-radius:8px;color:#d4a017;font-size:18px;font-weight:900;cursor:pointer;-webkit-tap-highlight-color:transparent">−10°</button>
+        <button class="sl-btn" data-sl="a" data-d="-1"  style="flex:1;padding:10px 0;background:#0a1e28;border:1px solid #0b3b46;border-radius:8px;color:#d4a017;font-size:18px;font-weight:900;cursor:pointer;-webkit-tap-highlight-color:transparent">−1°</button>
+        <button class="sl-btn" data-sl="a" data-d="+1"  style="flex:1;padding:10px 0;background:#0a1e28;border:1px solid #0b3b46;border-radius:8px;color:#d4a017;font-size:18px;font-weight:900;cursor:pointer;-webkit-tap-highlight-color:transparent">+1°</button>
+        <button class="sl-btn" data-sl="a" data-d="+10" style="flex:1;padding:10px 0;background:#0a1e28;border:1px solid #0b3b46;border-radius:8px;color:#d4a017;font-size:18px;font-weight:900;cursor:pointer;-webkit-tap-highlight-color:transparent">+10°</button>
+      </div>
     </div>
 
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-      <span style="font-size:12px;color:#42a5f5;font-weight:800;width:54px">v ${S.velocity}</span>
-      <input type="range" min="${cfg.vMin}" max="${cfg.vMax}" value="${S.velocity}" id="slVel"
-        style="flex:1;height:6px;accent-color:#42a5f5;cursor:pointer">
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:13px;color:#42a5f5;font-weight:800">🚀 Velocidad: ${S.velocity} m/s</span>
+        <span style="font-size:10px;color:#2a5a6a">v₀ = ${S.velocity} m/s</span>
+      </div>
+      <div style="position:relative;height:12px;background:#0b3b46;border-radius:6px;margin-bottom:8px;cursor:pointer" id="trackVel">
+        <div style="position:absolute;left:0;top:0;height:100%;width:${((S.velocity-cfg.vMin)/(cfg.vMax-cfg.vMin)*100).toFixed(1)}%;background:#42a5f5;border-radius:6px;pointer-events:none"></div>
+        <div style="position:absolute;top:50%;left:${((S.velocity-cfg.vMin)/(cfg.vMax-cfg.vMin)*100).toFixed(1)}%;transform:translate(-50%,-50%);width:28px;height:28px;background:#42a5f5;border-radius:50%;border:3px solid #020b10;box-shadow:0 0 8px rgba(66,165,245,0.6);pointer-events:none"></div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="sl-btn" data-sl="v" data-d="-10" style="flex:1;padding:10px 0;background:#0a1e28;border:1px solid #0b3b46;border-radius:8px;color:#42a5f5;font-size:16px;font-weight:900;cursor:pointer;-webkit-tap-highlight-color:transparent">−10</button>
+        <button class="sl-btn" data-sl="v" data-d="-1"  style="flex:1;padding:10px 0;background:#0a1e28;border:1px solid #0b3b46;border-radius:8px;color:#42a5f5;font-size:16px;font-weight:900;cursor:pointer;-webkit-tap-highlight-color:transparent">−1</button>
+        <button class="sl-btn" data-sl="v" data-d="+1"  style="flex:1;padding:10px 0;background:#0a1e28;border:1px solid #0b3b46;border-radius:8px;color:#42a5f5;font-size:16px;font-weight:900;cursor:pointer;-webkit-tap-highlight-color:transparent">+1</button>
+        <button class="sl-btn" data-sl="v" data-d="+10" style="flex:1;padding:10px 0;background:#0a1e28;border:1px solid #0b3b46;border-radius:8px;color:#42a5f5;font-size:16px;font-weight:900;cursor:pointer;-webkit-tap-highlight-color:transparent">+10</button>
+      </div>
     </div>
 
     ${cfg.angleHint&&S.target?`
@@ -3654,11 +3638,39 @@ const GamesEngine = (() => {
   </div>`:''}
 </div>`;
 
-      // Eventos sliders
-      const slA = cont.querySelector('#slAngle');
-      const slV = cont.querySelector('#slVel');
-      if(slA) slA.addEventListener('input',e=>{ S.angle=+e.target.value; S.trail=[]; S.result=null; render(); });
-      if(slV) slV.addEventListener('input',e=>{ S.velocity=+e.target.value; S.trail=[]; S.result=null; render(); });
+      // Botones +/- ángulo y velocidad
+      cont.querySelectorAll('.sl-btn').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const d=+btn.dataset.d;
+          if(btn.dataset.sl==='a'){
+            S.angle=Math.max(1,Math.min(89,S.angle+d));
+          } else {
+            S.velocity=Math.max(cfg.vMin,Math.min(cfg.vMax,S.velocity+d));
+          }
+          S.trail=[]; S.result=null; render();
+        });
+      });
+
+      // Track táctil — arrastrar el pulgar directamente
+      function attachTrack(id, isAngle){
+        const track=cont.querySelector('#'+id);
+        if(!track) return;
+        function setFromTouch(e){
+          e.preventDefault();
+          const src=e.touches?e.touches[0]:e;
+          const rect=track.getBoundingClientRect();
+          const pct=Math.max(0,Math.min(1,(src.clientX-rect.left)/rect.width));
+          if(isAngle){ S.angle=Math.round(1+pct*88); }
+          else { S.velocity=Math.round(cfg.vMin+pct*(cfg.vMax-cfg.vMin)); }
+          S.trail=[]; S.result=null; render();
+        }
+        track.addEventListener('touchstart',setFromTouch,{passive:false});
+        track.addEventListener('touchmove', setFromTouch,{passive:false});
+        track.addEventListener('mousedown', setFromTouch);
+        track.addEventListener('mousemove', e=>{if(e.buttons===1)setFromTouch(e);});
+      }
+      attachTrack('trackAngle',true);
+      attachTrack('trackVel',false);
 
       const btnFire = cont.querySelector('#btnFire');
       if(btnFire) btnFire.addEventListener('click', fire);
@@ -3815,6 +3827,46 @@ const GamesEngine = (() => {
       S = buildState(S.lvl+1, S.score);
       render();
       startTimer();
+    }
+
+    function renderFinal(){
+      if(!cont||!S) return;
+      const cfg = S.cfg;
+      cont.innerHTML = `
+<div style="display:flex;flex-direction:column;align-items:center;padding:20px 12px;width:100%;text-align:center">
+  <div style="font-size:48px;margin-bottom:10px">${S.lvl<LEVEL_CFG.length-1?'✅':'🏆'}</div>
+  <div style="font-size:16px;font-weight:800;letter-spacing:2px;color:${cfg.color};margin-bottom:6px">
+    ${S.lvl<LEVEL_CFG.length-1?'¡NIVEL '+(S.lvl+1)+' COMPLETADO!':'¡DOCTOR EN FÍSICA!'}
+  </div>
+  <div style="background:#0a1e28;border:1px solid #0b3b46;border-radius:12px;padding:14px 20px;margin:14px 0;width:min(320px,90vw)">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="text-align:center">
+        <div style="font-size:28px;font-weight:900;color:#00ffa8">${S.correct}</div>
+        <div style="font-size:10px;color:#4a6a72">CORRECTAS</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:28px;font-weight:900;color:#ef5350">${S.wrong}</div>
+        <div style="font-size:10px;color:#4a6a72">INCORRECTAS</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:28px;font-weight:900;color:#ffd740">${S.maxStreak}</div>
+        <div style="font-size:10px;color:#4a6a72">RACHA MAX</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:28px;font-weight:900;color:#d4a017">${S.score}</div>
+        <div style="font-size:10px;color:#4a6a72">SCORE FINAL</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:#2a5a6a">+${cfg.waveBonus} bonus de nivel incluido</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;width:min(280px,85vw)">
+    ${S.lvl<LEVEL_CFG.length-1?`<button id="btnNL" style="background:linear-gradient(135deg,${cfg.color},#0a6a4a);border:none;border-radius:12px;color:#020b10;font-size:14px;font-weight:800;padding:13px 20px;cursor:pointer;-webkit-tap-highlight-color:transparent">▶ NIVEL ${S.lvl+2}: ${LEVEL_CFG[S.lvl+1].topic.split('·')[0].trim()}</button>`:''}
+    <button onclick="GamesEngine.launch('quiz')" style="background:transparent;border:1px solid #0b3b46;border-radius:12px;color:#6b8a91;font-size:13px;padding:11px;cursor:pointer">↺ REINICIAR DESDE NIVEL 1</button>
+    <button onclick="GamesEngine.showSelection()" style="background:transparent;border:1px solid #0b3b46;border-radius:12px;color:#6b8a91;font-size:13px;padding:11px;cursor:pointer">◀ SELECCIÓN DE JUEGOS</button>
+  </div>
+</div>`;
+      const bnl = cont.querySelector('#btnNL');
+      if(bnl) bnl.addEventListener('click', nextLevel);
     }
 
     function render(){
