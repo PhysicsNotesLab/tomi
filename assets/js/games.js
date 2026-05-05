@@ -833,6 +833,8 @@ const GamesEngine = (() => {
       S.dir={x:1,y:0};S.nd={x:1,y:0};
       if(S.cfg.obstacles)S.obstacles=buildObstacles(cols,rows);
       spawnFood();
+      // Nivel 2+ arranca solo — no requiere interacción extra del usuario
+      if(lvlIdx>0) S.started=true;
       updateScore('NVL '+(lvlIdx+1)+' · '+(prevScore||0)+' LARGO 3/'+S.cfg.winLen);
       draw();
       iv=setInterval(tick,S.interval);
@@ -1940,6 +1942,7 @@ const GamesEngine = (() => {
                 color:${sel?'#ffd740':ig?'#d4a017':err?'#ef5350':ok?'#00ffa8':'#7ab0c0'};
                 cursor:${ig?'default':'pointer'};
                 -webkit-tap-highlight-color:transparent;
+        pointer-events:none;
                 box-sizing:border-box;
               ">${v||''}</div>`;
             }).join('')).join('')}
@@ -3109,7 +3112,7 @@ const GamesEngine = (() => {
   </div>
 
   <!-- Grilla -->
-  <div id="wsGrid" style="display:grid;grid-template-columns:repeat(${size},${cpx});gap:2px;background:#0b3b46;padding:4px;border-radius:10px;touch-action:none;cursor:crosshair">
+  <div id="wsGrid" style="display:grid;grid-template-columns:repeat(${size},${cpx});gap:2px;background:#0b3b46;padding:4px;border-radius:10px;touch-action:none;cursor:crosshair;pointer-events:auto">
     ${S.grid.map((row,r)=>row.map((L,c)=>{
       const key=r+','+c;
       const foundColor=S.foundCells[key];
@@ -3188,9 +3191,14 @@ const GamesEngine = (() => {
       if(!grid) return;
 
       function cellFrom(e){
-        const src=e.touches?e.touches[0]:(e.changedTouches||[e])[0];
+        // changedTouches primero: funciona en touchend (touches queda vacío)
+        const t=(e.changedTouches&&e.changedTouches.length)?e.changedTouches[0]
+               :(e.touches&&e.touches.length)?e.touches[0]:null;
+        const src=t||e;
+        if(!src||src.clientX==null) return null;
         const el=document.elementFromPoint(src.clientX,src.clientY);
-        return el&&el.dataset.r!=null?{r:+el.dataset.r,c:+el.dataset.c}:null;
+        if(!el||el.dataset.r==null) return null;
+        return {r:+el.dataset.r, c:+el.dataset.c};
       }
 
       function onStart(e){
