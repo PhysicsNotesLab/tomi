@@ -1679,9 +1679,16 @@ const GamesEngine = (() => {
       /* ¿Alguien llegó al límite? */
       if(p1.score>=cfg.winScore){
         S.score+=cfg.waveBonus;
-        S.levelCleared=true; S.levelTimer=180;
+        S.levelCleared=true;
         clearInterval(iv); iv=null;
         updateScore('NVL '+(S.lvl+1)+' · '+S.score);
+        setTimeout(()=>{
+          if(!S||!S.levelCleared) return;
+          const next=S.lvl+1;
+          if(next>=LEVELS.length){S.over=true;draw();gameOver(S.score,true);return;}
+          S=buildState(next,S.score);
+          iv=setInterval(tick,16);
+        },2200);
       }
       if(p2.score>=cfg.winScore){
         S.over=true;
@@ -1695,20 +1702,8 @@ const GamesEngine = (() => {
       S.particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life--;});
       S.particles=S.particles.filter(p=>p.life>0);
 
-      /* Transición */
-      if(S.levelCleared){
-        S.levelTimer--;
-        draw();
-        if(S.levelTimer<=0){
-          const next=S.lvl+1;
-          if(next>=LEVELS.length){S.over=true;draw();gameOver(S.score,true);}
-          else{
-            S=buildState(next,S.score);
-            iv=setInterval(tick,16);
-          }
-        }
-        return;
-      }
+      /* Transición — gestionada por setTimeout */
+      if(S.levelCleared){ draw(); return; }
 
       draw();
     }
@@ -2885,7 +2880,7 @@ const GamesEngine = (() => {
                 ${S.moves} movimientos · +${cfg.waveBonus} bonus · SCORE: ${S.score}
               </div>
               ${S.lvl<LEVELS.length-1
-                ? `<button onclick="GamesEngine._memNextLevel()" style="background:linear-gradient(135deg,${cfg.accentColor},#0b8f6a);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 22px;cursor:pointer;margin-right:6px;letter-spacing:1px">▶ NIVEL ${S.lvl+2}</button>`
+                ? `<button id="memNextBtn" style="background:linear-gradient(135deg,${cfg.accentColor},#0b8f6a);border:none;border-radius:10px;color:#020b10;font-size:13px;font-weight:800;padding:10px 22px;cursor:pointer;margin-right:6px;letter-spacing:1px">▶ NIVEL ${S.lvl+2}</button>`
                 : ''
               }
               <button onclick="GamesEngine.launch('memory')" style="background:transparent;border:1px solid #0b3b46;border-radius:10px;color:#6b8a91;font-size:12px;font-weight:700;padding:9px 16px;cursor:pointer;margin-right:6px">↺ REINICIAR</button>
@@ -2899,6 +2894,8 @@ const GamesEngine = (() => {
           </div>`:''}
         </div>`;
 
+      const memNB = cont.querySelector('#memNextBtn');
+      if(memNB) memNB.addEventListener('click',()=>nextLevel());
       if(!S.over)
         cont.querySelectorAll('[data-i]').forEach(el=>el.addEventListener('click',()=>flip(+el.dataset.i)));
     }
@@ -3458,7 +3455,7 @@ const GamesEngine = (() => {
     function render(){
       if(!cont || !S) return;
       const cfg = S.cfg;
-      const W = Math.min(cont.clientWidth, 500);
+      const W = Math.min(cont.clientWidth || cont.parentElement?.clientWidth || 360, 500);
       // Canvas scale: 1px = how many meters
       const maxX = 220 + S.lvl*60;
       const scale = (W - 40) / maxX;
@@ -3831,6 +3828,7 @@ const GamesEngine = (() => {
 
     function renderFinal(){
       if(!cont||!S) return;
+      clearInterval(timerIv);
       const cfg = S.cfg;
       cont.innerHTML = `
 <div style="display:flex;flex-direction:column;align-items:center;padding:20px 12px;width:100%;text-align:center">
