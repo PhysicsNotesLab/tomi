@@ -23,6 +23,7 @@ const GamesEngine = (() => {
     { id:'wordsearch',emoji:'🔤', name:'SOPA DE LETRAS', desc:'Encuentra palabras de física',   hint:'Arrastra sobre las letras' },
     { id:'projectile',emoji:'🎯', name:'TIRO PARABÓLICO', desc:'Acierta el blanco con física real', hint:'Ajusta ángulo y velocidad' },
     { id:'quiz',      emoji:'🧪', name:'QUIZ DE FÍSICA',  desc:'Pon a prueba tu conocimiento',   hint:'Elige la respuesta correcta' },
+    { id:'ballguide', emoji:'🎱', name:'GUÍA LA BOLA',   desc:'Dibuja líneas para guiar la bola', hint:'Dibuja con el dedo o el ratón' },
   ];
 
   function featuredIndex(subjectId) {
@@ -32,7 +33,7 @@ const GamesEngine = (() => {
   }
 
   let overlayEl=null, gameBodyEl=null, animFrame=null, currentImpl=null, currentSubjectId='';
-  const DOM_GAMES = new Set(['sudoku','g2048','mines','memory','wordsearch','projectile','quiz']);
+  const DOM_GAMES = new Set(['sudoku','g2048','mines','memory','wordsearch','projectile','quiz','ballguide']);
 
   /* ── init ─────────────────────────────────────────────────── */
   function init() {
@@ -3983,6 +3984,553 @@ const GamesEngine = (() => {
       cleanup(){ clearInterval(timerIv); timerIv=null; S=null; }
     };
   })();
+
+  /* ═══════════════════════════════════════════════════════════
+     GUÍA LA BOLA — 10 Niveles
+     Dibuja líneas para guiar la bola al recipiente.
+     Física real: gravedad, reflexión, momento.
+  ═══════════════════════════════════════════════════════════ */
+  Impls.ballguide = (() => {
+
+    const G         = 0.30;   // gravedad px/frame²
+    const BALL_R    = 11;     // radio bola px
+    const REST      = 0.60;   // restitución (rebote)
+    const FRICTION  = 0.985;  // fricción tangencial
+    const FPS_CAP   = 60;
+
+    /* ── Niveles (coordenadas en % del canvas W/H) ─────────── */
+    const LEVELS = [
+      { label:'Nivel 1',  concept:'Caída Libre',
+        hint:'Dibuja 1 línea inclinada para desviar la bola',
+        maxLines:1, waveBonus:150,
+        ball:{px:14,py:10,vx:2.0,vy:0},
+        bucket:{px:74,py:80,pw:16},
+        statics:[] },
+
+      { label:'Nivel 2',  concept:'Plano Inclinado',
+        hint:'La plataforma bloquea el camino directo',
+        maxLines:1, waveBonus:200,
+        ball:{px:50,py:8,vx:0,vy:0},
+        bucket:{px:84,py:80,pw:14},
+        statics:[{x1:8,y1:46,x2:66,y2:46}] },
+
+      { label:'Nivel 3',  concept:'Conservación de Momento',
+        hint:'Aprovecha el impulso horizontal de la bola',
+        maxLines:2, waveBonus:250,
+        ball:{px:8,py:18,vx:3.2,vy:0},
+        bucket:{px:80,py:80,pw:13},
+        statics:[{x1:32,y1:52,x2:68,y2:52}] },
+
+      { label:'Nivel 4',  concept:'Doble Reflexión',
+        hint:'Necesitas dos rebotes consecutivos',
+        maxLines:2, waveBonus:320,
+        ball:{px:50,py:8,vx:0,vy:0},
+        bucket:{px:12,py:80,pw:13},
+        statics:[
+          {x1:28,y1:36,x2:78,y2:36},
+          {x1:22,y1:60,x2:70,y2:60}
+        ] },
+
+      { label:'Nivel 5',  concept:'Energía Potencial',
+        hint:'Convierte energía potencial en cinética',
+        maxLines:2, waveBonus:380,
+        ball:{px:8,py:10,vx:0,vy:0},
+        bucket:{px:86,py:80,pw:12},
+        statics:[
+          {x1:18,y1:30,x2:52,y2:30},
+          {x1:48,y1:55,x2:82,y2:55}
+        ] },
+
+      { label:'Nivel 6',  concept:'Plataformas Escalonadas',
+        hint:'Navega entre tres plataformas en zigzag',
+        maxLines:3, waveBonus:450,
+        ball:{px:50,py:8,vx:0,vy:0},
+        bucket:{px:88,py:80,pw:11},
+        statics:[
+          {x1:8, y1:30,x2:46,y2:30},
+          {x1:54,y1:50,x2:92,y2:50},
+          {x1:8, y1:68,x2:46,y2:68}
+        ] },
+
+      { label:'Nivel 7',  concept:'Ángulo de Reflexión',
+        hint:'Reflexión simétrica: θᵢ = θᵣ',
+        maxLines:2, waveBonus:520,
+        ball:{px:50,py:8,vx:0,vy:0},
+        bucket:{px:50,py:80,pw:10},
+        statics:[
+          {x1:14,y1:22,x2:44,y2:58},
+          {x1:56,y1:58,x2:86,y2:22}
+        ] },
+
+      { label:'Nivel 8',  concept:'Trayectoria Compleja',
+        hint:'Tres plataformas forman un laberinto',
+        maxLines:3, waveBonus:600,
+        ball:{px:8,py:12,vx:2.8,vy:0},
+        bucket:{px:86,py:80,pw:9},
+        statics:[
+          {x1:24,y1:34,x2:56,y2:34},
+          {x1:44,y1:56,x2:78,y2:56},
+          {x1:18,y1:72,x2:52,y2:72}
+        ] },
+
+      { label:'Nivel 9',  concept:'Precisión Extrema',
+        hint:'Recipiente muy estrecho — ¡calcula el ángulo exacto!',
+        maxLines:3, waveBonus:750,
+        ball:{px:50,py:8,vx:0,vy:0},
+        bucket:{px:18,py:80,pw:8},
+        statics:[
+          {x1:32,y1:28,x2:88,y2:28},
+          {x1:12,y1:50,x2:62,y2:50},
+          {x1:38,y1:68,x2:84,y2:68}
+        ] },
+
+      { label:'Nivel 10', concept:'Maestro de la Física',
+        hint:'Reto final: mínimas líneas, máxima complejidad',
+        maxLines:3, waveBonus:1200,
+        ball:{px:14,py:10,vx:2.2,vy:0},
+        bucket:{px:82,py:80,pw:7},
+        statics:[
+          {x1:30,y1:26,x2:30,y2:60},
+          {x1:60,y1:40,x2:60,y2:74},
+          {x1:38,y1:66,x2:62,y2:66}
+        ] },
+    ];
+
+    /* ── Helpers de física ─────────────────────────────────── */
+    function closestPt(px,py,ax,ay,bx,by){
+      const dx=bx-ax, dy=by-ay, len2=dx*dx+dy*dy;
+      if(len2<0.001) return {x:ax,y:ay};
+      const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/len2));
+      return {x:ax+t*dx, y:ay+t*dy};
+    }
+
+    function collideSeg(ball, ax,ay,bx,by){
+      const cp=closestPt(ball.x,ball.y,ax,ay,bx,by);
+      const dx=ball.x-cp.x, dy=ball.y-cp.y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist<BALL_R&&dist>0.01){
+        const nx=dx/dist, ny=dy/dist;
+        ball.x=cp.x+nx*(BALL_R+0.5);
+        ball.y=cp.y+ny*(BALL_R+0.5);
+        const dot=ball.vx*nx+ball.vy*ny;
+        if(dot<0){
+          ball.vx=(ball.vx-2*dot*nx)*REST;
+          ball.vy=(ball.vy-2*dot*ny)*REST;
+          ball.vx*=FRICTION;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    /* ── Estado ────────────────────────────────────────────── */
+    let cont, canvas, ctx, S, animId, W, H;
+
+    function buildState(lvlIdx, prevScore){
+      const cfg=LEVELS[lvlIdx];
+      const bx=W*cfg.ball.px/100, by=H*cfg.ball.py/100;
+      return{
+        lvl:lvlIdx, cfg,
+        score:prevScore||0,
+        lines:[],
+        drawing:null,
+        ball:{x:bx,y:by,vx:cfg.ball.vx,vy:cfg.ball.vy},
+        ballStart:{x:bx,y:by,vx:cfg.ball.vx,vy:cfg.ball.vy},
+        running:false,
+        over:false, won:false,
+        attempts:0,
+        flash:null,  // {msg,color,until}
+      };
+    }
+
+    function getBucketPx(){
+      const cfg=S.cfg;
+      const bx=W*cfg.bucket.px/100;
+      const by=H*cfg.bucket.py/100;
+      const bw=W*cfg.bucket.pw/100;
+      return {bx,by,bw};
+    }
+
+    function getStaticsPx(){
+      return S.cfg.statics.map(s=>({
+        x1:W*s.x1/100, y1:H*s.y1/100,
+        x2:W*s.x2/100, y2:H*s.y2/100
+      }));
+    }
+
+    /* ── Step física ───────────────────────────────────────── */
+    function step(){
+      const b=S.ball;
+      b.vy+=G;
+      b.x+=b.vx; b.y+=b.vy;
+
+      // Paredes canvas
+      if(b.x-BALL_R<0){b.x=BALL_R;b.vx=Math.abs(b.vx)*REST;}
+      if(b.x+BALL_R>W){b.x=W-BALL_R;b.vx=-Math.abs(b.vx)*REST;}
+      // Techo
+      if(b.y-BALL_R<0){b.y=BALL_R;b.vy=Math.abs(b.vy)*REST;}
+
+      // Colisión con líneas dibujadas
+      for(const l of S.lines)
+        collideSeg(b,l.x1,l.y1,l.x2,l.y2);
+
+      // Colisión con estáticos
+      for(const s of getStaticsPx())
+        collideSeg(b,s.x1,s.y1,s.x2,s.y2);
+
+      // Detección de victoria
+      const {bx,by,bw}=getBucketPx();
+      const bDepth=H*0.05;
+      if(b.x>bx-bw/2-BALL_R*0.5 && b.x<bx+bw/2+BALL_R*0.5 &&
+         b.y+BALL_R>by && b.y<by+bDepth){
+        S.won=true; S.over=true; S.running=false;
+        S.score+=S.cfg.waveBonus+Math.max(0,500-S.attempts*50);
+        return;
+      }
+
+      // Bola sale por abajo — fallo
+      if(b.y-BALL_R>H){
+        S.over=true; S.running=false;
+      }
+    }
+
+    /* ── Render ────────────────────────────────────────────── */
+    function render(){
+      ctx.clearRect(0,0,W,H);
+
+      // Fondo
+      ctx.fillStyle='#020b10'; ctx.fillRect(0,0,W,H);
+
+      // Grid sutil
+      ctx.strokeStyle='rgba(11,59,70,0.2)'; ctx.lineWidth=1;
+      for(let x=0;x<W;x+=W/10){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+      for(let y=0;y<H;y+=H/10){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+      // Plataformas estáticas
+      ctx.lineWidth=4; ctx.lineCap='round';
+      ctx.strokeStyle='#0b3b46';
+      for(const s of getStaticsPx()){
+        ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
+        // Highlight top
+        ctx.strokeStyle='rgba(11,80,100,0.8)'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
+        ctx.strokeStyle='#0b3b46'; ctx.lineWidth=4;
+      }
+
+      // Líneas dibujadas por el jugador
+      S.lines.forEach((l,i)=>{
+        const alpha=1;
+        const prog=ctx.createLinearGradient(l.x1,l.y1,l.x2,l.y2);
+        prog.addColorStop(0,'#d4a017'); prog.addColorStop(1,'#c25b12');
+        ctx.strokeStyle=prog; ctx.lineWidth=5; ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(l.x1,l.y1); ctx.lineTo(l.x2,l.y2); ctx.stroke();
+        // Número de línea
+        const mx=(l.x1+l.x2)/2, my=(l.y1+l.y2)/2;
+        ctx.fillStyle='rgba(212,160,23,0.8)'; ctx.font='bold 10px monospace';
+        ctx.textAlign='center';
+        ctx.fillText((i+1),mx,my-6);
+        ctx.textAlign='left';
+      });
+
+      // Línea en construcción
+      if(S.drawing){
+        ctx.strokeStyle='rgba(212,160,23,0.5)';
+        ctx.lineWidth=4; ctx.lineCap='round';
+        ctx.setLineDash([6,4]);
+        ctx.beginPath();
+        ctx.moveTo(S.drawing.x1,S.drawing.y1);
+        ctx.lineTo(S.drawing.x2,S.drawing.y2);
+        ctx.stroke(); ctx.setLineDash([]);
+      }
+
+      // Recipiente (cubo)
+      const {bx,by,bw}=getBucketPx();
+      const bDepth=H*0.06, bWall=3;
+      // Brillo recipiente si está cerca
+      const nearBucket = S.ball && Math.abs(S.ball.x-bx)<bw*1.5 && S.ball.y<by+bDepth*2;
+      const bucketColor = S.won ? '#00ffa8' : nearBucket ? '#ffd740' : '#42a5f5';
+      ctx.strokeStyle=bucketColor; ctx.lineWidth=bWall+1; ctx.lineCap='square';
+      if(S.won){ctx.shadowColor='#00ffa8'; ctx.shadowBlur=16;}
+      // Paredes y fondo del cubo
+      ctx.beginPath();
+      ctx.moveTo(bx-bw/2, by);
+      ctx.lineTo(bx-bw/2, by+bDepth);
+      ctx.lineTo(bx+bw/2, by+bDepth);
+      ctx.lineTo(bx+bw/2, by);
+      ctx.stroke(); ctx.shadowBlur=0;
+      // Marcador de target
+      ctx.fillStyle=bucketColor+'33';
+      ctx.fillRect(bx-bw/2+bWall, by, bw-bWall*2, bDepth);
+      // Etiqueta
+      ctx.fillStyle=bucketColor; ctx.font='bold 10px monospace';
+      ctx.textAlign='center';
+      ctx.fillText('⬇',bx,by-5); ctx.textAlign='left';
+
+      // Bola
+      if(S.ball){
+        const b=S.ball;
+        const trail=ctx.createRadialGradient(b.x-3,b.y-3,1,b.x,b.y,BALL_R);
+        trail.addColorStop(0,'#ffffff');
+        trail.addColorStop(0.4,'#00ffa8');
+        trail.addColorStop(1,'#006644');
+        ctx.fillStyle=trail;
+        ctx.shadowColor='#00ffa8'; ctx.shadowBlur=S.running?8:4;
+        ctx.beginPath(); ctx.arc(b.x,b.y,BALL_R,0,Math.PI*2); ctx.fill();
+        ctx.shadowBlur=0;
+      }
+
+      // HUD superior
+      ctx.fillStyle='rgba(2,11,16,0.75)'; ctx.fillRect(0,0,W,30);
+      ctx.fillStyle='#d4a017'; ctx.font='bold 11px monospace';
+      ctx.fillText(`${S.cfg.label}  ·  ${S.cfg.concept}`,8,19);
+      ctx.textAlign='right';
+      ctx.fillStyle='#00ffa8';
+      ctx.fillText(`SCORE ${S.score}`,W-8,19);
+      ctx.textAlign='left';
+
+      // Contador líneas
+      const linesLeft=S.cfg.maxLines-S.lines.length;
+      const lineColor=linesLeft===0?'#ef5350':linesLeft===1?'#ffd740':'#d4a017';
+      ctx.fillStyle='rgba(2,11,16,0.75)'; ctx.fillRect(0,H-26,W,26);
+      ctx.fillStyle=lineColor; ctx.font='bold 11px monospace';
+      const linesText=S.running?'Simulando...':`Líneas: ${S.lines.length}/${S.cfg.maxLines}`;
+      ctx.fillText(linesText,8,H-9);
+
+      if(!S.running&&!S.over){
+        ctx.textAlign='right';
+        ctx.fillStyle='rgba(212,160,23,0.7)'; ctx.font='10px monospace';
+        if(linesLeft>0) ctx.fillText('Dibuja · ',W-8,H-9);
+        ctx.textAlign='left';
+      }
+
+      // Botones en pantalla
+      if(!S.running&&!S.over){
+        // Botón LANZAR
+        const canLaunch=S.lines.length>0||true; // always can launch
+        ctx.fillStyle=S.running?'#1a3a2a':'rgba(0,100,60,0.85)';
+        roundRect(ctx,W/2-52,H-64,104,28,8);
+        ctx.fillStyle='#00ffa8'; ctx.font='bold 12px monospace';
+        ctx.textAlign='center';
+        ctx.fillText('▶ LANZAR',W/2,H-45);
+        ctx.textAlign='left';
+
+        // Botón BORRAR ÚLTIMA
+        if(S.lines.length>0){
+          ctx.fillStyle='rgba(40,10,10,0.85)';
+          roundRect(ctx,8,H-64,80,28,8);
+          ctx.fillStyle='#ef5350'; ctx.font='bold 10px monospace';
+          ctx.fillText('← DESHACER',14,H-45);
+        }
+      }
+
+      if(S.running&&!S.over){
+        // Botón REINICIAR durante simulación
+        ctx.fillStyle='rgba(40,10,10,0.75)';
+        roundRect(ctx,W-90,H-64,82,28,8);
+        ctx.fillStyle='#ef5350'; ctx.font='bold 10px monospace';
+        ctx.textAlign='right';
+        ctx.fillText('✕ RESET',W-14,H-45);
+        ctx.textAlign='left';
+      }
+
+      // Pantalla resultado
+      if(S.over){
+        ctx.fillStyle='rgba(2,11,16,0.88)'; ctx.fillRect(0,0,W,H);
+        ctx.textAlign='center';
+        if(S.won){
+          ctx.fillStyle='#00ffa8'; ctx.font=`bold ${Math.max(20,W/15)}px monospace`;
+          ctx.fillText('🎯 ¡BIEN HECHO!',W/2,H/2-44);
+          ctx.fillStyle='rgba(212,160,23,0.9)'; ctx.font=`bold ${Math.max(13,W/26)}px monospace`;
+          ctx.fillText(`+${S.cfg.waveBonus} puntos · SCORE: ${S.score}`,W/2,H/2-14);
+          ctx.fillStyle='rgba(0,255,168,0.55)'; ctx.font=`${Math.max(10,W/36)}px monospace`;
+          const nextLbl=S.lvl<LEVELS.length-1?`Preparando ${LEVELS[S.lvl+1].label}…`:'¡Todos los niveles completados!';
+          ctx.fillText(nextLbl,W/2,H/2+14);
+          // Botón siguiente o reiniciar
+          const btnLabel=S.lvl<LEVELS.length-1?`▶ NIVEL ${S.lvl+2}`:'↺ REINICIAR';
+          ctx.fillStyle='rgba(0,160,100,0.9)';
+          roundRect(ctx,W/2-60,H/2+36,120,34,10);
+          ctx.fillStyle='#020b10'; ctx.font='bold 13px monospace';
+          ctx.fillText(btnLabel,W/2,H/2+58);
+          ctx.fillStyle='rgba(50,50,80,0.8)';
+          roundRect(ctx,W/2-52,H/2+80,104,28,8);
+          ctx.fillStyle='#6b8a91'; ctx.font='11px monospace';
+          ctx.fillText('◀ SELECCIÓN',W/2,H/2+99);
+        } else {
+          ctx.fillStyle='#ef5350'; ctx.font=`bold ${Math.max(18,W/16)}px monospace`;
+          ctx.fillText('💨 INTENTO FALLIDO',W/2,H/2-40);
+          ctx.fillStyle='rgba(212,160,23,0.7)'; ctx.font=`${Math.max(11,W/32)}px monospace`;
+          ctx.fillText(`Intento ${S.attempts} · Líneas conservadas`,W/2,H/2-10);
+          ctx.fillStyle='rgba(200,80,80,0.85)';
+          roundRect(ctx,W/2-60,H/2+20,120,34,10);
+          ctx.fillStyle='#ffffff'; ctx.font='bold 13px monospace';
+          ctx.fillText('↺ REINTENTAR',W/2,H/2+42);
+          ctx.fillStyle='rgba(50,50,80,0.8)';
+          roundRect(ctx,W/2-52,H/2+66,104,28,8);
+          ctx.fillStyle='#6b8a91'; ctx.font='11px monospace';
+          ctx.fillText('◀ SELECCIÓN',W/2,H/2+85);
+        }
+        ctx.textAlign='left';
+      }
+
+      // Hint
+      if(!S.running&&!S.over&&S.lines.length===0){
+        ctx.fillStyle='rgba(74,106,114,0.7)'; ctx.font='10px monospace';
+        ctx.textAlign='center';
+        const hint=S.cfg.hint;
+        if(hint.length>38){
+          ctx.fillText(hint.slice(0,hint.lastIndexOf(' ',38)),W/2,H/2+12);
+          ctx.fillText(hint.slice(hint.lastIndexOf(' ',38)+1),W/2,H/2+26);
+        } else {
+          ctx.fillText(hint,W/2,H/2+18);
+        }
+        ctx.fillStyle='rgba(0,255,168,0.35)'; ctx.font='11px monospace';
+        ctx.fillText('↓ Concepto: '+S.cfg.concept,W/2,H/2+44);
+        ctx.textAlign='left';
+      }
+    }
+
+    function roundRect(ctx,x,y,w,h,r){
+      ctx.beginPath();
+      if(ctx.roundRect){ctx.roundRect(x,y,w,h,r);}
+      else{ctx.rect(x,y,w,h);}
+      ctx.fill();
+    }
+
+    /* ── Loop ──────────────────────────────────────────────── */
+    function loop(){
+      if(!S) return;
+      animId=requestAnimationFrame(loop);
+      if(S.running&&!S.over) step();
+      render();
+    }
+
+    /* ── Acciones ──────────────────────────────────────────── */
+    function launch(){
+      if(S.running||S.over) return;
+      S.attempts++;
+      const bs=S.ballStart;
+      S.ball={x:bs.x,y:bs.y,vx:bs.vx,vy:bs.vy};
+      S.over=false; S.won=false;
+      S.running=true;
+    }
+
+    function retry(){
+      const bs=S.ballStart;
+      S.ball={x:bs.x,y:bs.y,vx:bs.vx,vy:bs.vy};
+      S.running=false; S.over=false; S.won=false;
+      // Conserva las líneas dibujadas
+    }
+
+    function nextLevel(){
+      const next=S.lvl+1;
+      if(next>=LEVELS.length){
+        S=buildState(0,S.score); // reinicia al principio
+      } else {
+        S=buildState(next,S.score);
+      }
+    }
+
+    /* ── Coordenadas táctiles ──────────────────────────────── */
+    function getXY(e){
+      const rect=canvas.getBoundingClientRect();
+      const src=e.touches?e.touches[0]:(e.changedTouches?e.changedTouches[0]:e);
+      return {x:src.clientX-rect.left, y:src.clientY-rect.top};
+    }
+
+    function hitButton(x,y,bx,by,bw,bh){
+      return x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh;
+    }
+
+    function onDown(e){
+      e.preventDefault();
+      const {x,y}=getXY(e);
+
+      // Click en botones de resultado
+      if(S.over){
+        if(S.won){
+          if(hitButton(x,y,W/2-60,H/2+36,120,34)) nextLevel();
+          if(hitButton(x,y,W/2-52,H/2+80,104,28)) GamesEngine.showSelection();
+        } else {
+          if(hitButton(x,y,W/2-60,H/2+20,120,34)) retry();
+          if(hitButton(x,y,W/2-52,H/2+66,104,28)) GamesEngine.showSelection();
+        }
+        return;
+      }
+
+      // Click en botones de juego
+      if(!S.running){
+        // LANZAR
+        if(hitButton(x,y,W/2-52,H-64,104,28)){ launch(); return; }
+        // DESHACER
+        if(S.lines.length>0&&hitButton(x,y,8,H-64,80,28)){
+          S.lines.pop(); return;
+        }
+      } else {
+        // RESET durante simulación
+        if(hitButton(x,y,W-90,H-64,82,28)){ retry(); return; }
+      }
+
+      // Dibujar línea — solo si hay líneas disponibles y no está corriendo
+      if(!S.running&&S.lines.length<S.cfg.maxLines){
+        S.drawing={x1:x,y1:y,x2:x,y2:y};
+      }
+    }
+
+    function onMove(e){
+      e.preventDefault();
+      if(!S.drawing) return;
+      const {x,y}=getXY(e);
+      S.drawing.x2=x; S.drawing.y2=y;
+    }
+
+    function onUp(e){
+      e.preventDefault();
+      if(!S.drawing) return;
+      const {x,y}=getXY(e);
+      const dx=x-S.drawing.x1, dy=y-S.drawing.y1;
+      const len=Math.sqrt(dx*dx+dy*dy);
+      if(len>20){ // mínimo 20px para registrar línea
+        S.lines.push({x1:S.drawing.x1,y1:S.drawing.y1,x2:x,y2:y});
+      }
+      S.drawing=null;
+    }
+
+    /* ── Init / cleanup ────────────────────────────────────── */
+    function init(c){
+      cont=c; cont.innerHTML='';
+      cont.style.cssText='position:relative;width:100%;display:flex;justify-content:center;';
+
+      canvas=document.createElement('canvas');
+      W=Math.min(cont.clientWidth||360, 420);
+      H=Math.min(Math.round(W*1.35), 520);
+      canvas.width=W; canvas.height=H;
+      canvas.style.cssText=`display:block;border-radius:12px;border:1px solid #0b3b46;touch-action:none;cursor:crosshair;`;
+      cont.appendChild(canvas);
+      ctx=canvas.getContext('2d');
+
+      S=buildState(0,0);
+
+      // Eventos touch
+      canvas.addEventListener('touchstart', onDown, {passive:false});
+      canvas.addEventListener('touchmove',  onMove, {passive:false});
+      canvas.addEventListener('touchend',   onUp,   {passive:false});
+      canvas.addEventListener('touchcancel',onUp,   {passive:false});
+      // Eventos mouse
+      canvas.addEventListener('mousedown',  onDown);
+      canvas.addEventListener('mousemove',  e=>{if(e.buttons===1)onMove(e);});
+      canvas.addEventListener('mouseup',    onUp);
+
+      animId=requestAnimationFrame(loop);
+    }
+
+    function cleanup(){
+      if(animId){cancelAnimationFrame(animId);animId=null;}
+      S=null;
+    }
+
+    return {init, cleanup};
+  })();
+
 
   /* ── API pública ──────────────────────────────────────────── */
   return { init, launch, showSelection, _memNextLevel:()=>Impls.memory.nextLevel&&Impls.memory.nextLevel() };
