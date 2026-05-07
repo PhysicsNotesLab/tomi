@@ -4018,11 +4018,13 @@ const GamesEngine = (() => {
     const LCOLS=['#ffd740','#ff6e40','#69f0ae','#40c4ff','#ea80fc','#ff4081','#b2ff59'];
     let cont,cv,ctx,S,aid,W,H;
 
-    /* Coordenada táctil → canvas px (con escala CSS) */
+    /* Coordenada táctil → canvas px (con escala CSS)
+       BUGFIX: e.touches es [] (truthy) en touchend → siempre usar changedTouches como fallback */
     function pt(e){
       const r=cv.getBoundingClientRect();
       const sx=W/r.width, sy=H/r.height;
-      const src=e.touches?e.touches[0]:e.changedTouches?e.changedTouches[0]:e;
+      const src=(e.touches&&e.touches.length>0)?e.touches[0]
+               :(e.changedTouches&&e.changedTouches.length>0)?e.changedTouches[0]:e;
       return {x:(src.clientX-r.left)*sx, y:(src.clientY-r.top)*sy};
     }
 
@@ -4315,7 +4317,8 @@ const GamesEngine = (() => {
     function ptc(e){
       const r=cv.getBoundingClientRect();
       const sx=W/r.width, sy=H/r.height;
-      const s=e.touches?e.touches[0]:e.changedTouches?e.changedTouches[0]:e;
+      const s=(e.touches&&e.touches.length>0)?e.touches[0]
+             :(e.changedTouches&&e.changedTouches.length>0)?e.changedTouches[0]:e;
       return{x:(s.clientX-r.left)*sx,y:(s.clientY-r.top)*sy};
     }
 
@@ -4487,24 +4490,152 @@ const GamesEngine = (() => {
     }
 
     function init(c){
-      cont=c;cont.innerHTML='';
-      cont.style.cssText='width:100%;display:flex;flex-direction:column;align-items:center;padding:6px 0;';
+      cont=c; cont.innerHTML='';
+      cont.style.cssText='width:100%;display:flex;flex-direction:column;align-items:center;padding:4px 0;box-sizing:border-box;';
+
+      /* ── Inject scoped CSS once ─────────────────────────── */
+      if(!document.getElementById('eng-puzzle-css')){
+        const sty=document.createElement('style');
+        sty.id='eng-puzzle-css';
+        sty.textContent=`
+          .eng-wrap{font-family:"Courier New",Courier,monospace;background:#030d14;border:1px solid #0d4a5a;border-radius:14px;overflow:hidden;width:100%;max-width:420px;box-shadow:0 0 28px #00aaff22,0 0 6px #000a;}
+          .eng-topbar{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#051820 0%,#082535 60%,#051820 100%);border-bottom:1px solid #0d4a5a;padding:5px 10px;gap:6px;}
+          .eng-badge{font-size:9px;color:#00d4ff;letter-spacing:2px;text-transform:uppercase;opacity:.8;}
+          .eng-title-bar{font-size:10px;color:#00ffa8;font-weight:700;letter-spacing:1.5px;text-shadow:0 0 8px #00ffa855;}
+          .eng-score-top{font-size:10px;color:#d4a017;font-weight:700;min-width:80px;text-align:right;}
+          .eng-panels{display:flex;gap:0;width:100%;}
+          .eng-side{width:36px;background:#040f18;border-right:1px solid #0a3040;display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:8px;flex-shrink:0;}
+          .eng-side.right{border-right:none;border-left:1px solid #0a3040;}
+          .eng-pip{width:8px;height:8px;border-radius:50%;background:#0d3040;border:1px solid #155060;}
+          .eng-pip.on{background:#00d4ff;box-shadow:0 0 6px #00d4ff;}
+          .eng-pip.warn{background:#ffd740;box-shadow:0 0 6px #ffd740;}
+          .eng-axis-label{font-size:7px;color:#1a5060;writing-mode:vertical-rl;letter-spacing:1px;transform:rotate(180deg);margin:auto 0;}
+          .eng-canvas-wrap{position:relative;flex:1;}
+          .eng-canvas-wrap canvas{display:block;touch-action:none;cursor:crosshair;}
+          .eng-corner{position:absolute;width:12px;height:12px;border-color:#00d4ff44;border-style:solid;}
+          .eng-corner.tl{top:3px;left:3px;border-width:2px 0 0 2px;}
+          .eng-corner.tr{top:3px;right:3px;border-width:2px 2px 0 0;}
+          .eng-corner.bl{bottom:3px;left:3px;border-width:0 0 2px 2px;}
+          .eng-corner.br{bottom:3px;right:3px;border-width:0 2px 2px 0;}
+          .eng-statusbar{background:#040f18;border-top:1px solid #0a3040;padding:5px 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+          .eng-mat-tag{font-size:8px;padding:2px 6px;border-radius:3px;border:1px solid;letter-spacing:.5px;white-space:nowrap;}
+          .eng-hint-bar{background:#020b13;border-top:1px solid #071824;padding:4px 10px;display:flex;align-items:center;gap:6px;}
+          .eng-hint-icon{font-size:12px;flex-shrink:0;}
+          .eng-hint-text{font-size:9px;color:#5a9aaa;letter-spacing:.3px;line-height:1.3;}
+          .eng-telemetry{background:#020b13;padding:4px 10px 5px;display:flex;justify-content:space-between;border-top:1px solid #071824;}
+          .eng-tel-item{font-size:8px;color:#1a6070;letter-spacing:.5px;}
+          .eng-tel-item span{color:#00d4ff;}
+          @keyframes eng-blink{0%,100%{opacity:1}50%{opacity:.3}}
+          .eng-blink{animation:eng-blink 1.4s infinite;}
+        `;
+        document.head.appendChild(sty);
+      }
+
+      W=Math.min((cont.clientWidth||360)-10,400);
+      H=Math.min(Math.round(W*1.42),560);
+      CW=Math.floor(W/COLS); CH=Math.floor(H/ROWS);
+
+      /* ── Build the wrapper ──────────────────────────────── */
+      const wrap=document.createElement('div');
+      wrap.className='eng-wrap';
+
+      /* Top bar */
+      wrap.innerHTML=`
+        <div class="eng-topbar">
+          <span class="eng-badge">⚙ PHYS-ENGINE v2.4</span>
+          <span class="eng-title-bar" id="eng-title">INGENIERO PUZZLE</span>
+          <span class="eng-score-top" id="eng-score-top">SCR: 0</span>
+        </div>
+        <div class="eng-panels">
+          <div class="eng-side" id="eng-side-l">
+            <div class="eng-pip on" id="eng-pip-1"></div>
+            <div class="eng-pip" id="eng-pip-2"></div>
+            <div class="eng-pip" id="eng-pip-3"></div>
+            <div class="eng-axis-label" id="eng-axis-y">Y-AXIS</div>
+          </div>
+          <div class="eng-canvas-wrap" id="eng-canvas-wrap">
+            <div class="eng-corner tl"></div>
+            <div class="eng-corner tr"></div>
+            <div class="eng-corner bl"></div>
+            <div class="eng-corner br"></div>
+          </div>
+          <div class="eng-side right">
+            <div class="eng-pip on eng-blink"></div>
+            <div class="eng-pip warn"></div>
+            <div class="eng-axis-label">GRAV</div>
+          </div>
+        </div>
+        <div class="eng-statusbar">
+          <div class="eng-mat-tag" style="color:#8B5E3C;border-color:#8B5E3C55;background:#1a0e0622">🪵 WOOD · REMOVABLE</div>
+          <div class="eng-mat-tag" style="color:#546E7A;border-color:#546E7A55;background:#0e141822">🪨 STONE · FIXED</div>
+          <div class="eng-mat-tag" style="color:#43A047;border-color:#43A04755;background:#0a160a22">🟩 ELASTIC · BOUNCY</div>
+          <div class="eng-mat-tag" style="color:#E53935;border-color:#E5393555;background:#16080822">💣 BOMB · CHAIN</div>
+        </div>
+        <div class="eng-hint-bar">
+          <span class="eng-hint-icon">📡</span>
+          <span class="eng-hint-text" id="eng-hint">TAP COLORED BLOCKS TO REMOVE · GUIDE BALL ⚽ TO STAR ⭐</span>
+        </div>
+        <div class="eng-telemetry">
+          <span class="eng-tel-item">LVL: <span id="eng-tel-lvl">01</span></span>
+          <span class="eng-tel-item">CONCEPT: <span id="eng-tel-concept">GRAVITY</span></span>
+          <span class="eng-tel-item">G: <span>9.81 m/s²</span></span>
+          <span class="eng-tel-item">SIM: <span id="eng-tel-sim" class="eng-blink">READY</span></span>
+        </div>
+      `;
+      cont.appendChild(wrap);
+
+      /* Insert canvas inside the canvas-wrap */
       cv=document.createElement('canvas');
-      W=Math.min((cont.clientWidth||360)-4,400);
-      H=Math.min(Math.round(W*1.5),580);
-      CW=Math.floor(W/COLS);CH=Math.floor(H/ROWS);
-      cv.width=W;cv.height=H;
-      cv.style.cssText=`width:${W}px;height:${H}px;display:block;border-radius:12px;border:1px solid #0b3b46;touch-action:none;cursor:pointer;`;
-      cont.appendChild(cv);
+      cv.width=W; cv.height=H;
+      cv.style.cssText=`width:${W}px;height:${H}px;display:block;`;
+      const cwrap=wrap.querySelector('#eng-canvas-wrap');
+      cwrap.style.width=W+'px';
+      cwrap.insertBefore(cv, cwrap.firstChild);
       ctx=cv.getContext('2d');
-      const tip=document.createElement('div');
-      tip.style.cssText='font-size:11px;color:#4a8a9a;text-align:center;margin-top:6px;line-height:1.5;max-width:'+W+'px;padding:0 8px;';
-      tip.innerHTML='<b style="color:#ffd740">⚙️ INGENIERO PUZZLE</b><br>Toca los bloques de colores para eliminarlos y guía la bola ⚽ a la estrella ⭐<br><span style="color:#8B5E3C">🪵 Madera</span> = toca para quitar · <span style="color:#546E7A">🪨 Roca</span> = no se puede · <span style="color:#43A047">🟩 Elástico</span> = rebota · <span style="color:#E53935">💣 Bomba</span> = explota';
-      cont.appendChild(tip);
+
+      /* Live telemetry updater */
+      function updateTelemetry(){
+        if(!S)return;
+        const lvlEl=wrap.querySelector('#eng-tel-lvl');
+        const conEl=wrap.querySelector('#eng-tel-concept');
+        const simEl=wrap.querySelector('#eng-tel-sim');
+        const scoreEl=wrap.querySelector('#eng-score-top');
+        const titleEl=wrap.querySelector('#eng-title');
+        const hintEl=wrap.querySelector('#eng-hint');
+        if(lvlEl) lvlEl.textContent=String(S.lvl+1).padStart(2,'0');
+        if(conEl) conEl.textContent=S.cfg.concept.toUpperCase();
+        if(scoreEl) scoreEl.textContent='SCR: '+S.score;
+        if(titleEl) titleEl.textContent=S.cfg.label.toUpperCase()+' · '+S.cfg.concept.toUpperCase();
+        if(hintEl) hintEl.textContent=S.cfg.hint;
+        if(simEl){
+          simEl.textContent=S.over?(S.won?'SOLVED':'FAIL'):S.ball.go?'RUNNING':'READY';
+          simEl.style.color=S.over?(S.won?'#00ffa8':'#ef5350'):S.ball.go?'#ffd740':'#00d4ff';
+        }
+        /* Light pips per level */
+        const p1=wrap.querySelector('#eng-pip-1');
+        const p2=wrap.querySelector('#eng-pip-2');
+        const p3=wrap.querySelector('#eng-pip-3');
+        if(p1){p1.className='eng-pip '+(S.lvl>=0?'on':'');}
+        if(p2){p2.className='eng-pip '+(S.lvl>=4?'on':'');}
+        if(p3){p3.className='eng-pip '+(S.lvl>=8?'warn':'');}
+      }
+
+      /* Patch loop to also update telemetry every 30 frames */
+      const _origLoop=loop;
+      let _telFrame=0;
+      function loopWithTel(){
+        if(!S)return;
+        aid=requestAnimationFrame(loopWithTel);
+        step(); draw();
+        _telFrame++;
+        if(_telFrame%30===0) updateTelemetry();
+      }
+
       S=newState(0,0);
+      updateTelemetry();
       cv.addEventListener('touchstart',onTap,{passive:false});
       cv.addEventListener('mousedown', onTap);
-      aid=requestAnimationFrame(loop);
+      aid=requestAnimationFrame(loopWithTel);
     }
 
     function cleanup(){if(aid){cancelAnimationFrame(aid);aid=null;}S=null;}
