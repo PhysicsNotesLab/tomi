@@ -3995,937 +3995,519 @@ const GamesEngine = (() => {
   /* ═══════════════════════════════════════════════════════════
      GUÍA LA BOLA — 10 Niveles  (v3 — mobile-first fix)
   ═══════════════════════════════════════════════════════════ */
+
+  /* ═══════════════════════════════════════════════════════════
+     GUÍA LA BOLA v4 — física real, colisión robusta, mobile-first
+  ═══════════════════════════════════════════════════════════ */
   Impls.ballguide = (() => {
+    const G=0.28, BALL_R=12, REST=0.58, FRIC=0.983;
 
-    const G         = 0.30;
-    const BALL_R    = 11;
-    const REST      = 0.62;
-    const FRICTION  = 0.985;
-
-    const LEVELS = [
-      { label:'Nivel 1',  concept:'Caída Libre',
-        hint:'Dibuja 1 línea inclinada para desviar la bola',
-        maxLines:1, waveBonus:150,
-        ball:{px:14,py:10,vx:2.0,vy:0},
-        bucket:{px:74,py:80,pw:16}, statics:[] },
-
-      { label:'Nivel 2',  concept:'Plano Inclinado',
-        hint:'La plataforma bloquea el camino directo',
-        maxLines:1, waveBonus:200,
-        ball:{px:50,py:8,vx:0,vy:0},
-        bucket:{px:84,py:80,pw:14},
-        statics:[{x1:8,y1:46,x2:66,y2:46}] },
-
-      { label:'Nivel 3',  concept:'Conservación de Momento',
-        hint:'Aprovecha el impulso horizontal',
-        maxLines:2, waveBonus:250,
-        ball:{px:8,py:18,vx:3.2,vy:0},
-        bucket:{px:80,py:80,pw:13},
-        statics:[{x1:32,y1:52,x2:68,y2:52}] },
-
-      { label:'Nivel 4',  concept:'Doble Reflexión',
-        hint:'Necesitas dos rebotes consecutivos',
-        maxLines:2, waveBonus:320,
-        ball:{px:50,py:8,vx:0,vy:0},
-        bucket:{px:12,py:80,pw:13},
-        statics:[{x1:28,y1:36,x2:78,y2:36},{x1:22,y1:60,x2:70,y2:60}] },
-
-      { label:'Nivel 5',  concept:'Energía Potencial',
-        hint:'Convierte energía potencial en cinética',
-        maxLines:2, waveBonus:380,
-        ball:{px:8,py:10,vx:0,vy:0},
-        bucket:{px:86,py:80,pw:12},
-        statics:[{x1:18,y1:30,x2:52,y2:30},{x1:48,y1:55,x2:82,y2:55}] },
-
-      { label:'Nivel 6',  concept:'Plataformas Escalonadas',
-        hint:'Navega entre tres plataformas en zigzag',
-        maxLines:3, waveBonus:450,
-        ball:{px:50,py:8,vx:0,vy:0},
-        bucket:{px:88,py:80,pw:11},
-        statics:[{x1:8,y1:30,x2:46,y2:30},{x1:54,y1:50,x2:92,y2:50},{x1:8,y1:68,x2:46,y2:68}] },
-
-      { label:'Nivel 7',  concept:'Ángulo de Reflexión',
-        hint:'θᵢ = θᵣ — la incidencia iguala la reflexión',
-        maxLines:2, waveBonus:520,
-        ball:{px:50,py:8,vx:0,vy:0},
-        bucket:{px:50,py:80,pw:10},
-        statics:[{x1:14,y1:22,x2:44,y2:58},{x1:56,y1:58,x2:86,y2:22}] },
-
-      { label:'Nivel 8',  concept:'Trayectoria Compleja',
-        hint:'Tres plataformas forman un laberinto',
-        maxLines:3, waveBonus:600,
-        ball:{px:8,py:12,vx:2.8,vy:0},
-        bucket:{px:86,py:80,pw:9},
-        statics:[{x1:24,y1:34,x2:56,y2:34},{x1:44,y1:56,x2:78,y2:56},{x1:18,y1:72,x2:52,y2:72}] },
-
-      { label:'Nivel 9',  concept:'Precisión Extrema',
-        hint:'Recipiente muy estrecho — calcula el ángulo exacto',
-        maxLines:3, waveBonus:750,
-        ball:{px:50,py:8,vx:0,vy:0},
-        bucket:{px:18,py:80,pw:8},
-        statics:[{x1:32,y1:28,x2:88,y2:28},{x1:12,y1:50,x2:62,y2:50},{x1:38,y1:68,x2:84,y2:68}] },
-
-      { label:'Nivel 10', concept:'Maestro de la Física',
-        hint:'Reto final: mínimas líneas, máxima complejidad',
-        maxLines:3, waveBonus:1200,
-        ball:{px:14,py:10,vx:2.2,vy:0},
-        bucket:{px:82,py:80,pw:7},
-        statics:[{x1:30,y1:26,x2:30,y2:60},{x1:60,y1:40,x2:60,y2:74},{x1:38,y1:66,x2:62,y2:66}] },
+    const LEVELS=[
+      {label:'Nivel 1',concept:'Caída Libre',hint:'Dibuja 1 línea inclinada bajo la bola para desviarla',maxLines:1,waveBonus:150,ball:{px:15,py:12,vx:2,vy:0},bucket:{px:75,py:82,pw:15},statics:[]},
+      {label:'Nivel 2',concept:'Plano Inclinado',hint:'La roca bloquea el paso — desvía la bola con tu línea',maxLines:1,waveBonus:200,ball:{px:50,py:8,vx:0,vy:0},bucket:{px:85,py:82,pw:14},statics:[{x1:8,y1:47,x2:65,y2:47}]},
+      {label:'Nivel 3',concept:'Rebote Doble',hint:'Dibuja dos líneas para crear un camino con dos rebotes',maxLines:2,waveBonus:280,ball:{px:10,py:15,vx:3,vy:0},bucket:{px:82,py:82,pw:13},statics:[{x1:30,y1:50,x2:70,y2:50}]},
+      {label:'Nivel 4',concept:'Energía Cinética',hint:'Redirige hacia el lado opuesto con dos líneas en ángulo',maxLines:2,waveBonus:340,ball:{px:50,py:8,vx:0,vy:0},bucket:{px:12,py:82,pw:13},statics:[{x1:28,y1:36,x2:78,y2:36},{x1:22,y1:62,x2:70,y2:62}]},
+      {label:'Nivel 5',concept:'Plataformas Escalonadas',hint:'Baja por las tres plataformas en zigzag',maxLines:3,waveBonus:420,ball:{px:50,py:8,vx:0,vy:0},bucket:{px:88,py:82,pw:12},statics:[{x1:8,y1:32,x2:46,y2:32},{x1:54,y1:52,x2:92,y2:52},{x1:8,y1:70,x2:46,y2:70}]},
+      {label:'Nivel 6',concept:'Reflexión Simétrica',hint:'θ incidencia = θ reflexión — traza líneas simétricas',maxLines:2,waveBonus:500,ball:{px:50,py:8,vx:0,vy:0},bucket:{px:50,py:82,pw:10},statics:[{x1:14,y1:24,x2:44,y2:60},{x1:56,y1:60,x2:86,y2:24}]},
+      {label:'Nivel 7',concept:'Laberinto',hint:'Tres plataformas forman un laberinto — abre el camino',maxLines:3,waveBonus:580,ball:{px:10,py:12,vx:2.5,vy:0},bucket:{px:86,py:82,pw:9},statics:[{x1:24,y1:36,x2:58,y2:36},{x1:44,y1:58,x2:78,y2:58},{x1:18,y1:74,x2:52,y2:74}]},
+      {label:'Nivel 8',concept:'Precisión',hint:'Recipiente estrecho — calcula el ángulo con cuidado',maxLines:3,waveBonus:680,ball:{px:50,py:8,vx:0,vy:0},bucket:{px:18,py:82,pw:8},statics:[{x1:32,y1:30,x2:88,y2:30},{x1:12,y1:52,x2:62,y2:52},{x1:38,y1:70,x2:84,y2:70}]},
+      {label:'Nivel 9',concept:'Impulso Lateral',hint:'La bola tiene velocidad horizontal — aprovéchala',maxLines:2,waveBonus:760,ball:{px:8,py:8,vx:3.5,vy:0},bucket:{px:88,py:82,pw:8},statics:[{x1:30,y1:28,x2:72,y2:28},{x1:14,y1:56,x2:56,y2:56}]},
+      {label:'Nivel 10',concept:'Maestro de Física',hint:'Reto final: mínimas líneas, máxima complejidad',maxLines:3,waveBonus:1200,ball:{px:14,py:10,vx:2.2,vy:0},bucket:{px:82,py:82,pw:7},statics:[{x1:30,y1:28,x2:30,y2:62},{x1:60,y1:42,x2:60,y2:76},{x1:38,y1:68,x2:62,y2:68}]},
     ];
 
-    /* Colores vivos para las líneas del jugador */
-    const LINE_COLORS=['#ffd740','#ff6e40','#69f0ae','#40c4ff','#ea80fc','#ff4081','#b2ff59','#ffab40'];
+    const LCOLS=['#ffd740','#ff6e40','#69f0ae','#40c4ff','#ea80fc','#ff4081','#b2ff59'];
+    let cont,cv,ctx,S,aid,W,H;
 
-    let cont, canvas, ctx, S, animId, W, H, scaleX, scaleY;
-
-    /* ── Escalar coordenadas touch/mouse al espacio del canvas ─ */
-    function toCanvas(clientX, clientY){
-      const rect = canvas.getBoundingClientRect();
-      return {
-        x: (clientX - rect.left) * scaleX,
-        y: (clientY - rect.top)  * scaleY,
-      };
+    /* Coordenada táctil → canvas px (con escala CSS) */
+    function pt(e){
+      const r=cv.getBoundingClientRect();
+      const sx=W/r.width, sy=H/r.height;
+      const src=e.touches?e.touches[0]:e.changedTouches?e.changedTouches[0]:e;
+      return {x:(src.clientX-r.left)*sx, y:(src.clientY-r.top)*sy};
     }
 
-    function getXY(e){
-      const src = e.touches        ? e.touches[0]
-                : e.changedTouches ? e.changedTouches[0]
-                : e;
-      return toCanvas(src.clientX, src.clientY);
-    }
-
-    /* ── Física ─────────────────────────────────────────────── */
-    function closestPt(px,py,ax,ay,bx,by){
-      const dx=bx-ax, dy=by-ay, len2=dx*dx+dy*dy;
-      if(len2<0.001) return {x:ax,y:ay};
-      const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/len2));
-      return {x:ax+t*dx, y:ay+t*dy};
-    }
-
-    function collideSeg(ball,ax,ay,bx,by, restitution){
-      const r = restitution !== undefined ? restitution : REST;
-      const cp = closestPt(ball.x,ball.y,ax,ay,bx,by);
-      const dx = ball.x-cp.x, dy = ball.y-cp.y;
-      const dist = Math.sqrt(dx*dx+dy*dy);
-      if(dist < BALL_R && dist > 0.01){
-        const nx=dx/dist, ny=dy/dist;
-        // Push bola fuera
-        ball.x = cp.x + nx*(BALL_R+1);
-        ball.y = cp.y + ny*(BALL_R+1);
-        const dot = ball.vx*nx + ball.vy*ny;
-        if(dot < 0){
-          ball.vx = (ball.vx - 2*dot*nx)*r*FRICTION;
-          ball.vy = (ball.vy - 2*dot*ny)*r;
-          return true;
+    /* Colisión segmento — retorna true si colisionó */
+    function hitSeg(b,ax,ay,bx,by,res){
+      const res2=res||REST;
+      const dx=bx-ax, dy=by-ay;
+      const len2=dx*dx+dy*dy;
+      if(len2<1) return false;
+      const t=Math.max(0,Math.min(1,((b.x-ax)*dx+(b.y-ay)*dy)/len2));
+      const cx2=ax+t*dx, cy2=ay+t*dy;
+      const ex=b.x-cx2, ey=b.y-cy2;
+      const dist=Math.sqrt(ex*ex+ey*ey);
+      if(dist<BALL_R+2 && dist>0.01){
+        const nx=ex/dist, ny=ey/dist;
+        b.x=cx2+nx*(BALL_R+2);
+        b.y=cy2+ny*(BALL_R+2);
+        const dot=b.vx*nx+b.vy*ny;
+        if(dot<0){
+          b.vx=(b.vx-2*dot*nx)*res2*FRIC;
+          b.vy=(b.vy-2*dot*ny)*res2;
         }
+        return true;
       }
       return false;
     }
 
-    /* ── Estado ─────────────────────────────────────────────── */
-    function buildState(lvlIdx, prevScore){
-      const cfg = LEVELS[lvlIdx];
-      const bx  = W*cfg.ball.px/100, by = H*cfg.ball.py/100;
-      return {
-        lvl:lvlIdx, cfg,
-        score:prevScore||0,
-        lines:[],
-        drawing:null,
-        ball:{x:bx,y:by,vx:cfg.ball.vx,vy:cfg.ball.vy},
-        ballStart:{x:bx,y:by,vx:cfg.ball.vx,vy:cfg.ball.vy},
-        running:false, over:false, won:false,
-        attempts:0,
-      };
+    function toBucket(){ const c=S.cfg; return {bx:W*c.bucket.px/100,by:H*c.bucket.py/100,bw:W*c.bucket.pw/100,bh:H*0.06}; }
+    function toStatics(){ return S.cfg.statics.map(s=>({x1:W*s.x1/100,y1:H*s.y1/100,x2:W*s.x2/100,y2:H*s.y2/100})); }
+
+    function newState(lvl,sc){
+      const c=LEVELS[lvl];
+      const bx=W*c.ball.px/100, by=H*c.ball.py/100;
+      return {lvl,cfg:c,lines:[],drawing:null,ball:{x:bx,y:by,vx:c.ball.vx,vy:c.ball.vy},
+        bs:{x:bx,y:by,vx:c.ball.vx,vy:c.ball.vy},running:false,over:false,won:false,score:sc||0,tries:0};
     }
 
-    function getBucket(){
-      const cfg=S.cfg;
-      return {
-        bx:W*cfg.bucket.px/100,
-        by:H*cfg.bucket.py/100,
-        bw:W*cfg.bucket.pw/100,
-        bh:H*0.055,
-      };
-    }
-
-    function getStatics(){
-      return S.cfg.statics.map(s=>({
-        x1:W*s.x1/100, y1:H*s.y1/100,
-        x2:W*s.x2/100, y2:H*s.y2/100,
-      }));
-    }
-
-    /* ── Step ───────────────────────────────────────────────── */
     function step(){
-      const b = S.ball;
-      b.vy += G;
-      b.x  += b.vx;
-      b.y  += b.vy;
-
-      // Paredes
-      if(b.x-BALL_R<0)  {b.x=BALL_R;      b.vx= Math.abs(b.vx)*REST;}
-      if(b.x+BALL_R>W)  {b.x=W-BALL_R;    b.vx=-Math.abs(b.vx)*REST;}
-      if(b.y-BALL_R<0)  {b.y=BALL_R;      b.vy= Math.abs(b.vy)*REST;}
-
-      // Líneas del jugador
-      for(const l of S.lines)
-        collideSeg(b, l.x1,l.y1, l.x2,l.y2, REST);
-
-      // Estáticos
-      for(const s of getStatics())
-        collideSeg(b, s.x1,s.y1, s.x2,s.y2, 0.55);
-
-      // Victoria
-      const {bx,by,bw,bh} = getBucket();
-      if(b.x > bx-bw/2-BALL_R*0.4 && b.x < bx+bw/2+BALL_R*0.4 &&
-         b.y+BALL_R > by && b.y < by+bh){
-        S.won=true; S.over=true; S.running=false;
-        S.score += S.cfg.waveBonus + Math.max(0,400-S.attempts*40);
-        return;
+      const b=S.ball;
+      b.vy+=G; b.x+=b.vx; b.y+=b.vy;
+      if(b.x-BALL_R<0){b.x=BALL_R;b.vx=Math.abs(b.vx)*REST;}
+      if(b.x+BALL_R>W){b.x=W-BALL_R;b.vx=-Math.abs(b.vx)*REST;}
+      if(b.y-BALL_R<0){b.y=BALL_R;b.vy=Math.abs(b.vy)*REST;}
+      for(const l of S.lines) hitSeg(b,l.x1,l.y1,l.x2,l.y2,REST);
+      for(const s of toStatics()) hitSeg(b,s.x1,s.y1,s.x2,s.y2,0.45);
+      const {bx,by,bw,bh}=toBucket();
+      if(b.x>bx-bw/2-4&&b.x<bx+bw/2+4&&b.y+BALL_R>by&&b.y<by+bh+4){
+        S.won=true;S.over=true;S.running=false;
+        S.score+=S.cfg.waveBonus+Math.max(0,300-S.tries*40);
       }
-
-      // Fallo — bola sale por abajo
-      if(b.y-BALL_R > H){ S.over=true; S.running=false; }
+      if(b.y-BALL_R>H){S.over=true;S.running=false;}
     }
 
-    /* ── Render ─────────────────────────────────────────────── */
-    function render(){
+    function draw(){
       ctx.clearRect(0,0,W,H);
-      ctx.fillStyle='#020b10'; ctx.fillRect(0,0,W,H);
-
-      // Grid
-      ctx.strokeStyle='rgba(11,59,70,0.18)'; ctx.lineWidth=1;
+      ctx.fillStyle='#020b10';ctx.fillRect(0,0,W,H);
+      /* grid */
+      ctx.strokeStyle='rgba(11,59,70,0.2)';ctx.lineWidth=1;
       for(let x=0;x<W;x+=W/10){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
       for(let y=0;y<H;y+=H/8) {ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-
-      // Plataformas estáticas — gris azulado grueso y visible
+      /* estáticos */
       ctx.lineCap='round';
-      for(const s of getStatics()){
-        ctx.lineWidth=7; ctx.strokeStyle='#1a4a5a';
-        ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
-        ctx.lineWidth=3; ctx.strokeStyle='#2a7a9a';
-        ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
+      for(const s of toStatics()){
+        ctx.lineWidth=8;ctx.strokeStyle='#1a4a5a';ctx.beginPath();ctx.moveTo(s.x1,s.y1);ctx.lineTo(s.x2,s.y2);ctx.stroke();
+        ctx.lineWidth=3;ctx.strokeStyle='#2a8aaa';ctx.beginPath();ctx.moveTo(s.x1,s.y1);ctx.lineTo(s.x2,s.y2);ctx.stroke();
       }
-
-      // Líneas del jugador — GRUESAS y con color brillante único
+      /* líneas jugador — GRUESAS y brillantes */
       S.lines.forEach((l,i)=>{
-        const col = LINE_COLORS[i % LINE_COLORS.length];
-        // Sombra para contraste
-        ctx.shadowColor=col; ctx.shadowBlur=10;
-        ctx.lineWidth=7; ctx.strokeStyle=col; ctx.lineCap='round';
-        ctx.beginPath(); ctx.moveTo(l.x1,l.y1); ctx.lineTo(l.x2,l.y2); ctx.stroke();
+        const col=LCOLS[i%LCOLS.length];
+        ctx.shadowColor=col;ctx.shadowBlur=14;
+        ctx.lineWidth=8;ctx.strokeStyle=col;ctx.lineCap='round';
+        ctx.beginPath();ctx.moveTo(l.x1,l.y1);ctx.lineTo(l.x2,l.y2);ctx.stroke();
         ctx.shadowBlur=0;
-        // Índice número sobre la línea
-        ctx.fillStyle=col; ctx.font='bold 11px monospace';
-        ctx.textAlign='center';
-        ctx.fillText('L'+(i+1),(l.x1+l.x2)/2,(l.y1+l.y2)/2-8);
-        ctx.textAlign='left';
+        /* etiqueta */
+        ctx.fillStyle=col;ctx.font='bold 12px monospace';ctx.textAlign='center';
+        ctx.fillText('L'+(i+1),(l.x1+l.x2)/2,(l.y1+l.y2)/2-10);ctx.textAlign='left';
       });
-
-      // Línea en construcción — punteada blanca
+      /* línea en construcción */
       if(S.drawing){
-        const dcol = LINE_COLORS[S.lines.length % LINE_COLORS.length];
-        ctx.shadowColor=dcol; ctx.shadowBlur=8;
-        ctx.strokeStyle=dcol+'aa'; ctx.lineWidth=5; ctx.lineCap='round';
+        const col=LCOLS[S.lines.length%LCOLS.length];
+        ctx.shadowColor=col;ctx.shadowBlur=8;
+        ctx.strokeStyle=col+'99';ctx.lineWidth=6;ctx.lineCap='round';
         ctx.setLineDash([8,5]);
-        ctx.beginPath(); ctx.moveTo(S.drawing.x1,S.drawing.y1);
-        ctx.lineTo(S.drawing.x2,S.drawing.y2); ctx.stroke();
-        ctx.setLineDash([]); ctx.shadowBlur=0;
+        ctx.beginPath();ctx.moveTo(S.drawing.x1,S.drawing.y1);ctx.lineTo(S.drawing.x2,S.drawing.y2);ctx.stroke();
+        ctx.setLineDash([]);ctx.shadowBlur=0;
       }
-
-      // Recipiente
-      const {bx,by,bw,bh} = getBucket();
-      const bucketCol = S.won ? '#00ffa8' : '#42a5f5';
-      ctx.shadowColor=bucketCol; ctx.shadowBlur=S.won?18:8;
-      ctx.strokeStyle=bucketCol; ctx.lineWidth=4; ctx.lineCap='square';
-      ctx.beginPath();
-      ctx.moveTo(bx-bw/2,by); ctx.lineTo(bx-bw/2,by+bh);
-      ctx.lineTo(bx+bw/2,by+bh); ctx.lineTo(bx+bw/2,by);
-      ctx.stroke();
-      ctx.fillStyle=bucketCol+'22'; ctx.fillRect(bx-bw/2+3,by,bw-6,bh);
+      /* recipiente */
+      const {bx,by,bw,bh}=toBucket();
+      const bc=S.won?'#00ffa8':'#42a5f5';
+      ctx.shadowColor=bc;ctx.shadowBlur=S.won?20:8;
+      ctx.strokeStyle=bc;ctx.lineWidth=4;ctx.lineCap='square';
+      ctx.beginPath();ctx.moveTo(bx-bw/2,by);ctx.lineTo(bx-bw/2,by+bh);ctx.lineTo(bx+bw/2,by+bh);ctx.lineTo(bx+bw/2,by);ctx.stroke();
+      ctx.fillStyle=bc+'22';ctx.fillRect(bx-bw/2+3,by,bw-6,bh);
       ctx.shadowBlur=0;
-      // Flecha encima del recipiente
-      ctx.fillStyle=bucketCol; ctx.font='bold 13px monospace';
-      ctx.textAlign='center'; ctx.fillText('▼',bx,by-4); ctx.textAlign='left';
-
-      // Bola
-      if(S.ball){
-        const b=S.ball;
-        ctx.shadowColor='#00ffa8'; ctx.shadowBlur=S.running?12:6;
-        const gr=ctx.createRadialGradient(b.x-3,b.y-3,1,b.x,b.y,BALL_R);
-        gr.addColorStop(0,'#ffffff');
-        gr.addColorStop(0.45,'#69f0ae');
-        gr.addColorStop(1,'#005533');
-        ctx.fillStyle=gr;
-        ctx.beginPath(); ctx.arc(b.x,b.y,BALL_R,0,Math.PI*2); ctx.fill();
-        ctx.shadowBlur=0;
-      }
-
-      // HUD top
-      ctx.fillStyle='rgba(2,11,16,0.82)'; ctx.fillRect(0,0,W,32);
-      ctx.fillStyle='#d4a017'; ctx.font='bold 11px monospace';
-      ctx.fillText(S.cfg.label+' · '+S.cfg.concept,8,21);
-      ctx.textAlign='right';
-      ctx.fillStyle='#00ffa8';
-      ctx.fillText('SCORE '+S.score,W-8,21);
-      ctx.textAlign='left';
-
-      // HUD bottom barra de herramientas
-      ctx.fillStyle='rgba(2,11,16,0.88)'; ctx.fillRect(0,H-40,W,40);
-      const lLeft=S.cfg.maxLines-S.lines.length;
-      const lCol=lLeft===0?'#ef5350':lLeft===1?'#ffd740':'#00ffa8';
-
+      ctx.fillStyle=bc;ctx.font='bold 14px monospace';ctx.textAlign='center';ctx.fillText('▼',bx,by-5);ctx.textAlign='left';
+      /* bola */
+      const b=S.ball;
+      const gr=ctx.createRadialGradient(b.x-3,b.y-3,1,b.x,b.y,BALL_R);
+      gr.addColorStop(0,'#fff');gr.addColorStop(0.4,'#69f0ae');gr.addColorStop(1,'#004433');
+      ctx.shadowColor='#69f0ae';ctx.shadowBlur=S.running?14:6;
+      ctx.fillStyle=gr;ctx.beginPath();ctx.arc(b.x,b.y,BALL_R,0,Math.PI*2);ctx.fill();
+      ctx.shadowBlur=0;
+      /* HUD top */
+      ctx.fillStyle='rgba(2,11,16,0.88)';ctx.fillRect(0,0,W,34);
+      ctx.fillStyle='#d4a017';ctx.font='bold 11px monospace';
+      ctx.fillText(S.cfg.label+' · '+S.cfg.concept,8,22);
+      ctx.textAlign='right';ctx.fillStyle='#00ffa8';ctx.fillText('SCORE '+S.score,W-8,22);ctx.textAlign='left';
+      /* barra inferior con botones */
+      const BAR_H=50;
+      ctx.fillStyle='rgba(2,11,16,0.92)';ctx.fillRect(0,H-BAR_H,W,BAR_H);
       if(!S.running&&!S.over){
-        // Líneas disponibles
-        ctx.fillStyle=lCol; ctx.font='bold 11px monospace';
-        ctx.fillText(`Líneas: ${S.lines.length}/${S.cfg.maxLines}`,10,H-16);
-
-        // Botón DESHACER
+        /* indicador líneas */
+        const ll=S.cfg.maxLines-S.lines.length;
+        ctx.fillStyle=ll===0?'#ef5350':ll===1?'#ffd740':'#00ffa8';
+        ctx.font='bold 11px monospace';ctx.fillText(`Líneas: ${S.lines.length}/${S.cfg.maxLines}`,8,H-BAR_H+18);
+        /* hint pequeño */
+        ctx.fillStyle='rgba(100,160,180,0.7)';ctx.font='9px monospace';ctx.textAlign='center';
+        ctx.fillText(S.cfg.hint.length>45?S.cfg.hint.slice(0,44)+'…':S.cfg.hint,W/2,H-BAR_H+32);ctx.textAlign='left';
+        /* Botón DESHACER */
         if(S.lines.length>0){
-          ctx.fillStyle='#3a1010';
-          rRect(ctx,W/2-88,H-36,72,28,7);
-          ctx.fillStyle='#ef5350'; ctx.font='bold 11px monospace';
-          ctx.textAlign='center'; ctx.fillText('← BORRAR',W/2-52,H-17); ctx.textAlign='left';
+          ctx.fillStyle='#3a1010';rR(ctx,8,H-36,90,30,8);
+          ctx.fillStyle='#ef5350';ctx.font='bold 11px monospace';ctx.textAlign='center';ctx.fillText('← BORRAR',53,H-16);ctx.textAlign='left';
         }
-
-        // Botón LANZAR
-        ctx.fillStyle='#003322';
-        rRect(ctx,W/2+4,H-36,80,28,7);
-        ctx.fillStyle='#00ffa8'; ctx.font='bold 11px monospace';
-        ctx.textAlign='center'; ctx.fillText('▶ LANZAR',W/2+44,H-17); ctx.textAlign='left';
-
+        /* Botón LANZAR */
+        ctx.fillStyle='#003820';rR(ctx,W-100,H-36,90,30,8);
+        ctx.fillStyle='#00ffa8';ctx.font='bold 11px monospace';ctx.textAlign='center';ctx.fillText('▶ LANZAR',W-55,H-16);ctx.textAlign='left';
       } else if(S.running&&!S.over){
-        ctx.fillStyle='rgba(212,160,23,0.7)'; ctx.font='11px monospace';
-        ctx.fillText('Simulando...',10,H-16);
-        ctx.fillStyle='#3a1010';
-        rRect(ctx,W-90,H-36,80,28,7);
-        ctx.fillStyle='#ef5350'; ctx.font='bold 11px monospace';
-        ctx.textAlign='right'; ctx.fillText('✕ RESET',W-14,H-17); ctx.textAlign='left';
+        ctx.fillStyle='rgba(212,160,23,0.8)';ctx.font='11px monospace';ctx.textAlign='center';
+        ctx.fillText('Simulando física… tus líneas guían la bola',W/2,H-24);ctx.textAlign='left';
+        ctx.fillStyle='#2a0808';rR(ctx,W-90,H-38,82,30,8);
+        ctx.fillStyle='#ef5350';ctx.font='bold 11px monospace';ctx.textAlign='center';ctx.fillText('✕ RESET',W-49,H-18);ctx.textAlign='left';
       }
-
-      // Hint cuando no hay líneas aún
-      if(!S.running&&!S.over&&S.lines.length===0){
-        ctx.textAlign='center';
-        ctx.fillStyle='rgba(100,160,180,0.55)'; ctx.font='10px monospace';
-        const hintWords=S.cfg.hint.split(' ');
-        let line1='',line2='';
-        for(const w of hintWords){
-          if((line1+' '+w).trim().length<=36) line1=(line1+' '+w).trim();
-          else line2=(line2+' '+w).trim();
-        }
-        ctx.fillText(line1,W/2,H/2+10);
-        if(line2) ctx.fillText(line2,W/2,H/2+24);
-        ctx.fillStyle='rgba(0,255,168,0.3)'; ctx.font='10px monospace';
-        ctx.fillText('⚛ '+S.cfg.concept,W/2,H/2+42);
-        ctx.textAlign='left';
-      }
-
-      // Pantalla resultado
+      /* pantalla fin */
       if(S.over){
-        ctx.fillStyle='rgba(2,11,16,0.90)'; ctx.fillRect(0,0,W,H);
+        ctx.fillStyle='rgba(2,11,16,0.92)';ctx.fillRect(0,0,W,H);
         ctx.textAlign='center';
         if(S.won){
-          ctx.fillStyle='#00ffa8'; ctx.shadowColor='#00ffa8'; ctx.shadowBlur=20;
-          ctx.font=`bold ${Math.max(20,W/16)}px monospace`;
-          ctx.fillText('🎯 ¡BIEN HECHO!',W/2,H/2-50); ctx.shadowBlur=0;
-          ctx.fillStyle='rgba(212,160,23,0.9)'; ctx.font=`bold ${Math.max(12,W/28)}px monospace`;
-          ctx.fillText(`SCORE: ${S.score}  +${S.cfg.waveBonus}`,W/2,H/2-18);
-          ctx.fillStyle='rgba(0,255,168,0.5)'; ctx.font=`${Math.max(10,W/38)}px monospace`;
-          ctx.fillText(S.lvl<LEVELS.length-1?`Preparando Nivel ${S.lvl+2}…`:'¡Todos los niveles completados!',W/2,H/2+8);
-          ctx.fillStyle='rgba(0,130,80,0.9)';
-          rRect(ctx,W/2-65,H/2+28,130,36,10);
-          ctx.fillStyle='#020b10'; ctx.font='bold 13px monospace';
-          ctx.fillText(S.lvl<LEVELS.length-1?`▶ NIVEL ${S.lvl+2}`:'↺ REINICIAR',W/2,H/2+51);
-          ctx.fillStyle='rgba(20,30,40,0.85)';
-          rRect(ctx,W/2-55,H/2+74,110,28,8);
-          ctx.fillStyle='#4a6a72'; ctx.font='11px monospace';
-          ctx.fillText('◀ SELECCIÓN',W/2,H/2+93);
+          ctx.fillStyle='#00ffa8';ctx.shadowColor='#00ffa8';ctx.shadowBlur=24;
+          ctx.font=`bold ${Math.max(22,W/14)}px monospace`;ctx.fillText('🎯 ¡BIEN HECHO!',W/2,H/2-56);ctx.shadowBlur=0;
+          ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font=`bold ${Math.max(13,W/26)}px monospace`;
+          ctx.fillText(`+${S.cfg.waveBonus} pts  ·  SCORE ${S.score}`,W/2,H/2-22);
+          ctx.fillStyle='rgba(0,140,90,0.95)';rR(ctx,W/2-70,H/2+4,140,42,12);
+          ctx.fillStyle='#020b10';ctx.font='bold 15px monospace';
+          ctx.fillText(S.lvl<LEVELS.length-1?`▶ NIVEL ${S.lvl+2}`:'↺ REINICIAR',W/2,H/2+31);
+          ctx.fillStyle='rgba(20,35,45,0.9)';rR(ctx,W/2-60,H/2+56,120,34,8);
+          ctx.fillStyle='#6b8a91';ctx.font='12px monospace';ctx.fillText('◀ SELECCIÓN',W/2,H/2+78);
         } else {
-          ctx.fillStyle='#ef5350'; ctx.font=`bold ${Math.max(18,W/17)}px monospace`;
-          ctx.fillText('💨 FALLIDO',W/2,H/2-46);
-          ctx.fillStyle='rgba(212,160,23,0.65)'; ctx.font=`${Math.max(10,W/36)}px monospace`;
-          ctx.fillText(`Intento #${S.attempts} · Tus líneas se conservan`,W/2,H/2-16);
-          ctx.fillStyle='rgba(100,20,20,0.9)';
-          rRect(ctx,W/2-65,H/2+10,130,36,10);
-          ctx.fillStyle='#ffffff'; ctx.font='bold 13px monospace';
-          ctx.fillText('↺ REINTENTAR',W/2,H/2+33);
-          ctx.fillStyle='rgba(20,30,40,0.85)';
-          rRect(ctx,W/2-55,H/2+56,110,28,8);
-          ctx.fillStyle='#4a6a72'; ctx.font='11px monospace';
-          ctx.fillText('◀ SELECCIÓN',W/2,H/2+75);
+          ctx.fillStyle='#ef5350';ctx.font=`bold ${Math.max(20,W/15)}px monospace`;ctx.fillText('💨 FALLIDO',W/2,H/2-48);
+          ctx.fillStyle='rgba(212,160,23,0.7)';ctx.font='11px monospace';ctx.fillText('Tus líneas se conservan',W/2,H/2-18);
+          ctx.fillStyle='rgba(120,20,20,0.95)';rR(ctx,W/2-70,H/2+6,140,42,12);
+          ctx.fillStyle='#fff';ctx.font='bold 15px monospace';ctx.fillText('↺ REINTENTAR',W/2,H/2+33);
+          ctx.fillStyle='rgba(20,35,45,0.9)';rR(ctx,W/2-60,H/2+58,120,34,8);
+          ctx.fillStyle='#6b8a91';ctx.font='12px monospace';ctx.fillText('◀ SELECCIÓN',W/2,H/2+80);
         }
         ctx.textAlign='left';
       }
     }
 
-    function rRect(c,x,y,w,h,r){
-      c.beginPath();
-      if(c.roundRect) c.roundRect(x,y,w,h,r); else c.rect(x,y,w,h);
-      c.fill();
-    }
+    function rR(c,x,y,w,h,r){c.beginPath();if(c.roundRect)c.roundRect(x,y,w,h,r);else c.rect(x,y,w,h);c.fill();}
+    function hit(x,y,bx,by,bw,bh){return x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh;}
 
-    /* ── Loop ───────────────────────────────────────────────── */
-    function loop(){
-      if(!S){return;}
-      animId=requestAnimationFrame(loop);
-      if(S.running&&!S.over) step();
-      render();
-    }
-
-    /* ── Acciones ───────────────────────────────────────────── */
-    function launch(){
-      if(S.running||S.over) return;
-      S.attempts++;
-      const bs=S.ballStart;
-      S.ball={x:bs.x,y:bs.y,vx:bs.vx,vy:bs.vy};
-      S.running=true;
-    }
-
-    function retry(){
-      const bs=S.ballStart;
-      S.ball={x:bs.x,y:bs.y,vx:bs.vx,vy:bs.vy};
-      S.running=false; S.over=false; S.won=false;
-    }
-
-    function nextLevel(){
-      const next=S.lvl+1;
-      S=buildState(next<LEVELS.length?next:0, S.score);
-    }
-
-    /* ── Eventos ────────────────────────────────────────────── */
-    function hitBtn(x,y,bx,by,bw,bh){ return x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh; }
+    function loop(){if(!S)return;aid=requestAnimationFrame(loop);if(S.running&&!S.over)step();draw();}
 
     function onDown(e){
       e.preventDefault();
-      const {x,y}=getXY(e);
-
+      const {x,y}=pt(e);
+      const BAR_H=50;
       if(S.over){
         if(S.won){
-          if(hitBtn(x,y,W/2-65,H/2+28,130,36)) nextLevel();
-          if(hitBtn(x,y,W/2-55,H/2+74,110,28)) GamesEngine.showSelection();
+          if(hit(x,y,W/2-70,H/2+4,140,42)){const n=S.lvl+1;S=newState(n<LEVELS.length?n:0,S.score);}
+          else if(hit(x,y,W/2-60,H/2+56,120,34))GamesEngine.showSelection();
         } else {
-          if(hitBtn(x,y,W/2-65,H/2+10,130,36)) retry();
-          if(hitBtn(x,y,W/2-55,H/2+56,110,28)) GamesEngine.showSelection();
+          if(hit(x,y,W/2-70,H/2+6,140,42)){const b=S.bs;S.ball={...b};S.running=false;S.over=false;S.won=false;}
+          else if(hit(x,y,W/2-60,H/2+58,120,34))GamesEngine.showSelection();
         }
         return;
       }
-
       if(!S.running){
-        // Botón LANZAR
-        if(hitBtn(x,y,W/2+4,H-36,80,28)){ launch(); return; }
-        // Botón DESHACER
-        if(S.lines.length>0&&hitBtn(x,y,W/2-88,H-36,72,28)){ S.lines.pop(); return; }
+        if(hit(x,y,W-100,H-BAR_H,90,30)){S.tries++;const b=S.bs;S.ball={...b};S.running=true;return;}
+        if(S.lines.length>0&&hit(x,y,8,H-BAR_H,90,30)){S.lines.pop();return;}
       } else {
-        // Botón RESET
-        if(hitBtn(x,y,W-90,H-36,80,28)){ retry(); return; }
+        if(hit(x,y,W-90,H-BAR_H+14,82,30)){const b=S.bs;S.ball={...b};S.running=false;S.over=false;S.won=false;return;}
       }
-
-      // Iniciar dibujo sólo fuera del área HUD inferior y superior
-      if(!S.running && S.lines.length<S.cfg.maxLines && y>34 && y<H-42){
+      if(!S.running&&S.lines.length<S.cfg.maxLines&&y>34&&y<H-BAR_H)
         S.drawing={x1:x,y1:y,x2:x,y2:y};
-      }
     }
-
-    function onMove(e){
-      e.preventDefault();
-      if(!S.drawing) return;
-      const {x,y}=getXY(e);
-      S.drawing.x2=x; S.drawing.y2=y;
-    }
-
+    function onMove(e){e.preventDefault();if(!S.drawing)return;const p=pt(e);S.drawing.x2=p.x;S.drawing.y2=p.y;}
     function onUp(e){
       e.preventDefault();
-      if(!S.drawing) return;
-      const p=getXY(e);
-      const dx=p.x-S.drawing.x1, dy=p.y-S.drawing.y1;
-      if(Math.sqrt(dx*dx+dy*dy)>18){
-        S.lines.push({x1:S.drawing.x1,y1:S.drawing.y1,x2:p.x,y2:p.y});
-      }
+      if(!S.drawing)return;
+      const p=pt(e);
+      const dx=p.x-S.drawing.x1,dy=p.y-S.drawing.y1;
+      if(Math.sqrt(dx*dx+dy*dy)>20)S.lines.push({x1:S.drawing.x1,y1:S.drawing.y1,x2:p.x,y2:p.y});
       S.drawing=null;
     }
 
-    /* ── Init ───────────────────────────────────────────────── */
+    const BAR_H=50;
+
     function init(c){
-      cont=c; cont.innerHTML='';
-      cont.style.cssText='position:relative;width:100%;display:flex;flex-direction:column;align-items:center;padding:8px 0;';
-
-      // Canvas — tamaño fijo en px, se escala vía CSS si es necesario
-      canvas=document.createElement('canvas');
-      const maxW=Math.min((cont.clientWidth||360)-8, 420);
-      const maxH=Math.min(Math.round(maxW*1.4), 540);
-      W=maxW; H=maxH;
-      canvas.width=W; canvas.height=H;
-      canvas.style.cssText=`display:block;width:${W}px;height:${H}px;border-radius:12px;border:1px solid #0b3b46;touch-action:none;cursor:crosshair;`;
-      cont.appendChild(canvas);
-      ctx=canvas.getContext('2d');
-
-      // scaleX/Y siempre 1 porque CSS size == canvas size
-      scaleX=1; scaleY=1;
-
-      // Instrucción
-      const tip=document.createElement('div');
-      tip.style.cssText='font-size:10px;color:#2a5a6a;text-align:center;margin-top:5px;letter-spacing:0.5px;';
-      tip.textContent='✏ Dibuja líneas · ▶ Lanza la bola · ← Borra la última línea';
-      cont.appendChild(tip);
-
-      S=buildState(0,0);
-
-      // Listeners — passive:false para preventDefault en touch
-      canvas.addEventListener('touchstart', onDown, {passive:false});
-      canvas.addEventListener('touchmove',  onMove, {passive:false});
-      canvas.addEventListener('touchend',   onUp,   {passive:false});
-      canvas.addEventListener('touchcancel',e=>{e.preventDefault();S.drawing=null;},{passive:false});
-      canvas.addEventListener('mousedown',  onDown);
-      canvas.addEventListener('mousemove',  e=>{if(e.buttons===1)onMove(e);});
-      canvas.addEventListener('mouseup',    onUp);
-
-      animId=requestAnimationFrame(loop);
+      cont=c;cont.innerHTML='';
+      cont.style.cssText='width:100%;display:flex;flex-direction:column;align-items:center;padding:6px 0;';
+      cv=document.createElement('canvas');
+      W=Math.min((cont.clientWidth||360)-4,420);
+      H=Math.min(Math.round(W*1.42),560);
+      cv.width=W;cv.height=H;
+      cv.style.cssText=`width:${W}px;height:${H}px;display:block;border-radius:12px;border:1px solid #0b3b46;touch-action:none;`;
+      cont.appendChild(cv);
+      ctx=cv.getContext('2d');
+      /* instrucción debajo */
+      const t=document.createElement('div');
+      t.style.cssText='font-size:11px;color:#4a8a9a;text-align:center;margin-top:6px;line-height:1.4;max-width:'+W+'px;';
+      t.textContent='✏️ Dibuja líneas con el dedo · ▶ LANZAR para soltar la bola · ← BORRAR última línea';
+      cont.appendChild(t);
+      S=newState(0,0);
+      cv.addEventListener('touchstart',onDown,{passive:false});
+      cv.addEventListener('touchmove', onMove,{passive:false});
+      cv.addEventListener('touchend',  onUp,  {passive:false});
+      cv.addEventListener('touchcancel',e=>{e.preventDefault();S.drawing=null;},{passive:false});
+      cv.addEventListener('mousedown', onDown);
+      cv.addEventListener('mousemove', e=>{if(e.buttons===1)onMove(e);});
+      cv.addEventListener('mouseup',   onUp);
+      aid=requestAnimationFrame(loop);
     }
-
-    function cleanup(){
-      if(animId){cancelAnimationFrame(animId);animId=null;}
-      S=null;
-    }
-
-    return {init, cleanup};
+    function cleanup(){if(aid){cancelAnimationFrame(aid);aid=null;}S=null;}
+    return{init,cleanup};
   })();
 
 
   /* ═══════════════════════════════════════════════════════════
-     INGENIERO PUZZLE — 12 Niveles
-     Toca bloques para eliminarlos y guía la bola al estrella.
-     Física: gravedad, colisiones, materiales distintos.
+     INGENIERO PUZZLE v2 — toca bloques, guía la bola a la ⭐
   ═══════════════════════════════════════════════════════════ */
   Impls.engineer = (() => {
 
-    /* Tipos de bloque:
-       'w' = madera  (removible, café)
-       'r' = roca    (fijo, gris)
-       'b' = bote    (bote/globo, azul, flotante — flota hacia arriba)
-       'e' = elástico (removible, verde, REST=1.1)
-       's' = suelo   (fijo, gris oscuro)
-       'x' = bomba   (explota y elimina adyacentes)
+    /* Materiales:
+       w = madera  → toca para eliminar (café)
+       r = roca    → NO se elimina (gris)
+       e = elástico→ toca para eliminar, rebote fuerte (verde)
+       x = bomba   → explota y elimina vecinos (rojo)
     */
-    const BLOCK = {
-      w:{col:'#8B5E3C',stroke:'#5a3a18',removable:true, label:'Madera',rest:0.45},
-      r:{col:'#607D8B',stroke:'#37474F',removable:false,label:'Roca',  rest:0.35},
-      e:{col:'#43A047',stroke:'#1B5E20',removable:true, label:'Elástico',rest:1.05},
-      x:{col:'#E53935',stroke:'#7f0000',removable:true, label:'Bomba', rest:0.3},
-      s:{col:'#263238',stroke:'#000',   removable:false,label:'Suelo', rest:0.3},
+    const MAT={
+      w:{c:'#8B5E3C',s:'#5a3a18',rm:true, ic:'🪵',rst:0.45,label:'Madera · toca para quitar'},
+      r:{c:'#546E7A',s:'#263238',rm:false,ic:'🪨',rst:0.35,label:'Roca · no se puede quitar'},
+      e:{c:'#43A047',s:'#1B5E20',rm:true, ic:'🟩',rst:1.08,label:'Elástico · rebota fuerte'},
+      x:{c:'#E53935',s:'#7f0000',rm:true, ic:'💣',rst:0.3, label:'Bomba · explota vecinos'},
     };
 
-    const G     = 0.32;
-    const B_R   = 10;   // radio bola
-    const FRIC  = 0.982;
+    const G=0.30, BR=11, FRIC=0.983;
+    const COLS=10, ROWS=14;  // grilla 10×14
 
-    /* ── Niveles (grilla: cada celda = 1/12 del ancho, 1/16 del alto)
-         blocks: [col, fila, tipo]   col/fila en 0-11 / 0-15
-         ball:   {col,row} inicio bola
-         star:   {col,row} posición estrella (meta)
-    ─────────────────────────────────────────────────────────── */
     const LEVELS=[
-      { label:'Nivel 1',  concept:'Gravedad Básica',
-        hint:'Toca el bloque de madera para que la bola caiga a la estrella',
-        blocks:[ [5,4,'w'] ],
-        ball:{col:5,row:0}, star:{col:5,row:12} },
-
-      { label:'Nivel 2',  concept:'Plataforma Intermedia',
-        hint:'Elimina los dos bloques en el orden correcto',
-        blocks:[ [4,5,'w'],[5,5,'w'],[6,5,'w'], [5,10,'r'] ],
-        ball:{col:5,row:0}, star:{col:5,row:13} },
-
-      { label:'Nivel 3',  concept:'Efecto Elástico',
-        hint:'El bloque verde es elástico — la bola rebotará fuerte',
-        blocks:[ [5,6,'e'], [4,10,'w'],[5,10,'w'],[6,10,'w'] ],
-        ball:{col:5,row:0}, star:{col:9,row:13} },
-
-      { label:'Nivel 4',  concept:'Roca Inamovible',
-        hint:'La roca no se puede eliminar — abre el camino lateral',
-        blocks:[
-          [3,5,'w'],[4,5,'w'],[5,5,'r'],[6,5,'w'],[7,5,'w'],
-          [5,9,'w']
-        ],
-        ball:{col:5,row:0}, star:{col:2,row:13} },
-
-      { label:'Nivel 5',  concept:'La Bomba',
-        hint:'La bomba (roja) elimina los bloques adyacentes al explotar',
-        blocks:[
-          [4,4,'w'],[5,4,'x'],[6,4,'w'],
-          [3,8,'r'],[4,8,'r'],[5,8,'r'],[6,8,'r'],[7,8,'r']
-        ],
-        ball:{col:5,row:0}, star:{col:5,row:13} },
-
-      { label:'Nivel 6',  concept:'Trayectoria en Z',
-        hint:'Elimina bloques para crear un camino en zigzag',
-        blocks:[
-          [2,4,'w'],[3,4,'w'],[4,4,'w'],[5,4,'r'],[6,4,'r'],[7,4,'r'],[8,4,'r'],
-          [2,8,'r'],[3,8,'r'],[4,8,'r'],[5,8,'w'],[6,8,'w'],[7,8,'w'],[8,8,'w'],
-          [2,12,'w'],[3,12,'w'],[4,12,'w'],[5,12,'r'],[6,12,'r']
-        ],
-        ball:{col:2,row:0}, star:{col:9,row:14} },
-
-      { label:'Nivel 7',  concept:'Cascada de Bloques',
-        hint:'Elimina los bloques en cascada de arriba a abajo',
-        blocks:[
-          [5,3,'w'],[5,6,'w'],[5,9,'w'],
-          [3,5,'r'],[4,5,'r'],[6,5,'r'],[7,5,'r'],
-          [3,9,'r'],[4,9,'r'],[6,9,'r'],[7,9,'r'],
-        ],
-        ball:{col:5,row:0}, star:{col:5,row:13} },
-
-      { label:'Nivel 8',  concept:'Desvío Forzado',
-        hint:'La roca te obliga a desviar la bola con bloques elásticos',
-        blocks:[
-          [5,5,'r'],[5,6,'r'],[5,7,'r'],
-          [3,9,'e'],[7,9,'e'],
-          [2,4,'w'],[3,4,'w'],[4,4,'w'],
-          [6,4,'w'],[7,4,'w'],[8,4,'w'],
-        ],
-        ball:{col:5,row:0}, star:{col:9,row:13} },
-
-      { label:'Nivel 9',  concept:'Precisión Bomba',
-        hint:'Usa la bomba para abrir el pasaje entre rocas',
-        blocks:[
-          [3,6,'r'],[4,6,'x'],[5,6,'r'],[6,6,'r'],[7,6,'r'],
-          [3,7,'r'],[4,7,'r'],[5,7,'r'],[6,7,'r'],[7,7,'r'],
-          [5,2,'w']
-        ],
-        ball:{col:5,row:0}, star:{col:4,row:13} },
-
-      { label:'Nivel 10', concept:'El Gran Puente',
-        hint:'Derrumba el puente de madera en el momento justo',
-        blocks:[
-          [1,7,'r'],[2,7,'w'],[3,7,'w'],[4,7,'w'],[5,7,'w'],
-          [6,7,'w'],[7,7,'w'],[8,7,'w'],[9,7,'r'],
-          [5,3,'w']
-        ],
-        ball:{col:5,row:0}, star:{col:9,row:13} },
-
-      { label:'Nivel 11', concept:'Cadena de Reacciones',
-        hint:'Una bomba desencadena todo lo que necesitas',
-        blocks:[
-          [5,3,'w'],
-          [3,6,'x'],[4,6,'w'],[5,6,'w'],[6,6,'w'],[7,6,'x'],
-          [4,10,'r'],[5,10,'w'],[6,10,'r'],
-        ],
-        ball:{col:5,row:0}, star:{col:5,row:14} },
-
-      { label:'Nivel 12', concept:'Maestro Ingeniero',
-        hint:'Reto final: orden de eliminación importa mucho',
-        blocks:[
-          [5,2,'w'],
-          [2,5,'r'],[3,5,'w'],[4,5,'r'],[5,5,'e'],[6,5,'r'],[7,5,'w'],[8,5,'r'],
-          [2,9,'w'],[3,9,'r'],[4,9,'r'],[5,9,'x'],[6,9,'r'],[7,9,'r'],[8,9,'w'],
-          [4,12,'r'],[5,12,'w'],[6,12,'r'],
-        ],
-        ball:{col:5,row:0}, star:{col:5,row:14} },
+      {label:'Nivel 1',concept:'Gravedad',hint:'Toca la madera 🪵 para que caiga la bola a la estrella ⭐',
+       blocks:[[4,3,'w']], ball:{c:4,r:0}, star:{c:4,r:12}, bonus:200},
+      {label:'Nivel 2',concept:'Plataforma',hint:'Elimina los bloques de madera — la roca 🪨 no se puede quitar',
+       blocks:[[3,4,'w'],[4,4,'w'],[5,4,'w'],[6,4,'r']], ball:{c:4,r:0}, star:{c:4,r:12}, bonus:250},
+      {label:'Nivel 3',concept:'Elástico',hint:'El bloque 🟩 verde rebota la bola con mucha fuerza',
+       blocks:[[4,5,'e'],[3,9,'w'],[4,9,'w'],[5,9,'w']], ball:{c:4,r:0}, star:{c:7,r:12}, bonus:320},
+      {label:'Nivel 4',concept:'Roca Inamovible',hint:'La roca 🪨 bloquea el centro — abre el paso lateral',
+       blocks:[[2,4,'w'],[3,4,'w'],[4,4,'r'],[5,4,'w'],[6,4,'w'],[4,8,'w']], ball:{c:4,r:0}, star:{c:1,r:12}, bonus:380},
+      {label:'Nivel 5',concept:'La Bomba 💣',hint:'La bomba roja elimina automáticamente todos los bloques vecinos',
+       blocks:[[3,3,'w'],[4,3,'x'],[5,3,'w'],[3,4,'r'],[4,4,'r'],[5,4,'r'],[3,5,'r'],[4,5,'r'],[5,5,'r']], ball:{c:4,r:0}, star:{c:4,r:12}, bonus:450},
+      {label:'Nivel 6',concept:'Zigzag',hint:'Elimina en el orden correcto para crear el camino en zigzag',
+       blocks:[[1,4,'w'],[2,4,'w'],[3,4,'w'],[4,4,'r'],[5,4,'r'],[6,4,'r'],[7,4,'r'],[1,7,'r'],[2,7,'r'],[3,7,'w'],[4,7,'w'],[5,7,'w'],[6,7,'w'],[7,7,'r']], ball:{c:1,r:0}, star:{c:7,r:12}, bonus:520},
+      {label:'Nivel 7',concept:'Cascada',hint:'Toca de arriba hacia abajo para crear una cascada',
+       blocks:[[4,3,'w'],[3,6,'r'],[4,6,'w'],[5,6,'r'],[3,9,'r'],[4,9,'w'],[5,9,'r']], ball:{c:4,r:0}, star:{c:4,r:12}, bonus:600},
+      {label:'Nivel 8',concept:'Desvío',hint:'Usa el elástico y la bomba estratégicamente',
+       blocks:[[4,4,'r'],[4,5,'r'],[4,6,'r'],[2,8,'e'],[6,8,'e'],[1,3,'w'],[2,3,'w'],[3,3,'w'],[5,3,'w'],[6,3,'w'],[7,3,'w']], ball:{c:4,r:0}, star:{c:8,r:12}, bonus:680},
+      {label:'Nivel 9',concept:'Bomba Precisa',hint:'Detona la bomba para abrir el paso entre rocas',
+       blocks:[[2,5,'r'],[3,5,'x'],[4,5,'r'],[5,5,'r'],[6,5,'r'],[2,6,'r'],[3,6,'r'],[4,6,'r'],[5,6,'r'],[6,6,'r'],[4,2,'w']], ball:{c:4,r:0}, star:{c:3,r:12}, bonus:760},
+      {label:'Nivel 10',concept:'El Puente',hint:'Derrumba el puente de madera en el momento justo',
+       blocks:[[0,6,'r'],[1,6,'w'],[2,6,'w'],[3,6,'w'],[4,6,'w'],[5,6,'w'],[6,6,'w'],[7,6,'w'],[8,6,'r'],[4,2,'w']], ball:{c:4,r:0}, star:{c:8,r:12}, bonus:850},
+      {label:'Nivel 11',concept:'Cadena',hint:'Una bomba desencadena todo lo que necesitas',
+       blocks:[[4,2,'w'],[2,5,'x'],[3,5,'w'],[4,5,'w'],[5,5,'w'],[6,5,'x'],[3,9,'r'],[4,9,'w'],[5,9,'r']], ball:{c:4,r:0}, star:{c:4,r:12}, bonus:950},
+      {label:'Nivel 12',concept:'Maestro Ingeniero',hint:'Reto final — el orden de eliminación importa',
+       blocks:[[4,2,'w'],[1,4,'r'],[2,4,'w'],[3,4,'r'],[4,4,'e'],[5,4,'r'],[6,4,'w'],[7,4,'r'],[1,8,'w'],[2,8,'r'],[3,8,'r'],[4,8,'x'],[5,8,'r'],[6,8,'r'],[7,8,'w'],[3,11,'r'],[4,11,'w'],[5,11,'r']], ball:{c:4,r:0}, star:{c:4,r:12}, bonus:1200},
     ];
 
-    let cont,canvas,ctx,S,animId,W,H,CW,CH; // CW/CH = tamaño celda
+    let cont,cv,ctx,S,aid,W,H,CW,CH;
 
-    /* ── Coordenadas celda → px ────────────────────────────── */
-    function cx(col){ return col*CW + CW/2; }
-    function cy(row){ return row*CH + CH/2; }
-    function cellCol(px){ return Math.floor(px/CW); }
-    function cellRow(py){ return Math.floor(py/CH); }
+    function px(c){return c*CW+CW/2;}
+    function py(r){return r*CH+CH/2;}
 
-    /* ── Estado ─────────────────────────────────────────────── */
-    function buildState(lvlIdx, prevScore){
-      const cfg=LEVELS[lvlIdx];
-      const blocks=cfg.blocks.map(b=>({
-        col:b[0], row:b[1], type:b[2],
-        alive:true,
-        exploding:false, explodeTimer:0,
-      }));
-      const bx=cx(cfg.ball.col), by=cy(cfg.ball.row);
-      return{
-        lvl:lvlIdx, cfg, blocks,
-        ball:{x:bx,y:by,vx:0,vy:0,launched:false},
-        ballStart:{x:bx,y:by},
-        star:{x:cx(cfg.star.col), y:cy(cfg.star.row)},
-        score:prevScore||0,
-        over:false, won:false,
-        frame:0,
-      };
+    function newState(lvl,sc){
+      const cfg=LEVELS[lvl];
+      const blks=cfg.blocks.map(b=>({c:b[0],r:b[1],t:b[2],alive:true}));
+      const bx=px(cfg.ball.c), by=py(cfg.ball.r);
+      return{lvl,cfg,blks,ball:{x:bx,y:by,vx:0,vy:0,go:false},bs:{x:bx,y:by},
+        star:{x:px(cfg.star.c),y:py(cfg.star.r)},score:sc||0,over:false,won:false,frame:0};
     }
 
-    /* ── Física bola ────────────────────────────────────────── */
-    function stepBall(){
-      const b=S.ball;
-      if(!b.launched) return;
-
-      b.vy+=G; b.x+=b.vx; b.y+=b.vy;
-
-      // Paredes
-      if(b.x-B_R<0)  {b.x=B_R;   b.vx= Math.abs(b.vx)*0.5;}
-      if(b.x+B_R>W)  {b.x=W-B_R; b.vx=-Math.abs(b.vx)*0.5;}
-      if(b.y-B_R<0)  {b.y=B_R;   b.vy= Math.abs(b.vy)*0.5;}
-      if(b.y+B_R>H)  {S.over=true; return;}
-
-      // Colisión con bloques vivos
-      for(const blk of S.blocks){
-        if(!blk.alive) continue;
-        const binfo=BLOCK[blk.type];
-        const bkx=blk.col*CW, bky=blk.row*CH;
-        // AABB + radio
-        const nearX=Math.max(bkx,Math.min(b.x,bkx+CW));
-        const nearY=Math.max(bky,Math.min(b.y,bky+CH));
-        const dx=b.x-nearX, dy=b.y-nearY;
-        const dist=Math.sqrt(dx*dx+dy*dy);
-        if(dist<B_R&&dist>0.01){
-          const nx=dx/dist, ny=dy/dist;
-          b.x=nearX+nx*(B_R+1); b.y=nearY+ny*(B_R+1);
-          const dot=b.vx*nx+b.vy*ny;
-          if(dot<0){
-            b.vx=(b.vx-2*dot*nx)*binfo.rest*FRIC;
-            b.vy=(b.vy-2*dot*ny)*binfo.rest;
-          }
-        }
-      }
-
-      // Suelo virtual (fila 15)
-      if(b.y+B_R>H-CH*0.5){
-        b.y=H-CH*0.5-B_R;
-        b.vy=-Math.abs(b.vy)*0.35;
-        b.vx*=0.9;
-        if(Math.abs(b.vy)<0.8) b.vy=0;
-      }
-
-      // Victoria
-      const sr=20;
-      if(Math.hypot(b.x-S.star.x,b.y-S.star.y)<sr){
-        S.won=true; S.over=true;
-        S.score+=S.cfg.waveBonus||(500+S.lvl*100);
-      }
+    function ptc(e){
+      const r=cv.getBoundingClientRect();
+      const sx=W/r.width, sy=H/r.height;
+      const s=e.touches?e.touches[0]:e.changedTouches?e.changedTouches[0]:e;
+      return{x:(s.clientX-r.left)*sx,y:(s.clientY-r.top)*sy};
     }
 
-    /* ── Explosión bomba ────────────────────────────────────── */
-    function explodeBomb(blk){
+    function explode(blk){
       blk.alive=false;
-      // Eliminar adyacentes (mismo radio = 1 celda)
-      for(const other of S.blocks){
-        if(!other.alive) continue;
-        if(Math.abs(other.col-blk.col)<=1 && Math.abs(other.row-blk.row)<=1){
-          if(BLOCK[other.type].removable) other.alive=false;
-        }
-      }
+      S.blks.forEach(b=>{if(b.alive&&Math.abs(b.c-blk.c)<=1&&Math.abs(b.r-blk.r)<=1&&MAT[b.t].rm)b.alive=false;});
     }
 
-    /* ── Tap en bloque ──────────────────────────────────────── */
-    function tapBlock(px,py){
-      const col=cellCol(px), row=cellRow(py);
-      for(const blk of S.blocks){
-        if(!blk.alive) continue;
-        if(blk.col===col&&blk.row===row){
-          if(!BLOCK[blk.type].removable) return; // roca — no
-          if(blk.type==='x') explodeBomb(blk);
-          else blk.alive=false;
-          // Lanzar la bola la primera vez que toca un bloque
-          if(!S.ball.launched) S.ball.launched=true;
+    function tapAt(x,y){
+      const c=Math.floor(x/CW), r=Math.floor(y/CH);
+      for(const b of S.blks){
+        if(b.alive&&b.c===c&&b.r===r){
+          if(!MAT[b.t].rm)return;
+          if(b.t==='x')explode(b); else b.alive=false;
+          S.ball.go=true;
           return;
         }
       }
     }
 
-    /* ── Render ─────────────────────────────────────────────── */
-    function render(){
+    function step(){
+      const b=S.ball;
+      if(!b.go)return;
+      b.vy+=G; b.x+=b.vx; b.y+=b.vy;
+      if(b.x-BR<0){b.x=BR;b.vx=Math.abs(b.vx)*0.5;}
+      if(b.x+BR>W){b.x=W-BR;b.vx=-Math.abs(b.vx)*0.5;}
+      if(b.y-BR<0){b.y=BR;b.vy=Math.abs(b.vy)*0.4;}
+      /* colisión AABB bloques */
+      for(const blk of S.blks){
+        if(!blk.alive)continue;
+        const m=MAT[blk.t];
+        const bkx=blk.c*CW,bky=blk.r*CH,bkw=CW,bkh=CH;
+        const nearX=Math.max(bkx,Math.min(b.x,bkx+bkw));
+        const nearY=Math.max(bky,Math.min(b.y,bky+bkh));
+        const dx=b.x-nearX,dy=b.y-nearY;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist<BR&&dist>0.01){
+          const nx=dx/dist,ny=dy/dist;
+          b.x=nearX+nx*(BR+1);b.y=nearY+ny*(BR+1);
+          const dot=b.vx*nx+b.vy*ny;
+          if(dot<0){b.vx=(b.vx-2*dot*nx)*m.rst*FRIC;b.vy=(b.vy-2*dot*ny)*m.rst;}
+        }
+      }
+      /* suelo */
+      if(b.y+BR>H-CH*0.6){
+        b.y=H-CH*0.6-BR;
+        b.vy=-Math.abs(b.vy)*0.4;b.vx*=0.9;
+        if(Math.abs(b.vy)<0.6)b.vy=0;
+      }
+      /* victoria */
+      if(Math.hypot(b.x-S.star.x,b.y-S.star.y)<CW*0.7){
+        S.won=true;S.over=true;
+        S.score+=S.cfg.bonus;
+      }
+      /* fallo */
+      if(b.y-BR>H){S.over=true;}
+    }
+
+    function draw(){
       ctx.clearRect(0,0,W,H);
-      ctx.fillStyle='#0a1520'; ctx.fillRect(0,0,W,H);
-
-      // Grid
-      ctx.strokeStyle='rgba(11,59,70,0.15)'; ctx.lineWidth=0.5;
-      for(let c=0;c<=12;c++){const x=c*CW;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-      for(let r=0;r<=16;r++){const y=r*CH;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-
-      // Suelo
-      ctx.fillStyle='#1a2a35';
-      ctx.fillRect(0,H-CH*0.5,W,CH*0.5);
-      ctx.fillStyle='#2a5a6a'; ctx.fillRect(0,H-CH*0.5,W,2);
-
-      // Bloques
-      for(const blk of S.blocks){
-        if(!blk.alive) continue;
-        const bi=BLOCK[blk.type];
-        const bx=blk.col*CW+1, by2=blk.row*CH+1, bw=CW-2, bh=CH-2;
-        // Sombra suave
-        ctx.shadowColor=bi.col; ctx.shadowBlur=4;
-        ctx.fillStyle=bi.col;
-        if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bx,by2,bw,bh,4);ctx.fill();}
+      ctx.fillStyle='#0a1520';ctx.fillRect(0,0,W,H);
+      /* grid */
+      ctx.strokeStyle='rgba(11,59,70,0.12)';ctx.lineWidth=0.5;
+      for(let c=0;c<=COLS;c++){ctx.beginPath();ctx.moveTo(c*CW,0);ctx.lineTo(c*CW,H);ctx.stroke();}
+      for(let r=0;r<=ROWS;r++){ctx.beginPath();ctx.moveTo(0,r*CH);ctx.lineTo(W,r*CH);ctx.stroke();}
+      /* suelo */
+      ctx.fillStyle='#1a2835';ctx.fillRect(0,H-CH*0.6,W,CH*0.6);
+      ctx.fillStyle='#2a7a9a';ctx.fillRect(0,H-CH*0.6,W,2);
+      /* bloques */
+      for(const blk of S.blks){
+        if(!blk.alive)continue;
+        const m=MAT[blk.t];
+        const bx=blk.c*CW+1,by2=blk.r*CH+1,bw=CW-2,bh=CH-2;
+        ctx.shadowColor=m.c;ctx.shadowBlur=3;
+        ctx.fillStyle=m.c;
+        if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bx,by2,bw,bh,5);ctx.fill();}
         else ctx.fillRect(bx,by2,bw,bh);
         ctx.shadowBlur=0;
-        // Borde
-        ctx.strokeStyle=bi.stroke; ctx.lineWidth=1.5;
-        if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bx,by2,bw,bh,4);ctx.stroke();}
+        ctx.strokeStyle=m.s;ctx.lineWidth=1.5;
+        if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bx,by2,bw,bh,5);ctx.stroke();}
         else ctx.strokeRect(bx,by2,bw,bh);
-        // Brillo superior
-        ctx.fillStyle='rgba(255,255,255,0.08)';
-        ctx.fillRect(bx+2,by2+2,bw-4,Math.min(bh*0.3,8));
-        // Ícono
-        const icon=blk.type==='w'?'🪵':blk.type==='r'?'🪨':blk.type==='e'?'🟩':blk.type==='x'?'💣':'';
-        if(icon&&CW>28){
-          ctx.font=`${Math.max(10,CW*0.45)}px serif`;
-          ctx.textAlign='center';
-          ctx.fillText(icon,blk.col*CW+CW/2,blk.row*CH+CH*0.65);
-          ctx.textAlign='left';
-        }
-        // Indicador removible/no removible
-        if(!bi.removable){
-          ctx.fillStyle='rgba(0,0,0,0.35)';
-          if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bx,by2,bw,bh,4);ctx.fill();}
-          else ctx.fillRect(bx,by2,bw,bh);
-        }
+        /* ícono */
+        const fs=Math.max(10,CW*0.52);
+        ctx.font=`${fs}px serif`;ctx.textAlign='center';
+        ctx.fillText(m.ic,blk.c*CW+CW/2,blk.r*CH+CH*0.72);
+        /* candado en roca */
+        if(!m.rm){ctx.font=`${Math.max(7,CW*0.3)}px serif`;ctx.fillText('🔒',blk.c*CW+CW*0.75,blk.r*CH+CH*0.3);}
+        ctx.textAlign='left';
       }
-
-      // Estrella (meta)
-      const {x:sx,y:sy}=S.star;
-      const pulse=0.8+0.2*Math.sin(S.frame*0.1);
-      ctx.shadowColor='#ffd700'; ctx.shadowBlur=16*pulse;
-      ctx.font=`${Math.max(16,CW*0.9)}px serif`;
-      ctx.textAlign='center';
-      ctx.fillText('⭐',sx,sy+CW*0.35);
-      ctx.textAlign='left'; ctx.shadowBlur=0;
-
-      // Bola
+      /* estrella */
+      const pulse=0.85+0.15*Math.sin(S.frame*0.12);
+      ctx.shadowColor='#ffd700';ctx.shadowBlur=18*pulse;
+      ctx.font=`${Math.max(18,CW*1.1)}px serif`;ctx.textAlign='center';
+      ctx.fillText('⭐',S.star.x,S.star.y+CW*0.4);
+      ctx.shadowBlur=0;ctx.textAlign='left';
+      /* bola */
       const b=S.ball;
-      ctx.shadowColor='#00ffa8'; ctx.shadowBlur=10;
-      const gr=ctx.createRadialGradient(b.x-2,b.y-2,1,b.x,b.y,B_R);
-      gr.addColorStop(0,'#ffffff'); gr.addColorStop(0.4,'#69f0ae'); gr.addColorStop(1,'#004433');
-      ctx.fillStyle=gr;
-      ctx.beginPath(); ctx.arc(b.x,b.y,B_R,0,Math.PI*2); ctx.fill();
+      const gr=ctx.createRadialGradient(b.x-3,b.y-3,1,b.x,b.y,BR);
+      gr.addColorStop(0,'#fff');gr.addColorStop(0.4,'#69f0ae');gr.addColorStop(1,'#004433');
+      ctx.shadowColor='#69f0ae';ctx.shadowBlur=b.go?14:6;
+      ctx.fillStyle=gr;ctx.beginPath();ctx.arc(b.x,b.y,BR,0,Math.PI*2);ctx.fill();
       ctx.shadowBlur=0;
-
-      // Flecha indicando la bola al inicio
-      if(!b.launched){
-        ctx.fillStyle='rgba(0,255,168,0.6)'; ctx.font='14px monospace';
-        ctx.textAlign='center';
-        ctx.fillText('▼',b.x,b.y-B_R-6);
-        ctx.textAlign='left';
+      /* flecha sobre bola si no se movió */
+      if(!b.go){
+        ctx.fillStyle='rgba(0,255,168,0.7)';ctx.font='bold 14px monospace';ctx.textAlign='center';
+        ctx.fillText('▼',b.x,b.y-BR-5);ctx.textAlign='left';
       }
-
-      // HUD top
-      ctx.fillStyle='rgba(2,11,16,0.85)'; ctx.fillRect(0,0,W,28);
-      ctx.fillStyle='#d4a017'; ctx.font='bold 10px monospace';
-      ctx.fillText(S.cfg.label+' · '+S.cfg.concept,6,19);
-      ctx.textAlign='right';
-      ctx.fillStyle='#00ffa8'; ctx.fillText('SCORE '+S.score,W-6,19);
-      ctx.textAlign='left';
-
-      // HUD bottom
-      ctx.fillStyle='rgba(2,11,16,0.85)'; ctx.fillRect(0,H-28,W,28);
+      /* HUD top */
+      ctx.fillStyle='rgba(2,11,16,0.88)';ctx.fillRect(0,0,W,32);
+      ctx.fillStyle='#d4a017';ctx.font='bold 11px monospace';ctx.fillText(S.cfg.label+' · '+S.cfg.concept,6,22);
+      ctx.textAlign='right';ctx.fillStyle='#00ffa8';ctx.fillText('SCORE '+S.score,W-6,22);ctx.textAlign='left';
+      /* HUD bottom — instrucciones claras */
+      ctx.fillStyle='rgba(2,11,16,0.92)';ctx.fillRect(0,H-38,W,38);
       if(!S.over){
-        ctx.fillStyle='rgba(100,160,180,0.6)'; ctx.font='9px monospace';
         ctx.textAlign='center';
-        ctx.fillText(b.launched?'Bola en movimiento…':S.cfg.hint,W/2,H-12);
+        ctx.fillStyle='#ffd740';ctx.font='bold 11px monospace';
+        ctx.fillText('💡 '+S.cfg.hint,W/2,H-22);
+        ctx.fillStyle='rgba(100,160,180,0.6)';ctx.font='9px monospace';
+        ctx.fillText('🪵 toca=quita  🪨 fijo  🟩 elástico  💣 explota vecinos',W/2,H-8);
         ctx.textAlign='left';
-        // Leyenda pequeña
-        ctx.fillStyle='rgba(212,160,23,0.45)'; ctx.font='8px monospace';
-        ctx.fillText('🪵=toca  🪨=fijo  🟩=elástico  💣=bomba',4,H-2);
       }
-
-      // Pantalla final
+      /* pantalla final */
       if(S.over){
-        ctx.fillStyle='rgba(2,11,16,0.92)'; ctx.fillRect(0,0,W,H);
+        ctx.fillStyle='rgba(2,11,16,0.93)';ctx.fillRect(0,0,W,H);
         ctx.textAlign='center';
         if(S.won){
-          ctx.fillStyle='#ffd700'; ctx.shadowColor='#ffd700'; ctx.shadowBlur=20;
-          ctx.font=`bold ${Math.max(20,W/15)}px monospace`;
-          ctx.fillText('⭐ ¡NIVEL SUPERADO!',W/2,H/2-52); ctx.shadowBlur=0;
-          ctx.fillStyle='rgba(212,160,23,0.9)'; ctx.font=`bold ${Math.max(12,W/28)}px monospace`;
-          ctx.fillText(`SCORE: ${S.score}`,W/2,H/2-22);
-          ctx.fillStyle='rgba(0,255,168,0.9)';
-          rR(ctx,W/2-65,H/2+4,130,36,10);
-          ctx.fillStyle='#020b10'; ctx.font='bold 13px monospace';
-          ctx.fillText(S.lvl<LEVELS.length-1?`▶ NIVEL ${S.lvl+2}`:'↺ REINICIAR',W/2,H/2+27);
-          rR(ctx,W/2-55,H/2+50,110,28,8);
-          ctx.fillStyle='rgba(20,30,40,0.85)'; rR(ctx,W/2-55,H/2+50,110,28,8);
-          ctx.fillStyle='#4a6a72'; ctx.font='11px monospace';
-          ctx.fillText('◀ SELECCIÓN',W/2,H/2+69);
+          ctx.fillStyle='#ffd700';ctx.shadowColor='#ffd700';ctx.shadowBlur=28;
+          ctx.font=`bold ${Math.max(22,W/13)}px monospace`;ctx.fillText('⭐ ¡SUPERADO!',W/2,H/2-58);ctx.shadowBlur=0;
+          ctx.fillStyle='rgba(212,160,23,0.9)';ctx.font=`bold ${Math.max(12,W/28)}px monospace`;
+          ctx.fillText(`+${S.cfg.bonus} pts  ·  SCORE ${S.score}`,W/2,H/2-24);
+          ctx.fillStyle='rgba(0,140,80,0.95)';rR2(ctx,W/2-72,H/2+8,144,46,12);
+          ctx.fillStyle='#020b10';ctx.font='bold 16px monospace';
+          ctx.fillText(S.lvl<LEVELS.length-1?`▶  NIVEL ${S.lvl+2}`:'↺  REINICIAR',W/2,H/2+37);
+          ctx.fillStyle='rgba(20,35,45,0.92)';rR2(ctx,W/2-62,H/2+64,124,36,10);
+          ctx.fillStyle='#6b8a91';ctx.font='13px monospace';ctx.fillText('◀  SELECCIÓN',W/2,H/2+87);
         } else {
-          ctx.fillStyle='#ef5350'; ctx.font=`bold ${Math.max(18,W/17)}px monospace`;
-          ctx.fillText('💨 ¡FALLIDO!',W/2,H/2-44);
-          ctx.fillStyle='rgba(212,160,23,0.65)'; ctx.font=`${Math.max(10,W/36)}px monospace`;
-          ctx.fillText('La bola cayó fuera — intenta de nuevo',W/2,H/2-16);
-          ctx.fillStyle='rgba(180,20,20,0.9)';
-          rR(ctx,W/2-65,H/2+8,130,36,10);
-          ctx.fillStyle='#fff'; ctx.font='bold 13px monospace';
-          ctx.fillText('↺ REINTENTAR',W/2,H/2+31);
-          ctx.fillStyle='rgba(20,30,40,0.85)'; rR(ctx,W/2-55,H/2+54,110,28,8);
-          ctx.fillStyle='#4a6a72'; ctx.font='11px monospace';
-          ctx.fillText('◀ SELECCIÓN',W/2,H/2+73);
+          ctx.fillStyle='#ef5350';ctx.font=`bold ${Math.max(20,W/14)}px monospace`;ctx.fillText('💨  FALLIDO',W/2,H/2-52);
+          ctx.fillStyle='rgba(212,160,23,0.7)';ctx.font='12px monospace';ctx.fillText('La bola cayó fuera',W/2,H/2-20);
+          ctx.fillStyle='rgba(120,20,20,0.95)';rR2(ctx,W/2-72,H/2+8,144,46,12);
+          ctx.fillStyle='#fff';ctx.font='bold 16px monospace';ctx.fillText('↺  REINTENTAR',W/2,H/2+37);
+          ctx.fillStyle='rgba(20,35,45,0.92)';rR2(ctx,W/2-62,H/2+64,124,36,10);
+          ctx.fillStyle='#6b8a91';ctx.font='13px monospace';ctx.fillText('◀  SELECCIÓN',W/2,H/2+87);
         }
         ctx.textAlign='left';
       }
       S.frame++;
     }
 
-    function rR(c,x,y,w,h,r){c.beginPath();if(c.roundRect)c.roundRect(x,y,w,h,r);else c.rect(x,y,w,h);c.fill();}
+    function rR2(c,x,y,w,h,r){c.beginPath();if(c.roundRect)c.roundRect(x,y,w,h,r);else c.rect(x,y,w,h);c.fill();}
+    function hitB(x,y,bx,by,bw,bh){return x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh;}
 
-    /* ── Loop ───────────────────────────────────────────────── */
-    function loop(){
-      if(!S) return;
-      animId=requestAnimationFrame(loop);
-      stepBall();
-      render();
-    }
-
-    /* ── Input ──────────────────────────────────────────────── */
-    function getXY(e){
-      const rect=canvas.getBoundingClientRect();
-      const src=e.touches?e.touches[0]:e.changedTouches?e.changedTouches[0]:e;
-      return {
-        x:(src.clientX-rect.left)*(W/rect.width),
-        y:(src.clientY-rect.top) *(H/rect.height),
-      };
-    }
-
-    function hitBtn(x,y,bx,by,bw,bh){return x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh;}
+    function loop(){if(!S)return;aid=requestAnimationFrame(loop);step();draw();}
 
     function onTap(e){
       e.preventDefault();
-      const {x,y}=getXY(e);
+      const {x,y}=ptc(e);
       if(S.over){
         if(S.won){
-          if(hitBtn(x,y,W/2-65,H/2+4,130,36)){const n=S.lvl+1;S=buildState(n<LEVELS.length?n:0,S.score);}
-          if(hitBtn(x,y,W/2-55,H/2+50,110,28))GamesEngine.showSelection();
+          if(hitB(x,y,W/2-72,H/2+8,144,46)){const n=S.lvl+1;S=newState(n<LEVELS.length?n:0,S.score);return;}
+          if(hitB(x,y,W/2-62,H/2+64,124,36)){GamesEngine.showSelection();return;}
         } else {
-          if(hitBtn(x,y,W/2-65,H/2+8,130,36))S=buildState(S.lvl,S.score-(S.cfg.waveBonus||(500+S.lvl*100)));
-          if(hitBtn(x,y,W/2-55,H/2+54,110,28))GamesEngine.showSelection();
+          if(hitB(x,y,W/2-72,H/2+8,144,46)){S=newState(S.lvl,S.score);return;}
+          if(hitB(x,y,W/2-62,H/2+64,124,36)){GamesEngine.showSelection();return;}
         }
         return;
       }
-      if(y<28||y>H-28) return; // HUD
-      tapBlock(x,y);
+      if(y<32||y>H-38)return;
+      tapAt(x,y);
     }
 
-    /* ── Init / Cleanup ─────────────────────────────────────── */
     function init(c){
-      cont=c; cont.innerHTML='';
-      cont.style.cssText='position:relative;width:100%;display:flex;flex-direction:column;align-items:center;padding:6px 0;';
-      canvas=document.createElement('canvas');
-      const mw=Math.min((cont.clientWidth||360)-8,400);
-      W=mw; H=Math.min(Math.round(mw*1.45),560);
-      CW=Math.floor(W/12); CH=Math.floor(H/16);
-      canvas.width=W; canvas.height=H;
-      canvas.style.cssText=`display:block;width:${W}px;height:${H}px;border-radius:12px;border:1px solid #0b3b46;touch-action:none;cursor:pointer;`;
-      cont.appendChild(canvas);
-      ctx=canvas.getContext('2d');
-
+      cont=c;cont.innerHTML='';
+      cont.style.cssText='width:100%;display:flex;flex-direction:column;align-items:center;padding:6px 0;';
+      cv=document.createElement('canvas');
+      W=Math.min((cont.clientWidth||360)-4,400);
+      H=Math.min(Math.round(W*1.5),580);
+      CW=Math.floor(W/COLS);CH=Math.floor(H/ROWS);
+      cv.width=W;cv.height=H;
+      cv.style.cssText=`width:${W}px;height:${H}px;display:block;border-radius:12px;border:1px solid #0b3b46;touch-action:none;cursor:pointer;`;
+      cont.appendChild(cv);
+      ctx=cv.getContext('2d');
       const tip=document.createElement('div');
-      tip.style.cssText='font-size:10px;color:#2a5a6a;margin-top:5px;text-align:center;';
-      tip.textContent='Toca 🪵 para eliminar bloques y guía ⭐ la bola a la estrella';
+      tip.style.cssText='font-size:11px;color:#4a8a9a;text-align:center;margin-top:6px;line-height:1.5;max-width:'+W+'px;padding:0 8px;';
+      tip.innerHTML='<b style="color:#ffd740">⚙️ INGENIERO PUZZLE</b><br>Toca los bloques de colores para eliminarlos y guía la bola ⚽ a la estrella ⭐<br><span style="color:#8B5E3C">🪵 Madera</span> = toca para quitar · <span style="color:#546E7A">🪨 Roca</span> = no se puede · <span style="color:#43A047">🟩 Elástico</span> = rebota · <span style="color:#E53935">💣 Bomba</span> = explota';
       cont.appendChild(tip);
-
-      S=buildState(0,0);
-      canvas.addEventListener('touchstart',onTap,{passive:false});
-      canvas.addEventListener('mousedown', onTap);
-      animId=requestAnimationFrame(loop);
+      S=newState(0,0);
+      cv.addEventListener('touchstart',onTap,{passive:false});
+      cv.addEventListener('mousedown', onTap);
+      aid=requestAnimationFrame(loop);
     }
 
-    function cleanup(){
-      if(animId){cancelAnimationFrame(animId);animId=null;}
-      S=null;
-    }
-
+    function cleanup(){if(aid){cancelAnimationFrame(aid);aid=null;}S=null;}
     return{init,cleanup};
   })();
 
