@@ -4170,14 +4170,16 @@ const GamesEngine = (() => {
     /* Colores vivos para las líneas del jugador */
     const LINE_COLORS=['#ffd740','#ff6e40','#69f0ae','#40c4ff','#ea80fc','#ff4081','#b2ff59','#ffab40'];
 
-    let cont, canvas, ctx, S, animId, W, H, scaleX, scaleY;
+    let cont, canvas, ctx, S, animId, W, H;
 
-    /* ── Escalar coordenadas touch/mouse al espacio del canvas ─ */
+    /* ── Escalar coordenadas touch/mouse al espacio del canvas ─
+       Usa la proporción real CSS→canvas para funcionar correctamente
+       en cualquier DPR, zoom o contenedor redimensionado.           */
     function toCanvas(clientX, clientY){
       const rect = canvas.getBoundingClientRect();
       return {
-        x: (clientX - rect.left) * scaleX,
-        y: (clientY - rect.top)  * scaleY,
+        x: (clientX - rect.left) * (canvas.width  / rect.width),
+        y: (clientY - rect.top)  * (canvas.height / rect.height),
       };
     }
 
@@ -4258,38 +4260,43 @@ const GamesEngine = (() => {
     /* ── Step ───────────────────────────────────────────────── */
     function step(){
       const b = S.ball;
-      b.vy += G;
-      b.x  += b.vx;
-      b.y  += b.vy;
+      /* Sub-pasos: divide cada frame en 3 para evitar que la bola
+         atraviese las líneas a alta velocidad (tunneling).         */
+      const SUB = 3;
+      for(let s = 0; s < SUB; s++){
+        b.vy += G / SUB;
+        b.x  += b.vx / SUB;
+        b.y  += b.vy / SUB;
 
-      // Paredes
-      if(b.x-BALL_R<0)  {b.x=BALL_R;      b.vx= Math.abs(b.vx)*REST;}
-      if(b.x+BALL_R>W)  {b.x=W-BALL_R;    b.vx=-Math.abs(b.vx)*REST;}
-      if(b.y-BALL_R<0)  {b.y=BALL_R;      b.vy= Math.abs(b.vy)*REST;}
+        // Paredes
+        if(b.x-BALL_R<0)  {b.x=BALL_R;      b.vx= Math.abs(b.vx)*REST;}
+        if(b.x+BALL_R>W)  {b.x=W-BALL_R;    b.vx=-Math.abs(b.vx)*REST;}
+        if(b.y-BALL_R<0)  {b.y=BALL_R;      b.vy= Math.abs(b.vy)*REST;}
 
-      // Líneas del jugador
-      for(const l of S.lines)
-        collideSeg(b, l.x1,l.y1, l.x2,l.y2, REST);
+        // Líneas del jugador
+        for(const l of S.lines)
+          collideSeg(b, l.x1,l.y1, l.x2,l.y2, REST);
 
-      // Estáticos
-      for(const s of getStatics())
-        collideSeg(b, s.x1,s.y1, s.x2,s.y2, 0.55);
+        // Estáticos
+        for(const st of getStatics())
+          collideSeg(b, st.x1,st.y1, st.x2,st.y2, 0.55);
 
-      // Rebotadores elásticos (supera velocidad de entrada — REST > 1)
-      for(const brc of getBouncers())
-        collideSeg(b, brc.x1,brc.y1, brc.x2,brc.y2, 1.1);
+        // Rebotadores elásticos (supera velocidad de entrada — REST > 1)
+        for(const brc of getBouncers())
+          collideSeg(b, brc.x1,brc.y1, brc.x2,brc.y2, 1.1);
 
-      // Victoria
-      const {bx,by,bw,bh} = getBucket();
-      if(b.x > bx-bw/2-BALL_R*0.4 && b.x < bx+bw/2+BALL_R*0.4 &&
-         b.y+BALL_R > by && b.y < by+bh){
-        S.won=true; S.over=true; S.running=false;
-        S.score += S.cfg.waveBonus + Math.max(0,400-S.attempts*40);
-        return;
+        // Victoria — la bola DEBE entrar en el recipiente para avanzar
+        const {bx,by,bw,bh} = getBucket();
+        if(b.x > bx-bw/2-BALL_R*0.4 && b.x < bx+bw/2+BALL_R*0.4 &&
+           b.y+BALL_R > by && b.y < by+bh){
+          S.won=true; S.over=true; S.running=false;
+          S.score += S.cfg.waveBonus + Math.max(0,400-S.attempts*40);
+          return;
+        }
+
+        // Fallo — bola sale por abajo sin entrar al recipiente
+        if(b.y-BALL_R > H){ S.over=true; S.running=false; return; }
       }
-
-      // Fallo — bola sale por abajo
-      if(b.y-BALL_R > H){ S.over=true; S.running=false; }
     }
 
     /* ── Render ─────────────────────────────────────────────── */
@@ -4567,18 +4574,21 @@ const GamesEngine = (() => {
       cont=c; cont.innerHTML='';
       cont.style.cssText='position:relative;width:100%;display:flex;flex-direction:column;align-items:center;padding:8px 0;';
 
-      // Canvas — tamaño fijo en px, se escala vía CSS si es necesario
+      // Canvas — dimensiones basadas en el viewport real del móvil
       canvas=document.createElement('canvas');
-      const maxW=Math.min((cont.clientWidth||360)-8, 420);
-      const maxH=Math.min(Math.round(maxW*1.4), 540);
-      W=maxW; H=maxH;
-      canvas.width=W; canvas.height=H;
-      canvas.style.cssText=`display:block;width:${W}px;height:${H}px;border-radius:12px;border:1px solid #0b3b46;touch-action:none;cursor:crosshair;`;
+      const availW = Math.min(
+        (cont.clientWidth > 0 ? cont.clientWidth : window.innerWidth) - 16,
+        420
+      );
+      W = availW;
+      H = Math.min(Math.round(W * 1.4), 540);
+      canvas.width  = W;
+      canvas.height = H;
+      // CSS: max-width:100% garantiza que nunca desborde en pantallas pequeñas;
+      // toCanvas() compensa automáticamente cualquier diferencia de escala.
+      canvas.style.cssText = `display:block;width:${W}px;max-width:100%;height:${H}px;border-radius:12px;border:1px solid #0b3b46;touch-action:none;cursor:crosshair;`;
       cont.appendChild(canvas);
-      ctx=canvas.getContext('2d');
-
-      // scaleX/Y siempre 1 porque CSS size == canvas size
-      scaleX=1; scaleY=1;
+      ctx = canvas.getContext('2d');
 
       // Instrucción
       const tip=document.createElement('div');
