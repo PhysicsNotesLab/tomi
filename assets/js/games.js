@@ -24,7 +24,7 @@ const GamesEngine = (() => {
     { id:'projectile',emoji:'🎯', name:'TIRO PARABÓLICO', desc:'Acierta el blanco con física real', hint:'Ajusta ángulo y velocidad' },
     { id:'quiz',      emoji:'🧪', name:'QUIZ DE FÍSICA',  desc:'Pon a prueba tu conocimiento',   hint:'Elige la respuesta correcta' },
     { id:'ballguide', emoji:'🎱', name:'GUÍA LA BOLA',   desc:'Dibuja líneas para guiar la bola', hint:'Dibuja con el dedo o el ratón' },
-    { id:'engineer',  emoji:'⚙️',  name:'INGENIERO PUZZLE', desc:'Elimina bloques, desafía la gravedad', hint:'Toca los bloques de colores' },
+    { id:'balanza',   emoji:'⚖️',  name:'BALANZA DE FUERZAS', desc:'Equilibra torques — Física real', hint:'Selecciona posición o masa' },
   ];
 
   function featuredIndex(subjectId) {
@@ -34,7 +34,7 @@ const GamesEngine = (() => {
   }
 
   let overlayEl=null, gameBodyEl=null, animFrame=null, currentImpl=null, currentSubjectId='';
-  const DOM_GAMES = new Set(['sudoku','g2048','mines','memory','wordsearch','projectile','quiz','ballguide','engineer']);
+  const DOM_GAMES = new Set(['sudoku','g2048','mines','memory','wordsearch','projectile','quiz','ballguide','balanza']);
 
   /* ── init ─────────────────────────────────────────────────── */
   function init() {
@@ -3987,684 +3987,1175 @@ const GamesEngine = (() => {
   })();
 
   /* ═══════════════════════════════════════════════════════════
-     GUÍA LA BOLA v5 — physics substep, 1:1 canvas, mobile-first
-     Root fix: SUBSTEPS=4 so fast ball can't tunnel through lines.
-     Canvas internal px == CSS px at all times (no DPR scaling).
+     GUÍA LA BOLA — 10 Niveles
+     Dibuja líneas para guiar la bola al recipiente.
+     Física real: gravedad, reflexión, momento.
+  ═══════════════════════════════════════════════════════════ */
+
+  /* ═══════════════════════════════════════════════════════════
+     GUÍA LA BOLA — 10 Niveles  (v3 — mobile-first fix)
   ═══════════════════════════════════════════════════════════ */
   Impls.ballguide = (() => {
-    /* physics — small G so substeps stay cheap */
-    const G=0.045, REST=0.55, FRIC=0.987, SUBSTEPS=5;
-    let BALL_R=11; /* set in init based on canvas size */
 
-    const LEVELS=[
-      {label:'Nivel 1',concept:'Caída Libre',hint:'Dibuja 1 línea inclinada bajo la bola para desviarla',maxLines:1,waveBonus:150,ball:{px:15,py:10,vx:0.4,vy:0},bucket:{px:75,py:84,pw:16},statics:[]},
-      {label:'Nivel 2',concept:'Plano Inclinado',hint:'La plataforma bloquea — desvía la bola con tu línea',maxLines:1,waveBonus:200,ball:{px:50,py:8,vx:0,vy:0},bucket:{px:85,py:84,pw:15},statics:[{x1:8,y1:48,x2:64,y2:48}]},
-      {label:'Nivel 3',concept:'Rebote Doble',hint:'Dos líneas, dos rebotes — guía la bola al recipiente',maxLines:2,waveBonus:280,ball:{px:10,py:14,vx:0.6,vy:0},bucket:{px:82,py:84,pw:14},statics:[{x1:30,y1:50,x2:70,y2:50}]},
-      {label:'Nivel 4',concept:'Energía Cinética',hint:'Redirige la bola al lado opuesto con dos líneas',maxLines:2,waveBonus:340,ball:{px:50,py:8,vx:0,vy:0},bucket:{px:12,py:84,pw:14},statics:[{x1:28,y1:36,x2:78,y2:36},{x1:22,y1:62,x2:70,y2:62}]},
-      {label:'Nivel 5',concept:'Plataformas Escalonadas',hint:'Baja en zigzag por las plataformas hasta el recipiente',maxLines:3,waveBonus:420,ball:{px:50,py:8,vx:0,vy:0},bucket:{px:88,py:84,pw:13},statics:[{x1:8,y1:32,x2:46,y2:32},{x1:54,y1:52,x2:92,y2:52},{x1:8,y1:70,x2:46,y2:70}]},
-      {label:'Nivel 6',concept:'Reflexión Simétrica',hint:'θ incidencia = θ reflexión — traza líneas simétricas',maxLines:2,waveBonus:500,ball:{px:50,py:8,vx:0,vy:0},bucket:{px:50,py:84,pw:11},statics:[{x1:14,y1:24,x2:44,y2:60},{x1:56,y1:60,x2:86,y2:24}]},
-      {label:'Nivel 7',concept:'Laberinto',hint:'Tres plataformas forman un laberinto — crea el camino',maxLines:3,waveBonus:580,ball:{px:10,py:12,vx:0.5,vy:0},bucket:{px:86,py:84,pw:10},statics:[{x1:24,y1:36,x2:58,y2:36},{x1:44,y1:58,x2:78,y2:58},{x1:18,y1:74,x2:52,y2:74}]},
-      {label:'Nivel 8',concept:'Precisión',hint:'Recipiente estrecho — calcula el ángulo exacto',maxLines:3,waveBonus:680,ball:{px:50,py:8,vx:0,vy:0},bucket:{px:18,py:84,pw:9},statics:[{x1:32,y1:30,x2:88,y2:30},{x1:12,y1:52,x2:62,y2:52},{x1:38,y1:70,x2:84,y2:70}]},
-      {label:'Nivel 9',concept:'Impulso Lateral',hint:'La bola tiene velocidad horizontal — aprovéchala',maxLines:2,waveBonus:760,ball:{px:8,py:8,vx:0.8,vy:0},bucket:{px:88,py:84,pw:9},statics:[{x1:30,y1:28,x2:72,y2:28},{x1:14,y1:56,x2:56,y2:56}]},
-      {label:'Nivel 10',concept:'Maestro de Física',hint:'Reto final: mínimas líneas, máxima complejidad',maxLines:3,waveBonus:1200,ball:{px:14,py:10,vx:0.5,vy:0},bucket:{px:82,py:84,pw:8},statics:[{x1:30,y1:28,x2:30,y2:62},{x1:60,y1:42,x2:60,y2:76},{x1:38,y1:68,x2:62,y2:68}]},
+    const G         = 0.30;
+    const BALL_R    = 11;
+    const REST      = 0.62;
+    const FRICTION  = 0.985;
+
+    const LEVELS = [
+      { label:'Nivel 1',  concept:'Caída Libre',
+        hint:'Dibuja 1 línea inclinada para desviar la bola',
+        maxLines:1, waveBonus:150,
+        ball:{px:14,py:10,vx:2.0,vy:0},
+        bucket:{px:74,py:80,pw:16}, statics:[] },
+
+      { label:'Nivel 2',  concept:'Plano Inclinado',
+        hint:'La plataforma bloquea el camino directo',
+        maxLines:1, waveBonus:200,
+        ball:{px:50,py:8,vx:0,vy:0},
+        bucket:{px:84,py:80,pw:14},
+        statics:[{x1:8,y1:46,x2:66,y2:46}] },
+
+      { label:'Nivel 3',  concept:'Conservación de Momento',
+        hint:'Aprovecha el impulso horizontal',
+        maxLines:2, waveBonus:250,
+        ball:{px:8,py:18,vx:3.2,vy:0},
+        bucket:{px:80,py:80,pw:13},
+        statics:[{x1:32,y1:52,x2:68,y2:52}] },
+
+      { label:'Nivel 4',  concept:'Doble Reflexión',
+        hint:'Necesitas dos rebotes consecutivos',
+        maxLines:2, waveBonus:320,
+        ball:{px:50,py:8,vx:0,vy:0},
+        bucket:{px:12,py:80,pw:13},
+        statics:[{x1:28,y1:36,x2:78,y2:36},{x1:22,y1:60,x2:70,y2:60}] },
+
+      { label:'Nivel 5',  concept:'Energía Potencial',
+        hint:'Convierte energía potencial en cinética',
+        maxLines:2, waveBonus:380,
+        ball:{px:8,py:10,vx:0,vy:0},
+        bucket:{px:86,py:80,pw:12},
+        statics:[{x1:18,y1:30,x2:52,y2:30},{x1:48,y1:55,x2:82,y2:55}] },
+
+      { label:'Nivel 6',  concept:'Plataformas Escalonadas',
+        hint:'Navega entre tres plataformas en zigzag',
+        maxLines:3, waveBonus:450,
+        ball:{px:50,py:8,vx:0,vy:0},
+        bucket:{px:88,py:80,pw:11},
+        statics:[{x1:8,y1:30,x2:46,y2:30},{x1:54,y1:50,x2:92,y2:50},{x1:8,y1:68,x2:46,y2:68}] },
+
+      { label:'Nivel 7',  concept:'Ángulo de Reflexión',
+        hint:'θᵢ = θᵣ — la incidencia iguala la reflexión',
+        maxLines:2, waveBonus:520,
+        ball:{px:50,py:8,vx:0,vy:0},
+        bucket:{px:50,py:80,pw:10},
+        statics:[{x1:14,y1:22,x2:44,y2:58},{x1:56,y1:58,x2:86,y2:22}] },
+
+      { label:'Nivel 8',  concept:'Trayectoria Compleja',
+        hint:'Tres plataformas forman un laberinto',
+        maxLines:3, waveBonus:600,
+        ball:{px:8,py:12,vx:2.8,vy:0},
+        bucket:{px:86,py:80,pw:9},
+        statics:[{x1:24,y1:34,x2:56,y2:34},{x1:44,y1:56,x2:78,y2:56},{x1:18,y1:72,x2:52,y2:72}] },
+
+      { label:'Nivel 9',  concept:'Precisión Extrema',
+        hint:'Recipiente muy estrecho — calcula el ángulo exacto',
+        maxLines:3, waveBonus:750,
+        ball:{px:50,py:8,vx:0,vy:0},
+        bucket:{px:18,py:80,pw:8},
+        statics:[{x1:32,y1:28,x2:88,y2:28},{x1:12,y1:50,x2:62,y2:50},{x1:38,y1:68,x2:84,y2:68}] },
+
+      { label:'Nivel 10', concept:'Maestro de la Física',
+        hint:'Reto final: mínimas líneas, máxima complejidad',
+        maxLines:3, waveBonus:1200,
+        ball:{px:14,py:10,vx:2.2,vy:0},
+        bucket:{px:82,py:80,pw:7},
+        statics:[{x1:30,y1:26,x2:30,y2:60},{x1:60,y1:40,x2:60,y2:74},{x1:38,y1:66,x2:62,y2:66}] },
+
+      /* ── NIVELES 11-20: dificultad alta, objetos nuevos ── */
+      { label:'Nivel 11', concept:'Pared Vertical',
+        hint:'Usa la pared vertical como trampolín — la normal es perpendicular',
+        maxLines:1, waveBonus:800,
+        ball:{px:8,py:50,vx:4.5,vy:-1},
+        bucket:{px:85,py:30,pw:11},
+        statics:[{x1:60,y1:10,x2:60,y2:75}],
+        bouncers:[] },
+
+      { label:'Nivel 12', concept:'Doble Pared',
+        hint:'Dos paredes crean un canal — guía la bola entre ellas',
+        maxLines:2, waveBonus:850,
+        ball:{px:50,py:8,vx:0,vy:0},
+        bucket:{px:50,py:84,pw:9},
+        statics:[{x1:30,y1:20,x2:30,y2:70},{x1:70,y1:20,x2:70,y2:70}],
+        bouncers:[] },
+
+      { label:'Nivel 13', concept:'Trampolín Elástico',
+        hint:'El rebotador rojo invierte la velocidad — apunta bien',
+        maxLines:1, waveBonus:900,
+        ball:{px:15,py:15,vx:3,vy:0},
+        bucket:{px:82,py:82,pw:9},
+        statics:[{x1:28,y1:50,x2:72,y2:50}],
+        bouncers:[{x1:20,y1:68,x2:55,y2:68,type:'elastic'}] },
+
+      { label:'Nivel 14', concept:'Tobogán en U',
+        hint:'El canal en U redirige la bola — dos líneas forman la U',
+        maxLines:2, waveBonus:950,
+        ball:{px:10,py:10,vx:2.5,vy:0},
+        bucket:{px:88,py:45,pw:9},
+        statics:[{x1:40,y1:30,x2:40,y2:65},{x1:70,y1:30,x2:70,y2:65},{x1:40,y1:65,x2:70,y2:65}],
+        bouncers:[] },
+
+      { label:'Nivel 15', concept:'Impulso Lateral Extremo',
+        hint:'v₀=5 m/s horizontal — compensa con ángulos agudos',
+        maxLines:2, waveBonus:1000,
+        ball:{px:5,py:20,vx:5,vy:0},
+        bucket:{px:90,py:80,pw:8},
+        statics:[{x1:35,y1:38,x2:65,y2:38},{x1:20,y1:60,x2:55,y2:60}],
+        bouncers:[] },
+
+      { label:'Nivel 16', concept:'Laberinto de Paredes',
+        hint:'Las paredes verticales y horizontales forman un laberinto',
+        maxLines:3, waveBonus:1050,
+        ball:{px:8,py:8,vx:0,vy:0},
+        bucket:{px:88,py:84,pw:8},
+        statics:[
+          {x1:30,y1:10,x2:30,y2:50},{x1:60,y1:30,x2:60,y2:70},
+          {x1:10,y1:55,x2:50,y2:55},{x1:45,y1:72,x2:85,y2:72}
+        ],
+        bouncers:[] },
+
+      { label:'Nivel 17', concept:'Triple Rebotador',
+        hint:'Tres trampolines elásticos en serie — calcula la trayectoria',
+        maxLines:1, waveBonus:1100,
+        ball:{px:50,py:6,vx:0,vy:0},
+        bucket:{px:50,py:84,pw:7},
+        statics:[],
+        bouncers:[
+          {x1:15,y1:28,x2:45,y2:28,type:'elastic'},
+          {x1:55,y1:50,x2:85,y2:50,type:'elastic'},
+          {x1:15,y1:70,x2:45,y2:70,type:'elastic'}
+        ] },
+
+      { label:'Nivel 18', concept:'Cañón Diagonal',
+        hint:'vx=4, vy=-2 — proyectil parabólico clásico',
+        maxLines:2, waveBonus:1150,
+        ball:{px:8,py:70,vx:4,vy:-3.5},
+        bucket:{px:85,py:25,pw:7},
+        statics:[{x1:35,y1:10,x2:35,y2:48},{x1:60,y1:30,x2:60,y2:70}],
+        bouncers:[] },
+
+      { label:'Nivel 19', concept:'Suma Vectorial',
+        hint:'Descompon velocidades: vₓ y vᵧ — una línea para cada componente',
+        maxLines:2, waveBonus:1250,
+        ball:{px:5,py:5,vx:3.8,vy:1.5},
+        bucket:{px:92,py:80,pw:6},
+        statics:[
+          {x1:25,y1:35,x2:55,y2:35},{x1:50,y1:55,x2:80,y2:55},
+          {x1:70,y1:20,x2:70,y2:55}
+        ],
+        bouncers:[] },
+
+      { label:'Nivel 20', concept:'Gran Maestro',
+        hint:'El reto definitivo — 3 líneas, 4 obstáculos, recipiente mínimo',
+        maxLines:3, waveBonus:2000,
+        ball:{px:50,py:5,vx:0,vy:0},
+        bucket:{px:50,py:86,pw:5},
+        statics:[
+          {x1:10,y1:25,x2:45,y2:25},{x1:55,y1:25,x2:90,y2:25},
+          {x1:25,y1:50,x2:25,y2:75},{x1:75,y1:50,x2:75,y2:75}
+        ],
+        bouncers:[{x1:40,y1:62,x2:60,y2:62,type:'elastic'}] },
     ];
 
-    const LCOLS=['#ffd740','#ff6e40','#69f0ae','#40c4ff','#ea80fc','#ff4081','#b2ff59'];
-    let cont,cv,ctx,S,aid,W,H;
+    /* Colores vivos para las líneas del jugador */
+    const LINE_COLORS=['#ffd740','#ff6e40','#69f0ae','#40c4ff','#ea80fc','#ff4081','#b2ff59','#ffab40'];
 
-    /* ── Coordinate helper ──────────────────────────────────────
-       KEY FIX: We set canvas.width=W and canvas.style.width=W+'px'
-       so internal px == CSS px (ratio=1). The pt() guard with
-       r.width is a safety belt for any browser rounding.         */
-    function pt(e){
-      const r=cv.getBoundingClientRect();
-      /* ratio: if browser rounds CSS size, correct for it */
-      const sx = r.width  > 0 ? W / r.width  : 1;
-      const sy = r.height > 0 ? H / r.height : 1;
-      const src = (e.touches && e.touches.length > 0) ? e.touches[0]
-                : (e.changedTouches && e.changedTouches.length > 0) ? e.changedTouches[0] : e;
-      return { x:(src.clientX - r.left)*sx, y:(src.clientY - r.top)*sy };
+    let cont, canvas, ctx, S, animId, W, H, scaleX, scaleY;
+
+    /* ── Escalar coordenadas touch/mouse al espacio del canvas ─ */
+    function toCanvas(clientX, clientY){
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top)  * scaleY,
+      };
     }
 
-    /* ── Segment collision with sub-step tolerance ──────────── */
-    function hitSeg(b, ax,ay, bx,by, res){
-      const dx=bx-ax, dy=by-ay;
-      const len2=dx*dx+dy*dy;
-      if(len2<1) return false;
-      const t=Math.max(0,Math.min(1,((b.x-ax)*dx+(b.y-ay)*dy)/len2));
-      const cx=ax+t*dx, cy=ay+t*dy;
-      const ex=b.x-cx, ey=b.y-cy;
-      const dist=Math.sqrt(ex*ex+ey*ey);
-      if(dist < BALL_R+1 && dist > 0.001){
-        const nx=ex/dist, ny=ey/dist;
-        /* push ball outside */
-        b.x = cx + nx*(BALL_R+1.5);
-        b.y = cy + ny*(BALL_R+1.5);
-        /* reflect velocity */
-        const dot = b.vx*nx + b.vy*ny;
+    function getXY(e){
+      const src = e.touches        ? e.touches[0]
+                : e.changedTouches ? e.changedTouches[0]
+                : e;
+      return toCanvas(src.clientX, src.clientY);
+    }
+
+    /* ── Física ─────────────────────────────────────────────── */
+    function closestPt(px,py,ax,ay,bx,by){
+      const dx=bx-ax, dy=by-ay, len2=dx*dx+dy*dy;
+      if(len2<0.001) return {x:ax,y:ay};
+      const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/len2));
+      return {x:ax+t*dx, y:ay+t*dy};
+    }
+
+    function collideSeg(ball,ax,ay,bx,by, restitution){
+      const r = restitution !== undefined ? restitution : REST;
+      const cp = closestPt(ball.x,ball.y,ax,ay,bx,by);
+      const dx = ball.x-cp.x, dy = ball.y-cp.y;
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      if(dist < BALL_R && dist > 0.01){
+        const nx=dx/dist, ny=dy/dist;
+        // Push bola fuera
+        ball.x = cp.x + nx*(BALL_R+1);
+        ball.y = cp.y + ny*(BALL_R+1);
+        const dot = ball.vx*nx + ball.vy*ny;
         if(dot < 0){
-          b.vx = (b.vx - 2*dot*nx)*res*FRIC;
-          b.vy = (b.vy - 2*dot*ny)*res;
+          ball.vx = (ball.vx - 2*dot*nx)*r*FRICTION;
+          ball.vy = (ball.vy - 2*dot*ny)*r;
+          return true;
         }
-        return true;
       }
       return false;
     }
 
-    function toBucket(){
-      const c=S.cfg;
-      return {bx:W*c.bucket.px/100, by:H*c.bucket.py/100,
-              bw:W*c.bucket.pw/100, bh:H*0.065};
+    /* ── Estado ─────────────────────────────────────────────── */
+    function buildState(lvlIdx, prevScore){
+      const cfg = LEVELS[lvlIdx];
+      const bx  = W*cfg.ball.px/100, by = H*cfg.ball.py/100;
+      return {
+        lvl:lvlIdx, cfg,
+        score:prevScore||0,
+        lines:[],
+        drawing:null,
+        ball:{x:bx,y:by,vx:cfg.ball.vx,vy:cfg.ball.vy},
+        ballStart:{x:bx,y:by,vx:cfg.ball.vx,vy:cfg.ball.vy},
+        running:false, over:false, won:false,
+        attempts:0,
+      };
     }
-    function toStatics(){
+
+    function getBucket(){
+      const cfg=S.cfg;
+      return {
+        bx:W*cfg.bucket.px/100,
+        by:H*cfg.bucket.py/100,
+        bw:W*cfg.bucket.pw/100,
+        bh:H*0.055,
+      };
+    }
+
+    function getStatics(){
       return S.cfg.statics.map(s=>({
         x1:W*s.x1/100, y1:H*s.y1/100,
-        x2:W*s.x2/100, y2:H*s.y2/100
+        x2:W*s.x2/100, y2:H*s.y2/100,
+      }));
+    }
+    function getBouncers(){
+      return (S.cfg.bouncers||[]).map(b=>({
+        x1:W*b.x1/100, y1:H*b.y1/100,
+        x2:W*b.x2/100, y2:H*b.y2/100,
       }));
     }
 
-    function newState(lvl,sc){
-      const c=LEVELS[lvl];
-      const bx=W*c.ball.px/100, by=H*c.ball.py/100;
-      const vx=c.ball.vx*(W/360); /* scale initial velocity to canvas width */
-      return {lvl,cfg:c,lines:[],drawing:null,
-        ball:{x:bx,y:by,vx,vy:c.ball.vy},
-        bs:{x:bx,y:by,vx,vy:c.ball.vy},
-        running:false,over:false,won:false,score:sc||0,tries:0};
-    }
-
-    /* one sub-step (G and velocity already divided by SUBSTEPS at call site) */
-    function subStep(gSub){
-      const b=S.ball;
-      b.vy += gSub;
-      b.x  += b.vx / SUBSTEPS;
-      b.y  += b.vy / SUBSTEPS;
-      /* walls */
-      if(b.x-BALL_R<0){b.x=BALL_R; b.vx=Math.abs(b.vx)*REST;}
-      if(b.x+BALL_R>W){b.x=W-BALL_R; b.vx=-Math.abs(b.vx)*REST;}
-      if(b.y-BALL_R<0){b.y=BALL_R; b.vy=Math.abs(b.vy)*REST;}
-      /* player lines */
-      for(const l of S.lines) hitSeg(b,l.x1,l.y1,l.x2,l.y2,REST);
-      /* static platforms */
-      for(const s of toStatics()) hitSeg(b,s.x1,s.y1,s.x2,s.y2,0.42);
-    }
-
+    /* ── Step ───────────────────────────────────────────────── */
     function step(){
-      const gSub = G / SUBSTEPS;
-      for(let i=0;i<SUBSTEPS;i++) subStep(gSub);
+      const b = S.ball;
+      b.vy += G;
+      b.x  += b.vx;
+      b.y  += b.vy;
 
-      const b=S.ball;
-      const {bx,by,bw,bh}=toBucket();
-      /* win: ball center inside bucket opening */
-      if(b.x>bx-bw/2-BALL_R*0.5 && b.x<bx+bw/2+BALL_R*0.5 &&
-         b.y+BALL_R>by && b.y-BALL_R<by+bh+4){
+      // Paredes
+      if(b.x-BALL_R<0)  {b.x=BALL_R;      b.vx= Math.abs(b.vx)*REST;}
+      if(b.x+BALL_R>W)  {b.x=W-BALL_R;    b.vx=-Math.abs(b.vx)*REST;}
+      if(b.y-BALL_R<0)  {b.y=BALL_R;      b.vy= Math.abs(b.vy)*REST;}
+
+      // Líneas del jugador
+      for(const l of S.lines)
+        collideSeg(b, l.x1,l.y1, l.x2,l.y2, REST);
+
+      // Estáticos
+      for(const s of getStatics())
+        collideSeg(b, s.x1,s.y1, s.x2,s.y2, 0.55);
+
+      // Rebotadores elásticos (supera velocidad de entrada — REST > 1)
+      for(const brc of getBouncers())
+        collideSeg(b, brc.x1,brc.y1, brc.x2,brc.y2, 1.1);
+
+      // Victoria
+      const {bx,by,bw,bh} = getBucket();
+      if(b.x > bx-bw/2-BALL_R*0.4 && b.x < bx+bw/2+BALL_R*0.4 &&
+         b.y+BALL_R > by && b.y < by+bh){
         S.won=true; S.over=true; S.running=false;
-        S.score += S.cfg.waveBonus + Math.max(0,300-S.tries*40);
+        S.score += S.cfg.waveBonus + Math.max(0,400-S.attempts*40);
+        return;
       }
-      if(b.y-BALL_R>H){ S.over=true; S.running=false; }
+
+      // Fallo — bola sale por abajo
+      if(b.y-BALL_R > H){ S.over=true; S.running=false; }
     }
 
-    function draw(){
+    /* ── Render ─────────────────────────────────────────────── */
+    function render(){
       ctx.clearRect(0,0,W,H);
       ctx.fillStyle='#020b10'; ctx.fillRect(0,0,W,H);
 
-      /* grid */
-      ctx.strokeStyle='rgba(11,59,70,0.18)'; ctx.lineWidth=0.8;
-      const gx=W/10, gy=H/8;
-      for(let x=gx;x<W;x+=gx){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-      for(let y=gy;y<H;y+=gy){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+      // Grid
+      ctx.strokeStyle='rgba(11,59,70,0.18)'; ctx.lineWidth=1;
+      for(let x=0;x<W;x+=W/10){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+      for(let y=0;y<H;y+=H/8) {ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
 
+      // Plataformas estáticas — gris azulado grueso y visible
       ctx.lineCap='round';
-
-      /* static platforms */
-      for(const s of toStatics()){
-        ctx.lineWidth=9; ctx.strokeStyle='#1a4a5a';
-        ctx.beginPath();ctx.moveTo(s.x1,s.y1);ctx.lineTo(s.x2,s.y2);ctx.stroke();
-        ctx.lineWidth=3; ctx.strokeStyle='#2a8aaa';
-        ctx.beginPath();ctx.moveTo(s.x1,s.y1);ctx.lineTo(s.x2,s.y2);ctx.stroke();
+      for(const s of getStatics()){
+        ctx.lineWidth=7; ctx.strokeStyle='#1a4a5a';
+        ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
+        ctx.lineWidth=3; ctx.strokeStyle='#2a7a9a';
+        ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
       }
 
-      /* player lines */
-      S.lines.forEach((l,i)=>{
-        const col=LCOLS[i%LCOLS.length];
-        ctx.shadowColor=col; ctx.shadowBlur=16;
-        ctx.lineWidth=9; ctx.strokeStyle=col;
-        ctx.beginPath();ctx.moveTo(l.x1,l.y1);ctx.lineTo(l.x2,l.y2);ctx.stroke();
+      // Rebotadores elásticos — naranja brillante con glow
+      for(const brc of getBouncers()){
+        ctx.shadowColor='#ff6e40'; ctx.shadowBlur=12;
+        ctx.lineWidth=8; ctx.strokeStyle='#ff6e40'; ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(brc.x1,brc.y1); ctx.lineTo(brc.x2,brc.y2); ctx.stroke();
+        ctx.lineWidth=3; ctx.strokeStyle='#fff3e0';
+        ctx.beginPath(); ctx.moveTo(brc.x1,brc.y1); ctx.lineTo(brc.x2,brc.y2); ctx.stroke();
         ctx.shadowBlur=0;
-        ctx.fillStyle=col; ctx.font='bold 12px monospace'; ctx.textAlign='center';
-        ctx.fillText('L'+(i+1),(l.x1+l.x2)/2,(l.y1+l.y2)/2-12);
+        // Etiqueta
+        ctx.fillStyle='#ff6e40'; ctx.font='bold 9px monospace'; ctx.textAlign='center';
+        ctx.fillText('⚡ELÁSTICO',(brc.x1+brc.x2)/2,(brc.y1+brc.y2)/2-8);
+        ctx.textAlign='left';
+      }
+
+      // Líneas del jugador — GRUESAS y con color brillante único
+      S.lines.forEach((l,i)=>{
+        const col = LINE_COLORS[i % LINE_COLORS.length];
+        // Sombra para contraste
+        ctx.shadowColor=col; ctx.shadowBlur=10;
+        ctx.lineWidth=7; ctx.strokeStyle=col; ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(l.x1,l.y1); ctx.lineTo(l.x2,l.y2); ctx.stroke();
+        ctx.shadowBlur=0;
+        // Índice número sobre la línea
+        ctx.fillStyle=col; ctx.font='bold 11px monospace';
+        ctx.textAlign='center';
+        ctx.fillText('L'+(i+1),(l.x1+l.x2)/2,(l.y1+l.y2)/2-8);
         ctx.textAlign='left';
       });
 
-      /* line being drawn */
+      // Línea en construcción — punteada blanca
       if(S.drawing){
-        const col=LCOLS[S.lines.length%LCOLS.length];
-        ctx.shadowColor=col; ctx.shadowBlur=8;
-        ctx.strokeStyle=col+'aa'; ctx.lineWidth=7;
+        const dcol = LINE_COLORS[S.lines.length % LINE_COLORS.length];
+        ctx.shadowColor=dcol; ctx.shadowBlur=8;
+        ctx.strokeStyle=dcol+'aa'; ctx.lineWidth=5; ctx.lineCap='round';
         ctx.setLineDash([8,5]);
-        ctx.beginPath();ctx.moveTo(S.drawing.x1,S.drawing.y1);ctx.lineTo(S.drawing.x2,S.drawing.y2);ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(S.drawing.x1,S.drawing.y1);
+        ctx.lineTo(S.drawing.x2,S.drawing.y2); ctx.stroke();
         ctx.setLineDash([]); ctx.shadowBlur=0;
       }
 
-      /* bucket */
-      const {bx,by,bw,bh}=toBucket();
-      const bc=S.won?'#00ffa8':'#42a5f5';
-      ctx.shadowColor=bc; ctx.shadowBlur=S.won?22:10;
-      ctx.strokeStyle=bc; ctx.lineWidth=4; ctx.lineCap='square';
+      // Recipiente
+      const {bx,by,bw,bh} = getBucket();
+      const bucketCol = S.won ? '#00ffa8' : '#42a5f5';
+      ctx.shadowColor=bucketCol; ctx.shadowBlur=S.won?18:8;
+      ctx.strokeStyle=bucketCol; ctx.lineWidth=4; ctx.lineCap='square';
       ctx.beginPath();
       ctx.moveTo(bx-bw/2,by); ctx.lineTo(bx-bw/2,by+bh);
       ctx.lineTo(bx+bw/2,by+bh); ctx.lineTo(bx+bw/2,by);
       ctx.stroke();
-      ctx.fillStyle=bc+'20'; ctx.fillRect(bx-bw/2+3,by,bw-6,bh);
+      ctx.fillStyle=bucketCol+'22'; ctx.fillRect(bx-bw/2+3,by,bw-6,bh);
       ctx.shadowBlur=0;
-      ctx.fillStyle=bc; ctx.font=`bold ${Math.max(12,W/28)}px monospace`;
-      ctx.textAlign='center'; ctx.fillText('▼',bx,by-5); ctx.textAlign='left';
+      // Flecha encima del recipiente
+      ctx.fillStyle=bucketCol; ctx.font='bold 13px monospace';
+      ctx.textAlign='center'; ctx.fillText('▼',bx,by-4); ctx.textAlign='left';
 
-      /* ball */
-      const b=S.ball;
-      const gr=ctx.createRadialGradient(b.x-3,b.y-3,1,b.x,b.y,BALL_R);
-      gr.addColorStop(0,'#fff'); gr.addColorStop(0.4,'#69f0ae'); gr.addColorStop(1,'#004433');
-      ctx.shadowColor='#69f0ae'; ctx.shadowBlur=S.running?16:6;
-      ctx.fillStyle=gr; ctx.beginPath();ctx.arc(b.x,b.y,BALL_R,0,Math.PI*2);ctx.fill();
-      ctx.shadowBlur=0;
-
-      /* HUD top */
-      ctx.fillStyle='rgba(2,11,16,0.9)'; ctx.fillRect(0,0,W,36);
-      const fs=Math.max(10,W/36);
-      ctx.fillStyle='#d4a017'; ctx.font=`bold ${fs}px monospace`;
-      ctx.fillText(S.cfg.label+' · '+S.cfg.concept, 8, 24);
-      ctx.textAlign='right'; ctx.fillStyle='#00ffa8';
-      ctx.fillText('SCORE '+S.score, W-8, 24); ctx.textAlign='left';
-
-      /* HUD bottom bar */
-      const BAR_H=52;
-      ctx.fillStyle='rgba(2,11,16,0.94)'; ctx.fillRect(0,H-BAR_H,W,BAR_H);
-
-      if(!S.running && !S.over){
-        const ll=S.cfg.maxLines-S.lines.length;
-        ctx.fillStyle=ll===0?'#ef5350':ll===1?'#ffd740':'#00ffa8';
-        ctx.font=`bold ${fs}px monospace`;
-        ctx.fillText(`Líneas: ${S.lines.length}/${S.cfg.maxLines}`, 8, H-BAR_H+20);
-        ctx.fillStyle='rgba(100,160,180,0.7)'; ctx.font=`${Math.max(8,fs-2)}px monospace`;
-        ctx.textAlign='center';
-        const h=S.cfg.hint;
-        ctx.fillText(h.length>46?h.slice(0,45)+'…':h, W/2, H-BAR_H+36);
-        ctx.textAlign='left';
-        if(S.lines.length>0){
-          ctx.fillStyle='#3a1010'; rR(ctx,8,H-38,W/2-14,30,8);
-          ctx.fillStyle='#ef5350'; ctx.font=`bold ${fs}px monospace`;
-          ctx.textAlign='center'; ctx.fillText('← BORRAR',8+(W/2-14)/2,H-18); ctx.textAlign='left';
-        }
-        ctx.fillStyle='#003820'; rR(ctx,W/2+6,H-38,W/2-14,30,8);
-        ctx.fillStyle='#00ffa8'; ctx.font=`bold ${fs}px monospace`;
-        ctx.textAlign='center'; ctx.fillText('▶ LANZAR',W/2+6+(W/2-14)/2,H-18); ctx.textAlign='left';
-      } else if(S.running && !S.over){
-        ctx.fillStyle='rgba(212,160,23,0.8)'; ctx.font=`${fs}px monospace`;
-        ctx.textAlign='center';
-        ctx.fillText('Simulando física…',W/2,H-BAR_H+22); ctx.textAlign='left';
-        ctx.fillStyle='#2a0808'; rR(ctx,W-96,H-40,88,32,8);
-        ctx.fillStyle='#ef5350'; ctx.font=`bold ${fs}px monospace`;
-        ctx.textAlign='center'; ctx.fillText('✕ RESET',W-52,H-18); ctx.textAlign='left';
+      // Bola
+      if(S.ball){
+        const b=S.ball;
+        ctx.shadowColor='#00ffa8'; ctx.shadowBlur=S.running?12:6;
+        const gr=ctx.createRadialGradient(b.x-3,b.y-3,1,b.x,b.y,BALL_R);
+        gr.addColorStop(0,'#ffffff');
+        gr.addColorStop(0.45,'#69f0ae');
+        gr.addColorStop(1,'#005533');
+        ctx.fillStyle=gr;
+        ctx.beginPath(); ctx.arc(b.x,b.y,BALL_R,0,Math.PI*2); ctx.fill();
+        ctx.shadowBlur=0;
       }
 
-      /* game over screen */
-      if(S.over){
-        ctx.fillStyle='rgba(2,11,16,0.94)'; ctx.fillRect(0,0,W,H);
+      // HUD top
+      ctx.fillStyle='rgba(2,11,16,0.82)'; ctx.fillRect(0,0,W,32);
+      ctx.fillStyle='#d4a017'; ctx.font='bold 11px monospace';
+      ctx.fillText(S.cfg.label+' · '+S.cfg.concept,8,21);
+      ctx.textAlign='right';
+      ctx.fillStyle='#00ffa8';
+      ctx.fillText('SCORE '+S.score,W-8,21);
+      ctx.textAlign='left';
+
+      // HUD bottom barra de herramientas
+      ctx.fillStyle='rgba(2,11,16,0.88)'; ctx.fillRect(0,H-40,W,40);
+      const lLeft=S.cfg.maxLines-S.lines.length;
+      const lCol=lLeft===0?'#ef5350':lLeft===1?'#ffd740':'#00ffa8';
+
+      if(!S.running&&!S.over){
+        // Líneas disponibles
+        ctx.fillStyle=lCol; ctx.font='bold 11px monospace';
+        ctx.fillText(`Líneas: ${S.lines.length}/${S.cfg.maxLines}`,10,H-16);
+
+        // Botón DESHACER
+        if(S.lines.length>0){
+          ctx.fillStyle='#3a1010';
+          rRect(ctx,W/2-88,H-36,72,28,7);
+          ctx.fillStyle='#ef5350'; ctx.font='bold 11px monospace';
+          ctx.textAlign='center'; ctx.fillText('← BORRAR',W/2-52,H-17); ctx.textAlign='left';
+        }
+
+        // Botón LANZAR
+        ctx.fillStyle='#003322';
+        rRect(ctx,W/2+4,H-36,80,28,7);
+        ctx.fillStyle='#00ffa8'; ctx.font='bold 11px monospace';
+        ctx.textAlign='center'; ctx.fillText('▶ LANZAR',W/2+44,H-17); ctx.textAlign='left';
+
+      } else if(S.running&&!S.over){
+        ctx.fillStyle='rgba(212,160,23,0.7)'; ctx.font='11px monospace';
+        ctx.fillText('Simulando...',10,H-16);
+        ctx.fillStyle='#3a1010';
+        rRect(ctx,W-90,H-36,80,28,7);
+        ctx.fillStyle='#ef5350'; ctx.font='bold 11px monospace';
+        ctx.textAlign='right'; ctx.fillText('✕ RESET',W-14,H-17); ctx.textAlign='left';
+      }
+
+      // Hint cuando no hay líneas aún
+      if(!S.running&&!S.over&&S.lines.length===0){
         ctx.textAlign='center';
-        const BFS=Math.max(20,W/14);
+        ctx.fillStyle='rgba(100,160,180,0.55)'; ctx.font='10px monospace';
+        const hintWords=S.cfg.hint.split(' ');
+        let line1='',line2='';
+        for(const w of hintWords){
+          if((line1+' '+w).trim().length<=36) line1=(line1+' '+w).trim();
+          else line2=(line2+' '+w).trim();
+        }
+        ctx.fillText(line1,W/2,H/2+10);
+        if(line2) ctx.fillText(line2,W/2,H/2+24);
+        ctx.fillStyle='rgba(0,255,168,0.3)'; ctx.font='10px monospace';
+        ctx.fillText('⚛ '+S.cfg.concept,W/2,H/2+42);
+        ctx.textAlign='left';
+      }
+
+      // Pantalla resultado
+      if(S.over){
+        ctx.fillStyle='rgba(2,11,16,0.90)'; ctx.fillRect(0,0,W,H);
+        ctx.textAlign='center';
         if(S.won){
-          ctx.fillStyle='#00ffa8'; ctx.shadowColor='#00ffa8'; ctx.shadowBlur=24;
-          ctx.font=`bold ${BFS}px monospace`; ctx.fillText('🎯 ¡BIEN HECHO!',W/2,H/2-56); ctx.shadowBlur=0;
-          ctx.fillStyle='rgba(212,160,23,0.9)'; ctx.font=`bold ${Math.max(12,W/26)}px monospace`;
-          ctx.fillText(`+${S.cfg.waveBonus} pts · SCORE ${S.score}`,W/2,H/2-22);
-          ctx.fillStyle='rgba(0,140,90,0.95)'; rR(ctx,W/2-72,H/2+4,144,44,12);
-          ctx.fillStyle='#020b10'; ctx.font=`bold ${Math.max(13,W/26)}px monospace`;
-          ctx.fillText(S.lvl<LEVELS.length-1?`▶ NIVEL ${S.lvl+2}`:'↺ REINICIAR',W/2,H/2+32);
-          ctx.fillStyle='rgba(20,35,45,0.9)'; rR(ctx,W/2-62,H/2+58,124,34,8);
-          ctx.fillStyle='#6b8a91'; ctx.font=`${Math.max(11,W/30)}px monospace`;
-          ctx.fillText('◀ SELECCIÓN',W/2,H/2+80);
+          ctx.fillStyle='#00ffa8'; ctx.shadowColor='#00ffa8'; ctx.shadowBlur=20;
+          ctx.font=`bold ${Math.max(20,W/16)}px monospace`;
+          ctx.fillText('🎯 ¡BIEN HECHO!',W/2,H/2-50); ctx.shadowBlur=0;
+          ctx.fillStyle='rgba(212,160,23,0.9)'; ctx.font=`bold ${Math.max(12,W/28)}px monospace`;
+          ctx.fillText(`SCORE: ${S.score}  +${S.cfg.waveBonus}`,W/2,H/2-18);
+          ctx.fillStyle='rgba(0,255,168,0.5)'; ctx.font=`${Math.max(10,W/38)}px monospace`;
+          ctx.fillText(S.lvl<LEVELS.length-1?`Preparando Nivel ${S.lvl+2}…`:'¡Todos los niveles completados!',W/2,H/2+8);
+          ctx.fillStyle='rgba(0,130,80,0.9)';
+          rRect(ctx,W/2-65,H/2+28,130,36,10);
+          ctx.fillStyle='#020b10'; ctx.font='bold 13px monospace';
+          ctx.fillText(S.lvl<LEVELS.length-1?`▶ NIVEL ${S.lvl+2}`:'↺ REINICIAR',W/2,H/2+51);
+          ctx.fillStyle='rgba(20,30,40,0.85)';
+          rRect(ctx,W/2-55,H/2+74,110,28,8);
+          ctx.fillStyle='#4a6a72'; ctx.font='11px monospace';
+          ctx.fillText('◀ SELECCIÓN',W/2,H/2+93);
         } else {
-          ctx.fillStyle='#ef5350'; ctx.font=`bold ${BFS}px monospace`;
-          ctx.fillText('💨 FALLIDO',W/2,H/2-48);
-          ctx.fillStyle='rgba(212,160,23,0.7)'; ctx.font=`${Math.max(10,W/32)}px monospace`;
-          ctx.fillText('Tus líneas se conservan',W/2,H/2-18);
-          ctx.fillStyle='rgba(120,20,20,0.95)'; rR(ctx,W/2-72,H/2+6,144,44,12);
-          ctx.fillStyle='#fff'; ctx.font=`bold ${Math.max(13,W/26)}px monospace`;
-          ctx.fillText('↺ REINTENTAR',W/2,H/2+34);
-          ctx.fillStyle='rgba(20,35,45,0.9)'; rR(ctx,W/2-62,H/2+60,124,34,8);
-          ctx.fillStyle='#6b8a91'; ctx.font=`${Math.max(11,W/30)}px monospace`;
-          ctx.fillText('◀ SELECCIÓN',W/2,H/2+82);
+          ctx.fillStyle='#ef5350'; ctx.font=`bold ${Math.max(18,W/17)}px monospace`;
+          ctx.fillText('💨 FALLIDO',W/2,H/2-46);
+          ctx.fillStyle='rgba(212,160,23,0.65)'; ctx.font=`${Math.max(10,W/36)}px monospace`;
+          ctx.fillText(`Intento #${S.attempts} · Tus líneas se conservan`,W/2,H/2-16);
+          ctx.fillStyle='rgba(100,20,20,0.9)';
+          rRect(ctx,W/2-65,H/2+10,130,36,10);
+          ctx.fillStyle='#ffffff'; ctx.font='bold 13px monospace';
+          ctx.fillText('↺ REINTENTAR',W/2,H/2+33);
+          ctx.fillStyle='rgba(20,30,40,0.85)';
+          rRect(ctx,W/2-55,H/2+56,110,28,8);
+          ctx.fillStyle='#4a6a72'; ctx.font='11px monospace';
+          ctx.fillText('◀ SELECCIÓN',W/2,H/2+75);
         }
         ctx.textAlign='left';
       }
     }
 
-    function rR(c,x,y,w,h,r){c.beginPath();if(c.roundRect)c.roundRect(x,y,w,h,r);else c.rect(x,y,w,h);c.fill();}
-    function hit(x,y,bx,by,bw,bh){return x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh;}
+    function rRect(c,x,y,w,h,r){
+      c.beginPath();
+      if(c.roundRect) c.roundRect(x,y,w,h,r); else c.rect(x,y,w,h);
+      c.fill();
+    }
 
-    function loop(){if(!S)return; aid=requestAnimationFrame(loop); if(S.running&&!S.over)step(); draw();}
+    /* ── Loop ───────────────────────────────────────────────── */
+    function loop(){
+      if(!S){return;}
+      animId=requestAnimationFrame(loop);
+      if(S.running&&!S.over) step();
+      render();
+    }
 
-    const BAR_H=52;
+    /* ── Acciones ───────────────────────────────────────────── */
+    function launch(){
+      if(S.running||S.over) return;
+      S.attempts++;
+      const bs=S.ballStart;
+      S.ball={x:bs.x,y:bs.y,vx:bs.vx,vy:bs.vy};
+      S.running=true;
+    }
+
+    function retry(){
+      const bs=S.ballStart;
+      S.ball={x:bs.x,y:bs.y,vx:bs.vx,vy:bs.vy};
+      S.running=false; S.over=false; S.won=false;
+    }
+
+    function nextLevel(){
+      const next=S.lvl+1;
+      S=buildState(next<LEVELS.length?next:0, S.score);
+    }
+
+    /* ── Eventos ────────────────────────────────────────────── */
+    function hitBtn(x,y,bx,by,bw,bh){ return x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh; }
 
     function onDown(e){
       e.preventDefault();
-      const {x,y}=pt(e);
+      const {x,y}=getXY(e);
+
       if(S.over){
         if(S.won){
-          if(hit(x,y,W/2-72,H/2+4,144,44)){const n=S.lvl+1; S=newState(n<LEVELS.length?n:0,S.score);}
-          else if(hit(x,y,W/2-62,H/2+58,124,34)) GamesEngine.showSelection();
+          if(hitBtn(x,y,W/2-65,H/2+28,130,36)) nextLevel();
+          if(hitBtn(x,y,W/2-55,H/2+74,110,28)) GamesEngine.showSelection();
         } else {
-          if(hit(x,y,W/2-72,H/2+6,144,44)){const b=S.bs; S.ball={...b}; S.running=false; S.over=false; S.won=false;}
-          else if(hit(x,y,W/2-62,H/2+60,124,34)) GamesEngine.showSelection();
+          if(hitBtn(x,y,W/2-65,H/2+10,130,36)) retry();
+          if(hitBtn(x,y,W/2-55,H/2+56,110,28)) GamesEngine.showSelection();
         }
         return;
       }
+
       if(!S.running){
-        /* LANZAR button (right half bottom) */
-        if(hit(x,y,W/2+6,H-BAR_H,W/2-14,30)){S.tries++; const b=S.bs; S.ball={...b}; S.running=true; return;}
-        /* BORRAR button (left half bottom) */
-        if(S.lines.length>0 && hit(x,y,8,H-BAR_H,W/2-14,30)){S.lines.pop(); return;}
+        // Botón LANZAR
+        if(hitBtn(x,y,W/2+4,H-36,80,28)){ launch(); return; }
+        // Botón DESHACER
+        if(S.lines.length>0&&hitBtn(x,y,W/2-88,H-36,72,28)){ S.lines.pop(); return; }
       } else {
-        /* RESET during run */
-        if(hit(x,y,W-96,H-BAR_H+12,88,32)){const b=S.bs; S.ball={...b}; S.running=false; S.over=false; S.won=false; return;}
+        // Botón RESET
+        if(hitBtn(x,y,W-90,H-36,80,28)){ retry(); return; }
       }
-      /* draw a line */
-      if(!S.running && S.lines.length<S.cfg.maxLines && y>36 && y<H-BAR_H)
+
+      // Iniciar dibujo sólo fuera del área HUD inferior y superior
+      if(!S.running && S.lines.length<S.cfg.maxLines && y>34 && y<H-42){
         S.drawing={x1:x,y1:y,x2:x,y2:y};
+      }
     }
 
     function onMove(e){
       e.preventDefault();
       if(!S.drawing) return;
-      const p=pt(e); S.drawing.x2=p.x; S.drawing.y2=p.y;
+      const {x,y}=getXY(e);
+      S.drawing.x2=x; S.drawing.y2=y;
     }
 
     function onUp(e){
       e.preventDefault();
       if(!S.drawing) return;
-      const p=pt(e);
+      const p=getXY(e);
       const dx=p.x-S.drawing.x1, dy=p.y-S.drawing.y1;
-      if(Math.sqrt(dx*dx+dy*dy)>18)
+      if(Math.sqrt(dx*dx+dy*dy)>18){
         S.lines.push({x1:S.drawing.x1,y1:S.drawing.y1,x2:p.x,y2:p.y});
+      }
       S.drawing=null;
     }
 
+    /* ── Init ───────────────────────────────────────────────── */
     function init(c){
       cont=c; cont.innerHTML='';
-      cont.style.cssText='width:100%;display:flex;flex-direction:column;align-items:center;padding:4px 0;';
-      cv=document.createElement('canvas');
+      cont.style.cssText='position:relative;width:100%;display:flex;flex-direction:column;align-items:center;padding:8px 0;';
 
-      /* ── CRITICAL: internal size = CSS size, always integer ── */
-      const avail = Math.min((cont.clientWidth||360)-4, 420);
-      W = Math.floor(avail);
-      H = Math.floor(W * 1.42);
-      if(H > 580) { H=580; }
-      BALL_R = Math.max(8, Math.floor(W/36)); /* scale ball to canvas */
+      // Canvas — tamaño fijo en px, se escala vía CSS si es necesario
+      canvas=document.createElement('canvas');
+      const maxW=Math.min((cont.clientWidth||360)-8, 420);
+      const maxH=Math.min(Math.round(maxW*1.4), 540);
+      W=maxW; H=maxH;
+      canvas.width=W; canvas.height=H;
+      canvas.style.cssText=`display:block;width:${W}px;height:${H}px;border-radius:12px;border:1px solid #0b3b46;touch-action:none;cursor:crosshair;`;
+      cont.appendChild(canvas);
+      ctx=canvas.getContext('2d');
 
-      cv.width  = W;
-      cv.height = H;
-      cv.style.cssText = `width:${W}px;height:${H}px;display:block;border-radius:10px;border:1px solid #0b3b46;touch-action:none;`;
-      cont.appendChild(cv);
-      ctx = cv.getContext('2d');
+      // scaleX/Y siempre 1 porque CSS size == canvas size
+      scaleX=1; scaleY=1;
 
-      /* instruction strip below canvas */
+      // Instrucción
       const tip=document.createElement('div');
-      tip.style.cssText=`font-size:10px;color:#4a8a9a;text-align:center;margin-top:5px;line-height:1.5;max-width:${W}px;`;
-      tip.innerHTML='✏️ <b>Dibuja</b> con el dedo · <b style="color:#00ffa8">▶ LANZAR</b> para soltar · <b style="color:#ef5350">← BORRAR</b> última';
+      tip.style.cssText='font-size:10px;color:#2a5a6a;text-align:center;margin-top:5px;letter-spacing:0.5px;';
+      tip.textContent='✏ Dibuja líneas · ▶ Lanza la bola · ← Borra la última línea';
       cont.appendChild(tip);
 
-      S=newState(0,0);
+      S=buildState(0,0);
 
-      cv.addEventListener('touchstart', onDown, {passive:false});
-      cv.addEventListener('touchmove',  onMove,  {passive:false});
-      cv.addEventListener('touchend',   onUp,    {passive:false});
-      cv.addEventListener('touchcancel',e=>{e.preventDefault();S.drawing=null;},{passive:false});
-      cv.addEventListener('mousedown',  onDown);
-      cv.addEventListener('mousemove',  e=>{if(e.buttons===1) onMove(e);});
-      cv.addEventListener('mouseup',    onUp);
+      // Listeners — passive:false para preventDefault en touch
+      canvas.addEventListener('touchstart', onDown, {passive:false});
+      canvas.addEventListener('touchmove',  onMove, {passive:false});
+      canvas.addEventListener('touchend',   onUp,   {passive:false});
+      canvas.addEventListener('touchcancel',e=>{e.preventDefault();S.drawing=null;},{passive:false});
+      canvas.addEventListener('mousedown',  onDown);
+      canvas.addEventListener('mousemove',  e=>{if(e.buttons===1)onMove(e);});
+      canvas.addEventListener('mouseup',    onUp);
 
-      aid=requestAnimationFrame(loop);
+      animId=requestAnimationFrame(loop);
     }
 
-    function cleanup(){if(aid){cancelAnimationFrame(aid);aid=null;}S=null;}
-    return{init,cleanup};
+    function cleanup(){
+      if(animId){cancelAnimationFrame(animId);animId=null;}
+      S=null;
+    }
+
+    return {init, cleanup};
   })();
+
+
+
 
 
   /* ═══════════════════════════════════════════════════════════
-     INGENIERO PUZZLE v3 — LÓGICA DE PROGRAMADOR
-     Puzzles de código: evalúa expresiones, activa compuertas,
-     completa condiciones para que la bola llegue a la salida.
+     BALANZA DE FUERZAS — Equilibrio de Torques  30 Niveles
+     Equilibra la balanza eligiendo posición o masa correcta.
+     Ley: Σ(F·d)_izquierda = Σ(F·d)_derecha
   ═══════════════════════════════════════════════════════════ */
-  Impls.engineer = (() => {
+  Impls.balanza = (() => {
 
-    /* ── PUZZLE DEFINITIONS ─────────────────────────────────────
-       Cada puzzle tiene:
-         code   : líneas de "pseudocódigo" mostrado en pantalla
-         vars   : variables iniciales { name, value }
-         gates  : compuertas lógicas en el tablero { id, type, x%, y%, active }
-         target : id de la compuerta que la bola debe atravesar
-         question: pregunta que el jugador responde (elige opción)
-         options: opciones de respuesta
-         correct: índice de la opción correcta
-         hint   : pista
-         bonus  : puntos al resolver
-    ══════════════════════════════════════════════════════════ */
-    const PUZZLES=[
-      {
-        label:'Nivel 1', concept:'Condicional IF',
-        code:['if (x > 0) {', '  ABRIR_PUERTA_A();', '}'],
-        vars:[{n:'x',v:5}],
-        question:'¿Se abre la Puerta A?',
-        options:['SÍ — x=5 > 0 es TRUE','NO — x=5 no cumple','ERROR de sintaxis','Depende del compilador'],
-        correct:0,
-        explanation:'x=5 y 5>0 es TRUE → el bloque IF se ejecuta → Puerta A se ABRE.',
-        hint:'Evalúa la condición con x=5',
-        bonus:150,
-      },
-      {
-        label:'Nivel 2', concept:'Operador AND',
-        code:['if (a > 0 && b < 10) {', '  ABRIR_PUERTA_B();', '}'],
-        vars:[{n:'a',v:3},{n:'b',v:7}],
-        question:'¿Se abre la Puerta B?',
-        options:['SÍ — ambas condiciones TRUE','NO — solo a>0 es TRUE','NO — solo b<10 es TRUE','NO — AND requiere tipos iguales'],
-        correct:0,
-        explanation:'a=3 → 3>0 TRUE. b=7 → 7<10 TRUE. TRUE && TRUE = TRUE → Puerta B se ABRE.',
-        hint:'Ambos lados del && deben ser TRUE',
-        bonus:200,
-      },
-      {
-        label:'Nivel 3', concept:'Operador OR',
-        code:['if (x === 0 || y > 5) {', '  ABRIR_PUERTA_C();', '}'],
-        vars:[{n:'x',v:3},{n:'y',v:8}],
-        question:'¿Se abre la Puerta C?',
-        options:['NO — x≠0 entonces OR falla','SÍ — y=8>5 basta para OR','NO — ambas deben ser TRUE','SÍ — pero solo por x'],
-        correct:1,
-        explanation:'x=3 → 3===0 FALSE. y=8 → 8>5 TRUE. FALSE || TRUE = TRUE → Puerta C se ABRE.',
-        hint:'Con OR, basta UNA condición TRUE',
-        bonus:220,
-      },
-      {
-        label:'Nivel 4', concept:'NOT y Negación',
-        code:['let activo = false;','if (!activo) {', '  ABRIR_PUERTA_D();', '}'],
-        vars:[{n:'activo',v:'false'}],
-        question:'¿Se abre la Puerta D?',
-        options:['NO — activo es false entonces no abre','SÍ — !false = true → abre','NO — ! solo funciona con números','SÍ — pero solo una vez'],
-        correct:1,
-        explanation:'!false = true → la condición es TRUE → Puerta D se ABRE.',
-        hint:'El operador ! invierte el booleano',
-        bonus:250,
-      },
-      {
-        label:'Nivel 5', concept:'Bucle FOR',
-        code:['let suma = 0;','for(let i=1; i<=3; i++){','  suma += i;','}','// suma == ?'],
-        vars:[{n:'suma',v:'?'},{n:'i',v:'1→3'}],
-        question:'¿Cuánto vale suma al final del bucle?',
-        options:['3','4','6','9'],
-        correct:2,
-        explanation:'i=1: suma=1. i=2: suma=3. i=3: suma=6. Resultado: 6.',
-        hint:'1+2+3 = ?',
-        bonus:300,
-      },
-      {
-        label:'Nivel 6', concept:'Funciones y Return',
-        code:['function doble(n){','  return n * 2;','}','let r = doble(4);','if(r > 6){', '  ABRIR_PUERTA_E();','}'],
-        vars:[{n:'r',v:'?'}],
-        question:'¿Se abre la Puerta E?',
-        options:['NO — doble(4) = 4','SÍ — doble(4) = 8 > 6','NO — r no está definida','SÍ — r = 6 cumple el >'],
-        correct:1,
-        explanation:'doble(4) retorna 4*2=8. r=8. 8>6 → TRUE → Puerta E ABRE.',
-        hint:'Evalúa primero la función, luego la condición',
-        bonus:340,
-      },
-      {
-        label:'Nivel 7', concept:'Arrays e Índices',
-        code:['let arr = [10, 20, 30];','let val = arr[1];','if(val === 20){','  ABRIR_PUERTA_F();','}'],
-        vars:[{n:'arr[0]',v:10},{n:'arr[1]',v:20},{n:'arr[2]',v:30}],
-        question:'¿Se abre la Puerta F?',
-        options:['NO — arr[1] es el segundo=20 FALSE','SÍ — arr[1]=20 → 20===20 TRUE','NO — los arrays empiezan en 1','SÍ — pero solo en JS'],
-        correct:1,
-        explanation:'Los arrays en JS son 0-indexed: arr[0]=10, arr[1]=20, arr[2]=30. val=20 → 20===20 TRUE.',
-        hint:'Los arrays empiezan en índice 0',
-        bonus:380,
-      },
-      {
-        label:'Nivel 8', concept:'Recursión',
-        code:['function fact(n){','  if(n<=1) return 1;','  return n * fact(n-1);','}','// fact(3) = ?'],
-        vars:[{n:'n',v:3}],
-        question:'¿Cuánto retorna fact(3)?',
-        options:['3','4','6','9'],
-        correct:2,
-        explanation:'fact(3)=3*fact(2)=3*2*fact(1)=3*2*1=6.',
-        hint:'fact(n) = n × fact(n-1), base: fact(1)=1',
-        bonus:450,
-      },
-      {
-        label:'Nivel 9', concept:'Scope y Closures',
-        code:['let x = 10;','function foo(){','  let x = 20;','  return x;','}','// foo() retorna ?'],
-        vars:[{n:'x (global)',v:10},{n:'x (local)',v:20}],
-        question:'¿Qué retorna foo()?',
-        options:['10 — usa la x global','20 — la x local tiene precedencia','Error — x duplicada','undefined'],
-        correct:1,
-        explanation:'Dentro de foo(), la declaración let x=20 crea una variable LOCAL que oculta (shadow) la global.',
-        hint:'El scope local tiene prioridad sobre el global',
-        bonus:520,
-      },
-      {
-        label:'Nivel 10', concept:'Complejidad O(n)',
-        code:['function buscar(arr, val){','  for(let i=0;i<arr.length;i++){','    if(arr[i]===val) return i;','  }','  return -1;','}'],
-        vars:[{n:'n',v:'arr.length'}],
-        question:'¿Cuál es la complejidad en el PEOR caso?',
-        options:['O(1) — acceso directo','O(log n) — búsqueda binaria','O(n) — recorre todo el array','O(n²) — doble bucle'],
-        correct:2,
-        explanation:'Búsqueda lineal: en el peor caso (val no existe) recorre los n elementos. Complejidad O(n).',
-        hint:'¿Cuántas comparaciones en el peor caso?',
-        bonus:650,
-      },
-      {
-        label:'Nivel 11', concept:'Promesas Async',
-        code:['async function cargar(){','  const r = await fetch(url);','  return r.status;','}','cargar().then(s => {','  if(s === 200) ABRIR();','});'],
-        vars:[{n:'s (status)',v:'?'}],
-        question:'¿Qué valor de s activa ABRIR()?',
-        options:['0','100','200 — HTTP OK','404'],
-        correct:2,
-        explanation:'HTTP 200 = OK. La promesa resuelve con el status code. Solo s===200 activa ABRIR().',
-        hint:'Códigos HTTP: 200=OK, 404=NotFound, 500=Error',
-        bonus:720,
-      },
-      {
-        label:'Nivel 12', concept:'Big O Final',
-        code:['for(let i=0; i<n; i++){','  for(let j=0; j<n; j++){','    procesar(i, j);','  ','}','}'],
-        vars:[{n:'n',v:'tamaño datos'}],
-        question:'¿Complejidad temporal de este código?',
-        options:['O(1)','O(n)','O(n log n)','O(n²)'],
-        correct:3,
-        explanation:'Dos bucles anidados: el externo corre n veces, el interno n veces por cada iteración externa → n×n = O(n²).',
-        hint:'Cuenta las iteraciones totales',
-        bonus:900,
-      },
+    /* Nomenclatura:
+       Viga: posiciones 1-9.  Pivote en 5.
+       Distancia izquierda: 5 - pos  (pos ∈ {1,2,3,4})
+       Distancia derecha:   pos - 5  (pos ∈ {6,7,8,9})
+       Torque: masa × distancia
+       Equilibrio: ΣM_izq = ΣM_der
+    */
+    const LEVELS=[
+      /* ── GRUPO 1: ENCUENTRA LA POSICIÓN (1-10) ────────────
+         Se da el peso derecho, el jugador elige la posición  */
+      {n:'L-01',law:'τ = F·d',title:'Primer equilibrio',
+       concept:'Una sola pesa. Elige dónde colocarla.',
+       lft:[{m:8,p:1}],           // TL = 8×4 = 32
+       rgt:{m:8,ans:9},           // TR = 8×4 = 32 ✓
+       mode:'pos'},
+
+      {n:'L-02',law:'τ = F·d',title:'Distancia menor',
+       concept:'Misma masa, distinta posición.',
+       lft:[{m:6,p:2}],           // TL = 6×3 = 18
+       rgt:{m:6,ans:8},           // TR = 6×3 = 18 ✓
+       mode:'pos'},
+
+      {n:'L-03',law:'τ = F·d',title:'Pesas distintas',
+       concept:'Una masa diferente cambia la posición de equilibrio.',
+       lft:[{m:3,p:1}],           // TL = 3×4 = 12
+       rgt:{m:4,ans:8},           // TR = 4×3 = 12 ✓
+       mode:'pos'},
+
+      {n:'L-04',law:'τ = F·d',title:'Más ligero, más lejos',
+       concept:'Pesa más ligera → debe ir más lejos del pivote.',
+       lft:[{m:4,p:2}],           // TL = 4×3 = 12
+       rgt:{m:3,ans:9},           // TR = 3×4 = 12 ✓
+       mode:'pos'},
+
+      {n:'L-05',law:'τ = F·d',title:'Cerca del pivote',
+       concept:'Pesa izquierda cerca del pivote → poca distancia necesaria.',
+       lft:[{m:5,p:3}],           // TL = 5×2 = 10
+       rgt:{m:5,ans:7},           // TR = 5×2 = 10 ✓
+       mode:'pos'},
+
+      {n:'L-06',law:'Στ = 0',title:'Dos pesas izquierda',
+       concept:'Suma de torques izquierdos = torque derecho.',
+       lft:[{m:3,p:1},{m:2,p:2}], // TL = 12+4 = 16
+       rgt:{m:4,ans:9},           // TR = 4×4 = 16 ✓
+       mode:'pos'},
+
+      {n:'L-07',law:'Στ = 0',title:'Mayor masa izquierda',
+       concept:'Dos pesas pesadas — ¿dónde colocar el contrapeso?',
+       lft:[{m:4,p:1},{m:2,p:2}], // TL = 16+4 = 20
+       rgt:{m:5,ans:9},           // TR = 5×4 = 20 ✓
+       mode:'pos'},
+
+      {n:'L-08',law:'Στ = 0',title:'Torques simétricos',
+       concept:'Dos pesas iguales, simétricas. ¿Coincide?',
+       lft:[{m:3,p:2},{m:3,p:3}], // TL = 9+6 = 15
+       rgt:{m:5,ans:8},           // TR = 5×3 = 15 ✓
+       mode:'pos'},
+
+      {n:'L-09',law:'Στ = 0',title:'Pesa alejada',
+       concept:'Una pesa pesada lejos y otra liviana cerca.',
+       lft:[{m:6,p:2},{m:2,p:4}], // TL = 18+2 = 20
+       rgt:{m:5,ans:9},           // TR = 5×4 = 20 ✓
+       mode:'pos'},
+
+      {n:'L-10',law:'Στ = 0',title:'Tres pesas izquierda',
+       concept:'Tres pesas — suma todos los torques.',
+       lft:[{m:3,p:1},{m:2,p:2},{m:1,p:4}], // TL = 12+4+1 = 17... hmm
+       // 12+4+1=17. 17/1=17 (pos 22 out). 17/17 pos=6 (dist=1)=17 ✓
+       rgt:{m:17,ans:6},
+       mode:'pos'},
+
+      /* ── GRUPO 2: ENCUENTRA LA MASA (11-20) ────────────────
+         Se da la posición, el jugador elige la masa correcta  */
+      {n:'L-11',law:'F = τ/d',title:'Calcula la masa',
+       concept:'Conoces la posición — despeja la masa de la ecuación.',
+       lft:[{m:6,p:2}],           // TL = 18
+       rgt:{p:8,ans:6,opts:[3,4,6,9]}, // TR = 6×3 = 18 ✓
+       mode:'mass'},
+
+      {n:'L-12',law:'F = τ/d',title:'Distancia mínima',
+       concept:'Posición muy cercana al pivote → masa muy grande.',
+       lft:[{m:8,p:1}],           // TL = 32
+       rgt:{p:7,ans:16,opts:[8,12,16,20]}, // TR = 16×2 = 32 ✓
+       mode:'mass'},
+
+      {n:'L-13',law:'F = τ/d',title:'Posición extrema',
+       concept:'Posición 9 (máxima distancia) → masa mínima necesaria.',
+       lft:[{m:10,p:1}],          // TL = 40
+       rgt:{p:9,ans:10,opts:[5,8,10,15]}, // TR = 10×4 = 40 ✓
+       mode:'mass'},
+
+      {n:'L-14',law:'F = τ/d',title:'Dos pesas, una incógnita',
+       concept:'Torque total izquierdo / distancia derecha = masa.',
+       lft:[{m:4,p:2},{m:4,p:3}], // TL = 12+8 = 20
+       rgt:{p:9,ans:5,opts:[3,5,7,9]}, // TR = 5×4 = 20 ✓
+       mode:'mass'},
+
+      {n:'L-15',law:'F = τ/d',title:'Pesa pequeña lejos',
+       concept:'Una pesa muy liviana muy lejos puede equilibrar mucho.',
+       lft:[{m:6,p:2},{m:3,p:4}], // TL = 18+3 = 21
+       rgt:{p:8,ans:7,opts:[5,7,9,11]}, // TR = 7×3 = 21 ✓
+       mode:'mass'},
+
+      {n:'L-16',law:'F = τ/d',title:'Tres pesas sumadas',
+       concept:'Σ torques izquierdos dividido entre distancia = masa.',
+       lft:[{m:5,p:1},{m:3,p:3},{m:2,p:4}], // TL = 20+6+2 = 28
+       rgt:{p:9,ans:7,opts:[4,6,7,9]},       // TR = 7×4 = 28 ✓
+       mode:'mass'},
+
+      {n:'L-17',law:'F = τ/d',title:'Masa exacta',
+       concept:'No hay margen de error — la ecuación tiene solución única.',
+       lft:[{m:4,p:1},{m:6,p:3}], // TL = 16+12 = 28
+       rgt:{p:8,ans:28,opts:[14,21,28,35]}, // TR = 28/3 no... dist=3: 28/3 ✗
+       // Let me use p:6 (dist=1): 28/1=28. TR=28×1=28 ✓
+       rgt:{p:6,ans:28,opts:[14,21,28,35]},
+       mode:'mass'},
+
+      {n:'L-18',law:'F = τ/d',title:'Equilibrio preciso',
+       concept:'Una pesa cerca del pivote necesita ser muy pesada.',
+       lft:[{m:3,p:1},{m:3,p:2},{m:3,p:3}], // TL = 12+9+6 = 27
+       rgt:{p:8,ans:9,opts:[6,7,9,12]},      // TR = 9×3 = 27 ✓
+       mode:'mass'},
+
+      {n:'L-19',law:'F = τ/d',title:'Palanca de tercer grado',
+       concept:'Distribución asimétrica de pesas — suma cuidadosamente.',
+       lft:[{m:5,p:1},{m:4,p:2},{m:1,p:4}], // TL = 20+8+1 = 29... 29/p
+       // 29/p must be integer: p must divide 29 → 1,29. dist right=1→pos6: 29. odd opts.
+       // Let me redo: lft TL divisible by nice distances.
+       // lft=[{m:5,p:1},{m:2,p:2},{m:3,p:3}] TL=20+4+6=30. p=8(dist=3): 30/3=10 ✓
+       lft:[{m:5,p:1},{m:2,p:2},{m:3,p:3}], // TL=30
+       rgt:{p:8,ans:10,opts:[5,8,10,15]},    // TR=10×3=30 ✓
+       mode:'mass'},
+
+      {n:'L-20',law:'F = τ/d',title:'Máximo torque',
+       concept:'Posición 9 tiene la máxima distancia — úsala para equilibrar cargas pesadas.',
+       lft:[{m:8,p:1},{m:6,p:2},{m:2,p:3}], // TL=32+12+4=48... /4=12 ✓ p=9
+       rgt:{p:9,ans:12,opts:[8,10,12,16]},   // TR=12×4=48 ✓
+       mode:'mass'},
+
+      /* ── GRUPO 3: PIVOTE DESCENTRADO (21-25) ────────────────
+         Pivote en posición 4 (descentrado a la izquierda)
+         dist_L(p)=4-p (p∈{1,2,3}), dist_R(p)=p-4 (p∈{5,6,7,8,9})
+         Esto simula una palanca con punto de apoyo desplazado  */
+      {n:'L-21',law:'τ=F·d, pivote≠centro',title:'Pivote descentrado',
+       concept:'El pivote ya no está en el centro — las distancias cambian.',
+       pivot:4,
+       lft:[{m:6,p:1}],           // TL = 6×3 = 18
+       rgt:{m:6,ans:7,opts:[5,6,7,8,9]}, // dist=3 → pos 4+3=7. TR=6×3=18 ✓
+       mode:'pos'},
+
+      {n:'L-22',law:'τ=F·d, pivote≠centro',title:'Ventaja mecánica',
+       concept:'Pivote descentrado → ventaja mecánica. Pesa pequeña equilibra pesa grande.',
+       pivot:4,
+       lft:[{m:9,p:1}],           // TL = 9×3 = 27
+       rgt:{m:3,ans:9},           // TR = 3×5 = 15 ✗. 
+       // Need 27/dist: dist=3→pos7: 9kg. Or 27/9=3→pos7.
+       // rgt m=27 at pos5(dist=1). Or m=9 at pos7(dist=3).
+       rgt:{m:9,ans:7},           // TR = 9×3 = 27 ✓
+       mode:'pos'},
+
+      {n:'L-23',law:'τ=F·d, pivote≠centro',title:'Brazo derecho más largo',
+       concept:'Pivote descentrado crea brazos de diferente longitud.',
+       pivot:4,
+       lft:[{m:4,p:2},{m:2,p:3}], // TL = 4×2+2×1 = 8+2 = 10
+       rgt:{m:2,ans:9},           // TR = 2×5 = 10 ✓
+       mode:'pos'},
+
+      {n:'L-24',law:'τ=F·d, pivote≠centro',title:'Equilibrio asimétrico',
+       concept:'¿Cuánto necesitas en posición 9 para equilibrar?',
+       pivot:4,
+       lft:[{m:6,p:1},{m:4,p:2}], // TL = 18+8 = 26... 26/5=5.2 ✗ 
+       // lft=[{m:5,p:1},{m:5,p:3}] TL=15+5=20. dist5→pos9: 20/5=4. rgt m=4 ✓
+       lft:[{m:5,p:1},{m:5,p:3}], // TL=20
+       rgt:{p:9,ans:4,opts:[2,3,4,6]}, // TR=4×5=20 ✓
+       mode:'mass'},
+
+      {n:'L-25',law:'Στ=0',title:'Tres pesas, pivote off-center',
+       concept:'Pivote descentrado + tres pesas. Calcula cuidadosamente.',
+       pivot:4,
+       lft:[{m:3,p:1},{m:2,p:2},{m:4,p:3}], // TL=9+4+4=17... 17/5=3.4 ✗
+       // lft=[{m:4,p:1},{m:3,p:2},{m:3,p:3}] TL=12+6+3=21. 21/3=7→pos7. dist=3 ✓
+       lft:[{m:4,p:1},{m:3,p:2},{m:3,p:3}], // TL=21
+       rgt:{m:7,ans:7},           // TR=7×3=21 ✓
+       mode:'pos'},
+
+      /* ── GRUPO 4: MASA Y POSICIÓN (26-30) ──────────────────
+         El jugador elige AMBAS: masa (4 opciones) Y posición (botones)  */
+      {n:'L-26',law:'Στ=0',title:'Doble incógnita',
+       concept:'Solo UNA combinación de masa+posición equilibra la balanza.',
+       pivot:5,
+       lft:[{m:6,p:2},{m:2,p:4}], // TL=18+2=20
+       // Opciones masa: [4,5,6,8]. Solo 5@pos9(dist=4)=20 funciona.
+       rgt:{ansM:5,ansP:9,massOpts:[4,5,6,8]},
+       mode:'both'},
+
+      {n:'L-27',law:'Στ=0',title:'Busca la combinación',
+       concept:'Hay 16 combinaciones posibles — ¡solo una equilibra!',
+       pivot:5,
+       lft:[{m:5,p:2},{m:3,p:3}], // TL=15+6=21
+       // 7@pos8(dist=3)=21 ✓. massOpts=[4,6,7,9]
+       rgt:{ansM:7,ansP:8,massOpts:[4,6,7,9]},
+       mode:'both'},
+
+      {n:'L-28',law:'Στ=0',title:'Tres pesas, dos incógnitas',
+       concept:'La suma de torques te da la clave.',
+       pivot:5,
+       lft:[{m:4,p:1},{m:3,p:2},{m:1,p:4}], // TL=16+6+1=23... 23/p: solo 23@pos6(dist=1). odd.
+       // lft=[{m:3,p:1},{m:4,p:2},{m:2,p:3}] TL=12+8+4=24. 6@pos9(dist=4)=24. or 8@pos8(dist=3)=24 ambiguous!
+       // lft=[{m:4,p:1},{m:2,p:2},{m:4,p:3}] TL=16+4+8=28. 7@pos9(dist=4)=28 ✓. massOpts=[5,6,7,9]
+       lft:[{m:4,p:1},{m:2,p:2},{m:4,p:3}], // TL=28
+       rgt:{ansM:7,ansP:9,massOpts:[5,6,7,9]},
+       mode:'both'},
+
+      {n:'L-29',law:'Στ=0',title:'Reto final I',
+       concept:'Cuatro opciones de masa, cuatro posiciones. Solo una solución.',
+       pivot:5,
+       lft:[{m:6,p:1},{m:2,p:3}], // TL=24+4=28
+       // 7@pos9(dist=4)=28 ✓. massOpts=[5,6,7,8] — other combos: 5@pos? 28/5 not int. 6@pos? 28/6 not int. 8@pos? 28/8=3.5 not int. unique ✓
+       rgt:{ansM:7,ansP:9,massOpts:[5,6,7,8]},
+       mode:'both'},
+
+      {n:'L-30',law:'MAESTRO',title:'¡EQUILIBRISTA EXPERTO!',
+       concept:'Reto final — aplica toda la física aprendida.',
+       pivot:5,
+       lft:[{m:5,p:1},{m:4,p:2},{m:3,p:3},{m:2,p:4}], // TL=20+8+6+2=36
+       // 9@pos9(dist=4)=36 ✓. massOpts=[6,7,8,9] — 6@pos? 36/6=6>4 impossible. 7@? 36/7 not int. 8@? 36/8=4.5 not int. unique ✓
+       rgt:{ansM:9,ansP:9,massOpts:[6,7,8,9]},
+       mode:'both'},
     ];
 
-    /* ── DOM rendering ─────────────────────────────────────── */
-    let cont, S, timerIv=null;
+    let cont, S;
 
-    function buildState(idx, prevScore){
-      return { idx, p:PUZZLES[idx], score:prevScore||0,
-               chosen:null, showExp:false,
-               timeLeft:28, over:false, cleared:false };
+    /* ── Torque helpers ─────────────────────────────────────── */
+    function pivotOf(lvl){ return lvl.pivot||5; }
+
+    function distL(pos,piv){ return piv - pos; }  // pos < piv
+    function distR(pos,piv){ return pos - piv; }  // pos > piv
+
+    function torqueLeft(lft,piv){
+      return lft.reduce((s,w)=>s + w.m*distL(w.p,piv),0);
     }
 
-    function startTimer(){
-      clearInterval(timerIv);
-      timerIv=setInterval(()=>{
-        if(!S||S.showExp||S.over) return;
-        S.timeLeft--;
-        const el=cont&&cont.querySelector('#eng-timer');
-        if(el){
-          el.textContent=S.timeLeft+'s';
-          el.style.color=S.timeLeft<=5?'#ef5350':S.timeLeft<=10?'#ffd740':'#00d4ff';
-        }
-        const bar=cont&&cont.querySelector('#eng-tbar');
-        if(bar) bar.style.width=(S.timeLeft/28*100)+'%';
-        if(S.timeLeft<=0){
-          clearInterval(timerIv);
-          S.chosen=-1; S.showExp=true;
-          render();
-        }
-      },1000);
+    function torqueRight(m,pos,piv){
+      return m * distR(pos,piv);
     }
 
-    function choose(i){
-      if(S.chosen!==null) return;
-      S.chosen=i; S.showExp=true;
-      clearInterval(timerIv);
-      if(i===S.p.correct){
-        const timeBonus=Math.floor(S.timeLeft*8);
-        S.score+=S.p.bonus+timeBonus;
-        S.cleared=true;
-      }
-      render();
+    /* ── Estado ─────────────────────────────────────────────── */
+    function newState(lvl,sc){
+      const cfg=LEVELS[lvl];
+      const piv=pivotOf(cfg);
+      return{
+        lvl, cfg, piv,
+        score:sc||0,
+        selPos: cfg.mode==='pos'||cfg.mode==='both' ? null : (cfg.rgt.p),
+        selMass: cfg.mode==='mass' ? null : (cfg.mode==='both'? null : cfg.rgt.m),
+        checked:false, correct:false,
+        tl:torqueLeft(cfg.lft,piv),
+      };
     }
 
-    function nextPuzzle(){
-      const next=S.idx+1;
-      if(next>=PUZZLES.length){ S.over=true; render(); return; }
-      S=buildState(next,S.score);
-      render(); startTimer();
+    function isCorrect(){
+      const cfg=S.cfg;
+      if(cfg.mode==='pos')  return S.selPos===cfg.rgt.ans;
+      if(cfg.mode==='mass') return S.selMass===cfg.rgt.ans;
+      if(cfg.mode==='both') return S.selPos===cfg.rgt.ansP && S.selMass===cfg.rgt.ansM;
+      return false;
     }
 
+    function currentTR(){
+      if(S.selPos===null||S.selMass===null) return null;
+      return torqueRight(S.selMass,S.selPos,S.piv);
+    }
+
+    /* ── Render ─────────────────────────────────────────────── */
     function render(){
-      if(!cont) return;
-      const p=S.p;
-      const isCorrect=S.chosen===p.correct;
-      const timeout=S.chosen===-1;
+      if(!cont||!S) return;
+      const cfg=S.cfg;
+      const piv=S.piv;
+      const TL=S.tl;
+      const TR=currentTR();
+      const diff=TR!==null?TR-TL:null;
 
-      /* Colors */
-      const accent='#00d4ff';
-      const good='#00ffa8';
-      const bad='#ef5350';
+      // Tilt del brazo: proporcional al desequilibrio
+      const maxTilt=28;
+      const tiltRaw=diff!==null ? Math.min(maxTilt,Math.max(-maxTilt,diff*1.8)) : 0;
+      const tilt=S.checked?(isCorrect()?0:tiltRaw):tiltRaw;
+
+      // Colores de estado
+      const statusCol=!S.checked?'#0d3c78':isCorrect()?'#1b5e20':'#b71c1c';
+      const statusBg =!S.checked?'#e8f4ff':isCorrect()?'#e8f5e9':'#ffebee';
+
+      // Posiciones disponibles en el lado derecho
+      const rightPosOpts=[];
+      for(let p=piv+1;p<=9;p++) rightPosOpts.push(p);
+
+      const massOpts=cfg.mode==='mass'? cfg.rgt.opts :
+                     cfg.mode==='both'? cfg.rgt.massOpts : null;
+
+      // Construir SVG de la viga
+      const svgW=320, svgH=160;
+      const beamY=90;    // Y del centro de la viga
+      const beamLen=260; // longitud total en px
+      const pivX=svgW/2 + (piv-5)*beamLen/8; // posición X del pivote
+
+      // Cada posición 1-9 ocupa beamLen/8 px
+      function posToX(pos){ return (pos-1)*beamLen/8 + (svgW-beamLen)/2; }
+
+      const cos=Math.cos(tilt*Math.PI/180), sin2=Math.sin(tilt*Math.PI/180);
+
+      function rotX(px2,py2){
+        const dx=px2-pivX, dy=py2-beamY;
+        return pivX + dx*cos - dy*sin2;
+      }
+      function rotY(px2,py2){
+        const dx=px2-pivX, dy=py2-beamY;
+        return beamY + dx*sin2 + dy*cos;
+      }
+
+      // Puntos extremos de la viga
+      const x1=posToX(1)-10, x2=posToX(9)+10;
+      const beamPoints=[
+        [x1,beamY-6],[x2,beamY-6],[x2,beamY+6],[x1,beamY+6]
+      ].map(([x,y])=>[rotX(x,y),rotY(x,y)]);
+
+      function weightSVG(pos,mass,col,label,isRight){
+        const wx=posToX(pos);
+        const wy=beamY+(mass>15?24:18);
+        const rx=rotX(wx,wy), ry=rotY(wx,wy);
+        const r=mass>15?16:14;
+        const lx=rotX(wx,beamY-18), ly=rotY(wx,beamY-18);
+        return `
+          <line x1="${rotX(wx,beamY-6).toFixed(1)}" y1="${rotY(wx,beamY-6).toFixed(1)}"
+                x2="${lx.toFixed(1)}" y2="${ly.toFixed(1)}"
+                stroke="${col}" stroke-width="2" stroke-dasharray="3,2"/>
+          <circle cx="${rx.toFixed(1)}" cy="${ry.toFixed(1)}" r="${r}"
+                  fill="${col}" stroke="white" stroke-width="1.5"/>
+          <text x="${rx.toFixed(1)}" y="${(ry+4).toFixed(1)}"
+                text-anchor="middle" font-size="11" font-weight="bold" fill="white">${mass}kg</text>
+          ${label?`<text x="${rotX(wx,beamY-28).toFixed(1)}" y="${rotY(wx,beamY-28).toFixed(1)}"
+                text-anchor="middle" font-size="9" fill="${col}">${label}</text>`:''}
+        `;
+      }
+
+      // Marcadores de posición con distancia
+      function tickSVG(pos,highlight){
+        const tx=posToX(pos);
+        const ty=beamY+6;
+        const rx=rotX(tx,ty+10), ry=rotY(tx,ty+10);
+        const d=Math.abs(pos-piv);
+        return `
+          <circle cx="${rx.toFixed(1)}" cy="${(ry).toFixed(1)}" r="4"
+                  fill="${highlight?'#e53935':'rgba(0,0,0,0.15)'}"/>
+          <text x="${rx.toFixed(1)}" y="${(ry+14).toFixed(1)}"
+                text-anchor="middle" font-size="9"
+                fill="${highlight?'#e53935':'#666'}">${d}m</text>
+        `;
+      }
+
+      const svgContent=`
+        <!-- Pivote (triángulo) -->
+        <polygon points="${pivX},${beamY+7} ${pivX-14},${beamY+36} ${pivX+14},${beamY+36}"
+                 fill="#546E7A" stroke="#37474F" stroke-width="1.5"/>
+        <rect x="${pivX-20}" y="${beamY+36}" width="40" height="6" rx="2" fill="#37474F"/>
+        <!-- Viga -->
+        <polygon points="${beamPoints.map(p=>p.join(',')).join(' ')}"
+                 fill="#90A4AE" stroke="#546E7A" stroke-width="2"/>
+        <!-- Decoración viga -->
+        <line x1="${rotX(x1+10,beamY).toFixed(1)}" y1="${rotY(x1+10,beamY).toFixed(1)}"
+              x2="${rotX(x2-10,beamY).toFixed(1)}" y2="${rotY(x2-10,beamY).toFixed(1)}"
+              stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+        <!-- Ticks posición -->
+        ${Array.from({length:9},(_,i)=>i+1).map(p=>tickSVG(p,S.selPos===p)).join('')}
+        <!-- Pesas izquierda (dadas) -->
+        ${cfg.lft.map(w=>weightSVG(w.p,w.m,'#1565C0',`${distL(w.p,piv)}m`,false)).join('')}
+        <!-- Pesa derecha (jugador) -->
+        ${S.selPos!==null&&S.selMass!==null
+          ? weightSVG(S.selPos,S.selMass,'#e53935',`${distR(S.selPos,piv)}m`,true)
+          : S.selPos!==null&&cfg.mode==='pos'&&cfg.rgt.m
+            ? weightSVG(S.selPos,cfg.rgt.m,'#e53935',`${distR(S.selPos,piv)}m`,true)
+            : S.selMass!==null&&cfg.mode==='mass'&&cfg.rgt.p
+              ? weightSVG(cfg.rgt.p,S.selMass,'#e53935',`${distR(cfg.rgt.p,piv)}m`,true)
+              : ''
+        }
+        <!-- Etiqueta pivote -->
+        <text x="${pivX}" y="${beamY+52}" text-anchor="middle"
+              font-size="10" fill="#546E7A">PIVOTE</text>
+      `;
 
       cont.innerHTML=`
-<div style="width:100%;max-width:420px;font-family:'Courier New',Courier,monospace;background:#030d14;border-radius:14px;overflow:hidden;border:1px solid #0d3a4a;box-shadow:0 0 24px #001a2a;">
+<div style="font-family:monospace;max-width:380px;margin:0 auto;padding:8px;user-select:none">
 
-  <!-- TOP BAR -->
-  <div style="display:flex;align-items:center;justify-content:space-between;background:#040f1a;padding:7px 12px;border-bottom:1px solid #0a2535;">
-    <span style="font-size:9px;color:${accent};letter-spacing:2px;">⚙ INGENIERO · PUZZLE</span>
-    <span style="font-size:9px;color:#ffd740;letter-spacing:1px;">${p.label.toUpperCase()} · ${p.concept.toUpperCase()}</span>
-    <span style="font-size:9px;color:${good};">SCR: ${S.score}</span>
-  </div>
-
-  <!-- TIMER BAR -->
-  <div style="height:3px;background:#061520;position:relative;">
-    <div id="eng-tbar" style="height:100%;background:${S.timeLeft>10?accent:S.timeLeft>5?'#ffd740':bad};transition:width 0.9s linear;width:${S.timeLeft/28*100}%;"></div>
-  </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 12px 2px;background:#040f1a;">
-    <span style="font-size:8px;color:#1a6070;">TIEMPO RESTANTE</span>
-    <span id="eng-timer" style="font-size:11px;font-weight:700;color:${accent};">${S.timeLeft}s</span>
-  </div>
-
-  <!-- CODE BLOCK -->
-  <div style="margin:8px 10px 6px;background:#020910;border:1px solid #0a3040;border-radius:8px;overflow:hidden;">
-    <div style="background:#061520;padding:4px 10px;border-bottom:1px solid #0a2535;display:flex;align-items:center;gap:8px;">
-      <span style="font-size:8px;color:#1a5060;letter-spacing:1px;">📄 CODE.js</span>
-      <span style="font-size:8px;color:#0a3a4a;">─────────────────</span>
+  <!-- Encabezado -->
+  <div style="background:#0d3c78;color:white;border-radius:10px 10px 0 0;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="font-size:11px;color:#ffd740;letter-spacing:1px">${cfg.n} · ${cfg.law}</div>
+      <div style="font-size:14px;font-weight:bold">${cfg.title}</div>
     </div>
-    <div style="padding:10px 14px;line-height:1.9;">
-      ${p.code.map((line,i)=>{
-        /* syntax coloring */
-        const kw=['if','for','let','const','function','return','async','await','.then'];
-        let h=line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        h=h.replace(/\/\/.*/,'<span style="color:#2a7a4a;font-style:italic">$&</span>');
-        h=h.replace(/(".*?"|'.*?'|`.*?`)/g,'<span style="color:#d4a017">$1</span>');
-        kw.forEach(k=>{h=h.replace(new RegExp('\\b'+k+'\\b','g'),`<span style="color:#40c4ff">${k}</span>`);});
-        h=h.replace(/\b(true|false|null|undefined)\b/g,'<span style="color:#ea80fc">$&</span>');
-        h=h.replace(/\b([A-Z_][A-Z_0-9]+)\b/g,'<span style="color:#ffd740">$&</span>');
-        const indent=(line.match(/^(\s+)/)||['',''])[1].length;
-        return `<div style="font-size:11px;color:#a8d8e8;padding-left:${indent*6}px;">
-                  <span style="color:#1a4a5a;margin-right:8px;user-select:none;">${String(i+1).padStart(2,'0')}</span>${h}</div>`;
-      }).join('')}
+    <div style="font-size:13px;color:#69f0ae;font-weight:bold">⭐ ${S.score}</div>
+  </div>
+
+  <!-- Concepto -->
+  <div style="background:#e8f4ff;padding:8px 14px;border-left:3px solid #0d3c78;font-size:11px;color:#1a237e">
+    💡 ${cfg.concept}
+  </div>
+
+  <!-- Viga SVG -->
+  <div style="background:#f5f5f5;display:flex;justify-content:center;padding:8px 0;border:1px solid #e0e0e0">
+    <svg width="${svgW}" height="${svgH}" style="overflow:visible">
+      ${svgContent}
+    </svg>
+  </div>
+
+  <!-- Ecuación de torques en tiempo real -->
+  <div style="background:#1a237e;color:white;padding:8px 14px;text-align:center;font-size:12px">
+    <div style="display:flex;justify-content:space-around;align-items:center">
+      <div>
+        <div style="font-size:10px;color:#90caf9">Σ Torques Izquierda</div>
+        <div style="font-size:20px;font-weight:900;color:#ffd740">${TL} N·m</div>
+        <div style="font-size:9px;color:#90caf9">${cfg.lft.map(w=>`${w.m}kg × ${distL(w.p,piv)}m`).join(' + ')}</div>
+      </div>
+      <div style="font-size:24px">${diff===null?'⚖️':diff===0?'✅':diff>0?'↗':'↙'}</div>
+      <div>
+        <div style="font-size:10px;color:#90caf9">Σ Torques Derecha</div>
+        <div style="font-size:20px;font-weight:900;color:${TR===TL?'#00e676':TR===null?'#bbb':'#ff6e40'}">${TR===null?'?':TR+' N·m'}</div>
+        <div style="font-size:9px;color:#90caf9">${TR===null?'coloca la pesa':
+          (S.selMass||cfg.rgt.m||'?')+'kg × '+(S.selPos||cfg.rgt.p?distR(S.selPos||cfg.rgt.p,piv):''||'?')+'m'}</div>
+      </div>
     </div>
+    ${S.checked?`<div style="margin-top:6px;font-size:13px;font-weight:bold;color:${isCorrect()?'#00e676':'#ff6e40'}">${isCorrect()?'✅ ¡EQUILIBRIO PERFECTO!':'❌ La balanza no equilibra — intenta de nuevo'}</div>`:''}
   </div>
 
-  <!-- VARIABLES PANEL -->
-  <div style="margin:0 10px 8px;background:#020910;border:1px solid #0a3040;border-radius:8px;padding:6px 12px;">
-    <div style="font-size:8px;color:#1a5060;letter-spacing:1px;margin-bottom:5px;">📊 VARIABLES</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;">
-      ${p.vars.map(v=>`<span style="font-size:10px;background:#061520;border:1px solid #0d3a4a;border-radius:4px;padding:3px 8px;color:#69f0ae;">${v.n} = <span style="color:#ffd740">${v.v}</span></span>`).join('')}
-    </div>
+  <!-- Controles -->
+  <div style="background:white;border:1px solid #e0e0e0;border-top:none;padding:10px;border-radius:0 0 10px 10px">
+
+    ${cfg.mode==='pos'||cfg.mode==='both'?`
+    <!-- Selector de POSICIÓN -->
+    <div style="margin-bottom:8px">
+      <div style="font-size:10px;font-weight:bold;color:#0d3c78;margin-bottom:5px">
+        📍 POSICIÓN (lado derecho) ${cfg.rgt.m?'· Masa: '+cfg.rgt.m+'kg':''}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px">
+        ${rightPosOpts.map(p=>`
+          <button onclick="window.__balanza_selPos(${p})" style="
+            padding:10px 0;border:2px solid ${S.selPos===p?'#e53935':'#90a4ae'};
+            border-radius:8px;font-size:12px;font-weight:bold;cursor:pointer;
+            background:${S.selPos===p?'#e53935':'white'};
+            color:${S.selPos===p?'white':'#37474F'};
+            -webkit-tap-highlight-color:transparent;
+          ">P${p}<br><span style="font-size:9px">${distR(p,piv)}m</span></button>
+        `).join('')}
+      </div>
+    </div>`:''}
+
+    ${cfg.mode==='mass'||cfg.mode==='both'?`
+    <!-- Selector de MASA -->
+    <div style="margin-bottom:8px">
+      <div style="font-size:10px;font-weight:bold;color:#0d3c78;margin-bottom:5px">
+        ⚖️ MASA ${cfg.rgt.p?'· En posición '+cfg.rgt.p+' (dist='+distR(cfg.rgt.p,piv)+'m)':''}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px">
+        ${(massOpts||[]).map(m=>`
+          <button onclick="window.__balanza_selMass(${m})" style="
+            padding:10px 0;border:2px solid ${S.selMass===m?'#e53935':'#90a4ae'};
+            border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;
+            background:${S.selMass===m?'#e53935':'white'};
+            color:${S.selMass===m?'white':'#37474F'};
+            -webkit-tap-highlight-color:transparent;
+          ">${m}<br><span style="font-size:9px">kg</span></button>
+        `).join('')}
+      </div>
+    </div>`:''}
+
+    <!-- Botones de acción -->
+    ${!S.checked?`
+    <button onclick="window.__balanza_check()" style="
+      width:100%;padding:13px;font-size:15px;font-weight:bold;
+      background:#0d3c78;color:white;border:none;border-radius:10px;
+      cursor:pointer;-webkit-tap-highlight-color:transparent;
+      margin-top:4px;letter-spacing:1px;
+    ">⚖️  COMPROBAR EQUILIBRIO</button>`:
+    isCorrect()?`
+    <button onclick="window.__balanza_next()" style="
+      width:100%;padding:13px;font-size:15px;font-weight:bold;
+      background:#1b5e20;color:white;border:none;border-radius:10px;
+      cursor:pointer;-webkit-tap-highlight-color:transparent;margin-top:4px;
+    ">${S.lvl<LEVELS.length-1?('▶  NIVEL '+(S.lvl+2)):'🏆  JUGAR DE NUEVO'}</button>`:
+    `<button onclick="window.__balanza_retry()" style="
+      width:100%;padding:13px;font-size:15px;font-weight:bold;
+      background:#b71c1c;color:white;border:none;border-radius:10px;
+      cursor:pointer;-webkit-tap-highlight-color:transparent;margin-top:4px;
+    ">↺  INTENTAR DE NUEVO</button>`
+    }
+    <button onclick="GamesEngine.showSelection()" style="
+      width:100%;padding:9px;font-size:12px;font-weight:bold;margin-top:6px;
+      background:transparent;color:#546E7A;border:1px solid #90A4AE;
+      border-radius:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;
+    ">◀  SELECCIÓN DE JUEGOS</button>
   </div>
-
-  <!-- QUESTION -->
-  <div style="margin:0 10px 8px;padding:8px 12px;background:#040f1a;border-left:3px solid ${accent};border-radius:0 8px 8px 0;">
-    <div style="font-size:8px;color:${accent};letter-spacing:1px;margin-bottom:4px;">❓ PREGUNTA</div>
-    <div style="font-size:12px;color:#c8e8f0;font-weight:700;line-height:1.4;">${p.question}</div>
-  </div>
-
-  <!-- OPTIONS -->
-  ${!S.showExp ? `
-  <div style="display:flex;flex-direction:column;gap:6px;padding:0 10px 8px;">
-    ${p.options.map((opt,i)=>`
-    <button data-i="${i}" style="
-      width:100%;text-align:left;padding:9px 14px;
-      background:#040f1a;border:1px solid #0a2535;border-radius:8px;
-      color:#8ac8d8;font-family:'Courier New',monospace;font-size:11px;
-      cursor:pointer;transition:border-color .15s,background .15s;line-height:1.4;
-      " onmouseover="this.style.borderColor='${accent}';this.style.background='#061a28'"
-        onmouseout="this.style.borderColor='#0a2535';this.style.background='#040f1a'">
-      <span style="color:${accent};margin-right:8px;">[ ${String.fromCharCode(65+i)} ]</span>${opt}
-    </button>`).join('')}
-  </div>` : `
-  <!-- RESULT PANEL -->
-  <div style="margin:0 10px;padding:10px 14px;background:${isCorrect?'#011a0e':'#160808'};border:1px solid ${isCorrect?good:bad};border-radius:8px;">
-    <div style="font-size:11px;font-weight:700;color:${isCorrect?good:bad};margin-bottom:4px;">
-      ${timeout?'⏱ TIEMPO AGOTADO':isCorrect?'✅ CORRECTO +'+S.p.bonus+'pts':'❌ INCORRECTO'}
-    </div>
-    ${!timeout&&S.chosen>=0?`<div style="font-size:10px;color:#4a8a9a;margin-bottom:4px;">Tu respuesta: <span style="color:${isCorrect?good:bad}">${p.options[S.chosen]}</span></div>`:''}
-    ${!isCorrect?`<div style="font-size:10px;color:#4a8a9a;margin-bottom:4px;">Respuesta correcta: <span style="color:${good}">${p.options[p.correct]}</span></div>`:''}
-    <div style="font-size:10px;color:#5a9aaa;margin-top:6px;line-height:1.5;border-top:1px solid #0a2535;padding-top:6px;">💡 ${p.explanation}</div>
-  </div>
-  <div style="display:flex;gap:8px;padding:8px 10px;">
-    <button id="eng-next" style="flex:1;padding:11px;background:${isCorrect?'#003820':'#1a0808'};border:1px solid ${isCorrect?good:bad};border-radius:8px;color:${isCorrect?good:bad};font-family:'Courier New',monospace;font-size:12px;font-weight:700;cursor:pointer;">
-      ${S.idx<PUZZLES.length-1?'▶ SIGUIENTE PUZZLE':'🏆 VER RESULTADO'}
-    </button>
-    <button onclick="GamesEngine.showSelection()" style="padding:11px 14px;background:#040f1a;border:1px solid #0a2535;border-radius:8px;color:#6b8a91;font-family:'Courier New',monospace;font-size:11px;cursor:pointer;">◀</button>
-  </div>`}
-
-  <!-- HINT FOOTER -->
-  ${!S.showExp?`<div style="display:flex;align-items:center;gap:6px;padding:5px 12px 8px;border-top:1px solid #061520;">
-    <span style="font-size:10px;">💡</span>
-    <span style="font-size:9px;color:#2a6070;line-height:1.4;">${p.hint}</span>
-  </div>`:''}
-
-  <!-- GAME OVER -->
-  ${S.over?`<div style="margin:8px 10px;padding:14px;background:#040f1a;border:1px solid #ffd740;border-radius:10px;text-align:center;">
-    <div style="font-size:18px;color:#ffd700;font-weight:700;margin-bottom:6px;">🏆 ¡COMPLETADO!</div>
-    <div style="font-size:12px;color:#d4a017;margin-bottom:10px;">SCORE FINAL: ${S.score} pts</div>
-    <button onclick="GamesEngine.showSelection()" style="padding:10px 24px;background:#ffd700;border:none;border-radius:8px;color:#020b10;font-family:'Courier New',monospace;font-size:12px;font-weight:700;cursor:pointer;">◀ SELECCIÓN</button>
-  </div>`:''}
-
 </div>`;
 
-      /* attach click handlers */
-      if(!S.showExp){
-        cont.querySelectorAll('[data-i]').forEach(btn=>{
-          btn.addEventListener('click',()=>choose(+btn.dataset.i));
-        });
-      }
-      const nextBtn=cont.querySelector('#eng-next');
-      if(nextBtn) nextBtn.addEventListener('click', nextPuzzle);
+      // Exponer handlers globales
+      window.__balanza_selPos=p=>{if(S.checked)return;S.selPos=p;render();};
+      window.__balanza_selMass=m=>{if(S.checked)return;S.selMass=m;render();};
+      window.__balanza_check=()=>{
+        // Validate complete selection
+        const needPos =cfg.mode==='pos'||cfg.mode==='both';
+        const needMass=cfg.mode==='mass'||cfg.mode==='both';
+        if(needPos&&S.selPos===null)return;
+        if(needMass&&S.selMass===null)return;
+        // Set fixed values for single-mode
+        if(cfg.mode==='pos')  S.selMass=cfg.rgt.m;
+        if(cfg.mode==='mass') S.selPos=cfg.rgt.p;
+        S.checked=true;
+        S.correct=isCorrect();
+        if(S.correct) S.score+=Math.max(50,200-S.lvl*5);
+        render();
+      };
+      window.__balanza_next=()=>{
+        const n=S.lvl+1;S=newState(n<LEVELS.length?n:0,S.score);render();
+      };
+      window.__balanza_retry=()=>{
+        S=newState(S.lvl,S.score);render();
+      };
     }
 
-    return {
-      init(c){
-        clearInterval(timerIv);
-        cont=c; S=buildState(0,0);
-        render(); startTimer();
-      },
-      cleanup(){ clearInterval(timerIv); timerIv=null; S=null; cont=null; }
+    return{
+      init(c){cont=c;S=newState(0,0);render();},
+      cleanup(){
+        cont=null;S=null;
+        delete window.__balanza_selPos;
+        delete window.__balanza_selMass;
+        delete window.__balanza_check;
+        delete window.__balanza_next;
+        delete window.__balanza_retry;
+      }
     };
   })();
-
 
   /* ── API pública ──────────────────────────────────────────── */
   return { init, launch, showSelection, _memNextLevel:()=>Impls.memory.nextLevel&&Impls.memory.nextLevel() };
