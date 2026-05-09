@@ -4184,8 +4184,11 @@ const GamesEngine = (() => {
     }
 
     function getXY(e){
-      const src = e.touches        ? e.touches[0]
-                : e.changedTouches ? e.changedTouches[0]
+      // changedTouches[0] funciona en touchstart, touchmove Y touchend.
+      // e.touches en touchend es una lista VACÍA pero sigue siendo un objeto truthy,
+      // así que e.touches[0] === undefined → crash silencioso → línea nunca guardada.
+      const src = (e.changedTouches && e.changedTouches.length > 0) ? e.changedTouches[0]
+                : (e.touches        && e.touches.length        > 0) ? e.touches[0]
                 : e;
       return toCanvas(src.clientX, src.clientY);
     }
@@ -4560,13 +4563,22 @@ const GamesEngine = (() => {
 
     function onUp(e){
       e.preventDefault();
-      if(!S.drawing) return;
-      const p=getXY(e);
-      const dx=p.x-S.drawing.x1, dy=p.y-S.drawing.y1;
-      if(Math.sqrt(dx*dx+dy*dy)>18){
-        S.lines.push({x1:S.drawing.x1,y1:S.drawing.y1,x2:p.x,y2:p.y});
+      if(!S || !S.drawing) return;
+      try {
+        const p=getXY(e);
+        const dx=p.x-S.drawing.x1, dy=p.y-S.drawing.y1;
+        if(Math.sqrt(dx*dx+dy*dy)>18){
+          S.lines.push({x1:S.drawing.x1,y1:S.drawing.y1,x2:p.x,y2:p.y});
+        }
+      } catch(_){
+        // Fallback: usar la última posición de arrastre registrada en onMove
+        const dx=S.drawing.x2-S.drawing.x1, dy=S.drawing.y2-S.drawing.y1;
+        if(Math.sqrt(dx*dx+dy*dy)>18){
+          S.lines.push({x1:S.drawing.x1,y1:S.drawing.y1,x2:S.drawing.x2,y2:S.drawing.y2});
+        }
+      } finally {
+        S.drawing=null;
       }
-      S.drawing=null;
     }
 
     /* ── Init ───────────────────────────────────────────────── */
