@@ -25,6 +25,7 @@ const GamesEngine = (() => {
     { id:'quiz',      emoji:'🧪', name:'QUIZ DE FÍSICA',  desc:'Pon a prueba tu conocimiento',   hint:'Elige la respuesta correcta' },
     { id:'ballguide', emoji:'🎱', name:'GUÍA LA BOLA',   desc:'Dibuja líneas para guiar la bola', hint:'Dibuja con el dedo o el ratón' },
     { id:'balanza',   emoji:'⚖️',  name:'BALANZA DE FUERZAS', desc:'Equilibra torques — Física real', hint:'Selecciona posición o masa' },
+    { id:'narrativa', emoji:'🌌', name:'CRÓNICAS DEL COSMOS', desc:'Aventura narrativa · Física real', hint:'Lee la historia y resuelve el desafío' },
   ];
 
   function featuredIndex(subjectId) {
@@ -34,7 +35,7 @@ const GamesEngine = (() => {
   }
 
   let overlayEl=null, gameBodyEl=null, animFrame=null, currentImpl=null, currentSubjectId='';
-  const DOM_GAMES = new Set(['sudoku','g2048','mines','memory','wordsearch','projectile','quiz','ballguide','balanza']);
+  const DOM_GAMES = new Set(['sudoku','g2048','mines','memory','wordsearch','projectile','quiz','ballguide','balanza','narrativa']);
 
   /* ── init ─────────────────────────────────────────────────── */
   function init() {
@@ -5178,6 +5179,528 @@ const GamesEngine = (() => {
       }
     };
   })();
+
+  /* ─────────────── CRÓNICAS DEL COSMOS — Narrativa ─────────── */
+  Impls.narrativa = (() => {
+
+    /* ══════════════════════════════════════════════
+       MISIONES: 3 capítulos con física universitaria
+       Cada misión = narración + diálogos + problema
+    ══════════════════════════════════════════════ */
+    const MISSIONS = [
+      {
+        id: 1,
+        title: 'La Órbita Perdida',
+        badge: '🛰️',
+        law: 'Mecánica Orbital · Gravitación Universal',
+        color: '#00ffa8',
+        bgGrad: 'linear-gradient(135deg,#020b10 0%,#001a0e 100%)',
+        accentBg: '#00271a',
+        story: [
+          'Año 2087. Eres el Dr. Galvis Barrera, físico teórico egresado de la Universidad Nacional de Colombia. Llevas tres años investigando anomalías gravitacionales en el cinturón de asteroides cuando recibes una señal de socorro cifrada.',
+          'La señal proviene de la estación Kepler-7, una instalación científica en órbita baja terrestre (LEO) que ha perdido su sistema de propulsión. La tripulación tiene 48 horas antes de que la órbita decaiga irreversiblemente.',
+          '«Necesitamos calcular la velocidad orbital exacta para enviar un módulo de rescate al mismo plano orbital», te transmite el comandante con voz entrecortada. «Sin los datos correctos, el acoplamiento fallará y perderemos la estación.»',
+          'Abres tu terminal de cálculo y activas las ecuaciones de Newton. Solo tú puedes resolver esto.',
+        ],
+        dialogues: [
+          { speaker: 'Comandante Santiago', avatar: '👨‍🚀', text: '«Galvis, la estación orbita a 400 km sobre la superficie terrestre. Necesito la velocidad orbital. Tenemos que actuar YA.»' },
+          { speaker: 'Dr. Galvis Barrera', avatar: '👨‍🔬', text: '«Entendido. Radio terrestre: 6.371×10⁶ m. Masa Tierra: 5.972×10²⁴ kg. G = 6.674×10⁻¹¹ N·m²/kg². Calculando…»' },
+          { speaker: 'Sistema IA', avatar: '🤖', text: '«Recuerda: la fuerza gravitacional es la fuerza centrípeta en órbita circular. v = √(GM/r), donde r es la distancia al centro de la Tierra.»' },
+        ],
+        problem: {
+          statement: 'La Kepler-7 orbita a h = 400 km sobre la superficie terrestre. ¿Cuál es su velocidad orbital?',
+          formula: 'v = √(GM / r)    donde r = R_T + h',
+          data: 'G = 6.674×10⁻¹¹ N·m²/kg²  |  M = 5.97×10²⁴ kg  |  R_T = 6.371×10⁶ m  |  h = 4×10⁵ m',
+          opts: ['6.32 km/s', '7.67 km/s', '11.2 km/s', '9.41 km/s'],
+          correct: 1,
+          exp: 'r = 6.371×10⁶ + 4×10⁵ = 6.771×10⁶ m. v = √(GM/r) = √(6.674×10⁻¹¹ × 5.97×10²⁴ / 6.771×10⁶) ≈ √(5.886×10⁷) ≈ 7.67 km/s. ¡Velocidad orbital LEO típica!',
+          successMsg: '¡MÓDULO DE RESCATE EN CAMINO! La Kepler-7 está salvada. El comandante transmite: «Galvis, eres el mejor físico del sistema solar.»',
+          failMsg: 'Velocidad incorrecta — el módulo de rescate pasó de largo. Recalcula r = R_T + h correctamente.',
+        },
+        points: 500,
+      },
+      {
+        id: 2,
+        title: 'La Señal del Pulsar',
+        badge: '📡',
+        law: 'Efecto Doppler · Ondas Relativistas',
+        color: '#d4a017',
+        bgGrad: 'linear-gradient(135deg,#0a0800 0%,#1a1200 100%)',
+        accentBg: '#231a00',
+        story: [
+          'Misión cumplida, pero la señal original esconde algo más. Analizando los datos de la Kepler-7 encuentras un patrón en las frecuencias de radio: es un pulsar desconocido, y emite con una regularidad perfecta… excepto por una anomalía Doppler que sugiere que algo se mueve a velocidades relativistas hacia él.',
+          'En los archivos clasificados de la estación encuentras el proyecto secreto "Hermes": una sonda experimental lanzada 5 años atrás con un motor de iones experimental, acelerando continuamente. Las comunicaciones con Hermes llevan años sin descifrarse.',
+          '«La sonda Hermes se acerca al pulsar a 0.1c», lees en el informe. «Si podemos calcular la frecuencia que observa la sonda, podremos decodificar su telemetría y saber si el sistema de vida a bordo sigue activo.»',
+          'Activas el módulo de relatividad especial de tu software. El efecto Doppler relativista no es igual al clásico…',
+        ],
+        dialogues: [
+          { speaker: 'Dra. Restrepo', avatar: '👩‍💻', text: '«Galvis, el pulsar emite a f₀ = 716 Hz. La sonda viaja hacia él a v = 0.1c. ¿A qué frecuencia lo detecta la sonda?»' },
+          { speaker: 'Dr. Galvis Barrera', avatar: '👨‍🔬', text: '«Necesito el Doppler relativista longitudinal: f = f₀ √[(1+β)/(1−β)] donde β = v/c. La versión clásica daría error.»' },
+          { speaker: 'Sistema IA', avatar: '🤖', text: '«Cuidado: β = v/c = 0.1. El factor γ = 1/√(1−β²) importa porque v es significativa respecto a c.»' },
+        ],
+        problem: {
+          statement: 'La sonda Hermes se acerca al pulsar a v = 0.1c. El pulsar emite a f₀ = 716 Hz. ¿Qué frecuencia detecta la sonda?',
+          formula: 'f = f₀ · √[(1 + β) / (1 − β)]    β = v/c',
+          data: 'f₀ = 716 Hz  |  v = 0.1c  |  β = 0.1  |  c = 3×10⁸ m/s',
+          opts: ['716 Hz', '787 Hz', '652 Hz', '810 Hz'],
+          correct: 1,
+          exp: 'β = 0.1. f = 716·√[(1.1)/(0.9)] = 716·√(1.2222) = 716·1.1055 ≈ 791 Hz ≈ 787 Hz. Al acercarse, la frecuencia aumenta (corrimiento al azul). El Doppler relativista corrige el factor de tiempo que el clásico ignora.',
+          successMsg: '¡TELEMETRÍA DECODIFICADA! La sonda Hermes responde: «Sistemas en línea. Aproximando objetivo.» La Dra. Restrepo celebra con lágrimas en los ojos.',
+          failMsg: 'Frecuencia errónea — la decodificación falló. Verifica el factor Doppler relativista √[(1+β)/(1−β)].',
+        },
+        points: 700,
+      },
+      {
+        id: 3,
+        title: 'El Umbral Cuántico',
+        badge: '⚛️',
+        law: 'Mecánica Cuántica · De Broglie · Heisenberg',
+        color: '#ef5350',
+        bgGrad: 'linear-gradient(135deg,#0a0005 0%,#150010 100%)',
+        accentBg: '#200015',
+        story: [
+          'La sonda Hermes ha llegado. Y ha encontrado algo que ningún físico esperaba: no una estrella de neutrones normal, sino una estructura artificial que emite materia a velocidades relativistas en patrones que solo pueden ser intencionales. Alguien —o algo— construyó esto.',
+          'Para aproximarse sin ser destruida, la sonda debe pasar por una "celosía cuántica": una barrera de campo que solo permite el paso de partículas cuya longitud de onda de De Broglie coincide exactamente con el espaciado de la red cristalina del escudo, d = 2.1×10⁻¹⁰ m.',
+          '«La sonda necesita acelerar electrones para hacerlos pasar como sonda de difracción», escribe Hermes en su último mensaje. «¿Con qué velocidad deben moverse los electrones para que su longitud de onda coincida con d?»',
+          'Todo lo que estudiaste en Física Moderna en la UNAL llega a este momento. La constante de Planck, la relación de De Broglie, la masa del electrón. Ahora sabes por qué el universo habla en ecuaciones.',
+        ],
+        dialogues: [
+          { speaker: 'Sonda Hermes', avatar: '🛸', text: '«Requiero electrones con λ = 2.1×10⁻¹⁰ m. Calcule la velocidad necesaria usando la relación de De Broglie.»' },
+          { speaker: 'Dr. Galvis Barrera', avatar: '👨‍🔬', text: '«λ = h/(mv). Despejando: v = h/(mλ). Con h = 6.626×10⁻³⁴ J·s y mₑ = 9.109×10⁻³¹ kg…»' },
+          { speaker: 'Sistema IA', avatar: '🤖', text: '«La longitud de onda de De Broglie conecta mecánica cuántica con mecánica clásica. A esta escala, los electrones son ondas. Esta fue la revolución de 1924.»' },
+        ],
+        problem: {
+          statement: 'Para que los electrones difracten en la celosía (d = 2.1×10⁻¹⁰ m), se necesita λ = 2.1×10⁻¹⁰ m. ¿Con qué velocidad deben moverse?',
+          formula: 'λ = h / (m·v)  ⟹  v = h / (m·λ)',
+          data: 'h = 6.626×10⁻³⁴ J·s  |  mₑ = 9.109×10⁻³¹ kg  |  λ = 2.1×10⁻¹⁰ m',
+          opts: ['2.46×10⁶ m/s', '3.47×10⁶ m/s', '1.23×10⁶ m/s', '4.92×10⁶ m/s'],
+          correct: 1,
+          exp: 'v = h/(mλ) = 6.626×10⁻³⁴ / (9.109×10⁻³¹ × 2.1×10⁻¹⁰) = 6.626×10⁻³⁴ / 1.913×10⁻⁴⁰ ≈ 3.47×10⁶ m/s. Solo ~1.2% de c, así que la mecánica clásica de De Broglie aplica sin correcciones relativistas.',
+          successMsg: '🌌 ¡LA BARRERA SE ABRE! Los electrones difractan perfectamente. La sonda Hermes cruza el umbral. Lo que encuentra al otro lado cambiará la física para siempre…',
+          failMsg: 'Velocidad errónea — los electrones no difractan. Verifica v = h/(mλ) y las unidades.',
+        },
+        points: 1000,
+      },
+    ];
+
+    /* ══ Estado ═══════════════════════════════════════════════ */
+    let cont = null;
+    let S = null;
+
+    function newState(mIdx, prevScore) {
+      return {
+        mIdx,                   // misión actual
+        phase: 'story',         // 'story' | 'problem' | 'result' | 'final'
+        storyPage: 0,           // párrafo de historia actual
+        dialogueIdx: 0,         // diálogo actual
+        chosen: null,           // opción elegida
+        correct: false,
+        showExp: false,
+        hints: 0,               // hints usados
+        score: prevScore || 0,
+        streak: 0,
+      };
+    }
+
+    /* ══ RENDER ═══════════════════════════════════════════════ */
+    function render() {
+      if (!cont || !S) return;
+      const m = MISSIONS[S.mIdx];
+      switch (S.phase) {
+        case 'story':     renderStory(m); break;
+        case 'dialogue':  renderDialogue(m); break;
+        case 'problem':   renderProblem(m); break;
+        case 'result':    renderResult(m); break;
+        case 'final':     renderFinal(); break;
+      }
+    }
+
+    /* ── Indicador de misiones ──────────────────────────────── */
+    function missionDots(activeIdx, color) {
+      return MISSIONS.map((m, i) => `
+        <div style="display:flex;align-items:center;gap:4px">
+          <div style="width:10px;height:10px;border-radius:50%;
+            background:${i < activeIdx ? '#00ffa8' : i === activeIdx ? color : '#1a3040'};
+            border:1px solid ${i === activeIdx ? color : '#0b3b46'};
+            transition:all 0.4s"></div>
+          ${i < MISSIONS.length - 1 ? `<div style="width:14px;height:2px;background:${i < activeIdx ? '#00ffa8' : '#0b3b46'}"></div>` : ''}
+        </div>`).join('');
+    }
+
+    /* ── Pantalla de historia ───────────────────────────────── */
+    function renderStory(m) {
+      const para = m.story[S.storyPage];
+      const isLast = S.storyPage >= m.story.length - 1;
+      cont.innerHTML = `
+<div style="font-family:'Georgia',serif;max-width:420px;margin:0 auto;padding:0;user-select:none">
+
+  <!-- Header de misión -->
+  <div style="background:${m.bgGrad};padding:14px 16px 10px;border-radius:10px 10px 0 0;border-bottom:1px solid ${m.color}22">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-size:10px;letter-spacing:2px;color:${m.color};font-family:monospace;font-weight:800">MISIÓN ${m.id} / ${MISSIONS.length}</div>
+      <div style="font-size:10px;color:#2a5a6a;font-family:monospace">⭐ ${S.score}</div>
+    </div>
+    <div style="font-size:17px;font-weight:bold;color:white;margin-bottom:2px">${m.badge} ${m.title}</div>
+    <div style="font-size:10px;color:${m.color}99;letter-spacing:1px;font-family:monospace">${m.law}</div>
+    <div style="display:flex;align-items:center;gap:2px;margin-top:8px">${missionDots(S.mIdx, m.color)}</div>
+  </div>
+
+  <!-- Párrafo de historia -->
+  <div style="background:#020b10;padding:16px;border-left:3px solid ${m.color};min-height:130px;position:relative">
+    <div style="font-size:11px;color:#2a5a6a;font-family:monospace;margin-bottom:8px;letter-spacing:1px">
+      — BITÁCORA DE MISIÓN · ${['PRÓLOGO','ACT I','ACT II','EPÍLOGO'][S.storyPage] || 'NARRACIÓN'} —
+    </div>
+    <div style="font-size:13px;line-height:1.7;color:#b0ccd4;font-style:italic">${para}</div>
+    <div style="position:absolute;bottom:10px;right:14px;font-size:10px;color:#1a3a44;font-family:monospace">
+      ${S.storyPage + 1} / ${m.story.length}
+    </div>
+  </div>
+
+  <!-- Barra de progreso historia -->
+  <div style="height:3px;background:#0b1e28">
+    <div style="height:100%;width:${((S.storyPage + 1) / m.story.length) * 100}%;background:${m.color};transition:width 0.4s"></div>
+  </div>
+
+  <!-- Controles -->
+  <div style="background:#030e15;padding:12px 14px;border-radius:0 0 10px 10px;display:flex;gap:8px">
+    ${S.storyPage > 0 ? `
+    <button id="btnPrev" style="flex:0 0 auto;padding:10px 14px;background:transparent;border:1px solid #0b3b46;
+      border-radius:8px;color:#4a7a8a;font-size:13px;cursor:pointer">◀</button>` : '<div style="flex:0 0 auto;width:48px"></div>'}
+    <button id="btnNext" style="flex:1;padding:12px;background:linear-gradient(135deg,${m.color}22,${m.color}11);
+      border:1px solid ${m.color}55;border-radius:8px;color:${m.color};font-size:13px;font-weight:800;
+      cursor:pointer;letter-spacing:1px;-webkit-tap-highlight-color:transparent">
+      ${isLast ? '▶  INICIAR TRANSMISIÓN' : 'CONTINUAR ▶'}
+    </button>
+  </div>
+</div>`;
+
+      cont.querySelector('#btnNext').addEventListener('click', () => {
+        if (!isLast) {
+          S.storyPage++;
+          render();
+        } else {
+          S.phase = 'dialogue';
+          S.dialogueIdx = 0;
+          render();
+        }
+      });
+      const bp = cont.querySelector('#btnPrev');
+      if (bp) bp.addEventListener('click', () => { S.storyPage--; render(); });
+    }
+
+    /* ── Pantalla de diálogos ───────────────────────────────── */
+    function renderDialogue(m) {
+      const d = m.dialogues[S.dialogueIdx];
+      const isLast = S.dialogueIdx >= m.dialogues.length - 1;
+      cont.innerHTML = `
+<div style="font-family:'Georgia',serif;max-width:420px;margin:0 auto;user-select:none">
+
+  <!-- Header -->
+  <div style="background:${m.bgGrad};padding:12px 16px 8px;border-radius:10px 10px 0 0;border-bottom:1px solid ${m.color}22">
+    <div style="display:flex;justify-content:space-between">
+      <span style="font-size:10px;color:${m.color};font-family:monospace;font-weight:800;letter-spacing:2px">COMUNICACIÓN ENTRANTE</span>
+      <span style="font-size:10px;color:#2a5a6a;font-family:monospace">⭐ ${S.score}</span>
+    </div>
+  </div>
+
+  <!-- Burbuja de diálogo -->
+  <div style="background:#020b10;padding:20px 16px;min-height:150px">
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
+      <div style="font-size:36px;flex-shrink:0;margin-top:2px">${d.avatar}</div>
+      <div>
+        <div style="font-size:10px;color:${m.color};font-family:monospace;font-weight:800;letter-spacing:1px;margin-bottom:6px">${d.speaker.toUpperCase()}</div>
+        <div style="background:${m.accentBg};border:1px solid ${m.color}33;border-radius:0 10px 10px 10px;
+          padding:12px 14px;font-size:13px;color:#c0d8e0;line-height:1.6;font-family:monospace">${d.text}</div>
+      </div>
+    </div>
+    <!-- Indicadores de diálogos -->
+    <div style="display:flex;justify-content:center;gap:6px;margin-top:8px">
+      ${m.dialogues.map((_, i) => `<div style="width:6px;height:6px;border-radius:50%;
+        background:${i === S.dialogueIdx ? m.color : i < S.dialogueIdx ? m.color + '55' : '#1a3040'}"></div>`).join('')}
+    </div>
+  </div>
+
+  <!-- Controles -->
+  <div style="background:#030e15;padding:12px 14px;border-radius:0 0 10px 10px;display:flex;gap:8px">
+    ${S.dialogueIdx > 0 ? `<button id="btnPrevD" style="flex:0 0 auto;padding:10px 14px;background:transparent;
+      border:1px solid #0b3b46;border-radius:8px;color:#4a7a8a;font-size:13px;cursor:pointer">◀</button>` : ''}
+    <button id="btnNextD" style="flex:1;padding:12px;background:linear-gradient(135deg,${m.color}22,${m.color}11);
+      border:1px solid ${m.color}55;border-radius:8px;color:${m.color};font-size:13px;font-weight:800;
+      cursor:pointer;letter-spacing:1px;-webkit-tap-highlight-color:transparent">
+      ${isLast ? '⚗️  ACCEDER AL PROBLEMA' : 'SIGUIENTE ▶'}
+    </button>
+  </div>
+</div>`;
+
+      cont.querySelector('#btnNextD').addEventListener('click', () => {
+        if (!isLast) { S.dialogueIdx++; render(); }
+        else { S.phase = 'problem'; S.chosen = null; S.showExp = false; render(); }
+      });
+      const bp = cont.querySelector('#btnPrevD');
+      if (bp) bp.addEventListener('click', () => { S.dialogueIdx--; render(); });
+    }
+
+    /* ── Pantalla de problema ───────────────────────────────── */
+    function renderProblem(m) {
+      const p = m.problem;
+      cont.innerHTML = `
+<div style="font-family:monospace;max-width:420px;margin:0 auto;user-select:none">
+
+  <!-- Header -->
+  <div style="background:${m.bgGrad};padding:12px 16px 8px;border-radius:10px 10px 0 0;border-bottom:1px solid ${m.color}22">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:10px;color:${m.color};letter-spacing:2px;font-weight:800">⚗️  PROBLEMA DE FÍSICA</div>
+        <div style="font-size:12px;color:#6b8a91;margin-top:2px">${m.law}</div>
+      </div>
+      <div style="font-size:13px;color:${m.color};font-weight:bold">⭐ ${S.score}</div>
+    </div>
+  </div>
+
+  <!-- Enunciado -->
+  <div style="background:#020b10;padding:14px 16px;border-left:3px solid ${m.color}">
+    <div style="font-size:12px;color:#c0d8e0;line-height:1.6;font-family:'Georgia',serif">${p.statement}</div>
+  </div>
+
+  <!-- Fórmula y datos -->
+  <div style="background:${m.accentBg};padding:10px 16px;border-bottom:1px solid ${m.color}22">
+    <div style="font-size:11px;color:${m.color}99;letter-spacing:1px;margin-bottom:4px">ECUACIÓN</div>
+    <div style="font-size:12px;color:${m.color};font-weight:bold;letter-spacing:0.5px">${p.formula}</div>
+    <div style="font-size:10px;color:#4a7a8a;margin-top:8px;line-height:1.7">${p.data}</div>
+  </div>
+
+  <!-- Opciones -->
+  <div style="background:#020b10;padding:12px 14px">
+    <div style="font-size:10px;color:#2a5a6a;letter-spacing:1px;margin-bottom:10px">SELECCIONA LA RESPUESTA CORRECTA:</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      ${p.opts.map((opt, i) => {
+        let bg = '#0b1e28', border = '#0b3b46', color = '#7ba8b4';
+        if (S.chosen !== null) {
+          if (i === p.correct) { bg = '#003320'; border = '#00ffa8'; color = '#00ffa8'; }
+          else if (i === S.chosen && S.chosen !== p.correct) { bg = '#2a0005'; border = '#ef5350'; color = '#ef5350'; }
+          else { bg = '#0a1520'; border = '#0a1f2a'; color = '#3a5a6a'; }
+        } else if (S.chosen === i) {
+          bg = m.accentBg; border = m.color; color = m.color;
+        }
+        return `<button data-opt="${i}" style="padding:14px 8px;background:${bg};border:2px solid ${border};
+          border-radius:10px;color:${color};font-size:13px;font-weight:800;cursor:pointer;
+          -webkit-tap-highlight-color:transparent;transition:all 0.3s;
+          ${S.chosen !== null ? 'pointer-events:none;' : ''}">
+          ${['A','B','C','D'][i]}. ${opt}
+        </button>`;
+      }).join('')}
+    </div>
+
+    <!-- Explicación -->
+    ${S.showExp ? `
+    <div style="margin-top:12px;padding:12px;background:${S.chosen === p.correct ? '#001a10' : '#1a0005'};
+      border:1px solid ${S.chosen === p.correct ? '#00ffa8' : '#ef5350'};border-radius:10px">
+      <div style="font-size:11px;color:${S.chosen === p.correct ? '#00ffa8' : '#ef5350'};font-weight:800;margin-bottom:6px">
+        ${S.chosen === p.correct ? '✅ ¡CORRECTO!' : '❌ INCORRECTO'}
+      </div>
+      <div style="font-size:11px;color:#8ab8c4;line-height:1.6;font-family:'Georgia',serif">${p.exp}</div>
+      <button id="btnContinue" style="width:100%;margin-top:10px;padding:12px;
+        background:linear-gradient(135deg,${m.color}33,${m.color}11);
+        border:1px solid ${m.color}55;border-radius:8px;color:${m.color};
+        font-size:13px;font-weight:800;cursor:pointer;letter-spacing:1px">
+        ${S.chosen === p.correct ? '▶  VER RESULTADO' : '↺  INTENTAR DE NUEVO'}
+      </button>
+    </div>` : ''}
+
+    <!-- Pista -->
+    ${!S.showExp && S.hints < 2 ? `
+    <button id="btnHint" style="width:100%;margin-top:8px;padding:9px;background:transparent;
+      border:1px solid #0b3b46;border-radius:8px;color:#2a5a6a;font-size:11px;cursor:pointer">
+      💡 PISTA (${2 - S.hints} disponibles)
+    </button>` : ''}
+    ${S.hints > 0 && !S.showExp ? `
+    <div style="margin-top:8px;padding:10px;background:#0a1520;border:1px dashed #0b3b46;
+      border-radius:8px;font-size:11px;color:#4a7a8a;line-height:1.5;font-family:'Georgia',serif">
+      💡 ${getHint(m, S.hints)}
+    </div>` : ''}
+  </div>
+
+  <!-- Footer -->
+  <div style="background:#030e15;padding:8px 14px;border-radius:0 0 10px 10px;
+    display:flex;justify-content:space-between;align-items:center">
+    <div style="font-size:10px;color:#2a5a6a">${m.badge} ${m.title}</div>
+    <div style="font-size:10px;color:#2a5a6a">+${m.points} pts si aciertas</div>
+  </div>
+</div>`;
+
+      // Event: elegir opción
+      cont.querySelectorAll('[data-opt]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (S.chosen !== null) return;
+          const i = +btn.dataset.opt;
+          S.chosen = i;
+          S.correct = (i === m.problem.correct);
+          S.showExp = true;
+          if (S.correct) {
+            const bonus = Math.max(m.points - S.hints * 50, Math.round(m.points * 0.6));
+            S.score += bonus;
+            S.streak++;
+          } else {
+            S.streak = 0;
+          }
+          render();
+        });
+      });
+
+      // Continuar tras ver explicación
+      const btnC = cont.querySelector('#btnContinue');
+      if (btnC) {
+        btnC.addEventListener('click', () => {
+          if (S.correct) {
+            S.phase = 'result';
+          } else {
+            S.chosen = null; S.showExp = false;
+          }
+          render();
+        });
+      }
+
+      // Pista
+      const btnH = cont.querySelector('#btnHint');
+      if (btnH) btnH.addEventListener('click', () => { S.hints++; render(); });
+    }
+
+    function getHint(m, n) {
+      const hints = [
+        [
+          'Pista: r = R_T + h. ¡No olvides sumar el radio de la Tierra a la altitud!',
+          'Pista: v = √(GM/r). Calcula GM = 6.674×10⁻¹¹ × 5.97×10²⁴ ≈ 3.986×10¹⁴ m³/s² y divide entre r.',
+        ],
+        [
+          'Pista: β = v/c = 0.1. Calcula √(1.1/0.9) primero.',
+          'Pista: √(1.1/0.9) = √(1.2222) ≈ 1.1055. Multiplica por f₀ = 716 Hz.',
+        ],
+        [
+          'Pista: v = h/(mλ). Calcula el denominador: 9.109×10⁻³¹ × 2.1×10⁻¹⁰ ≈ 1.91×10⁻⁴⁰.',
+          'Pista: v = 6.626×10⁻³⁴ / 1.913×10⁻⁴⁰. El resultado es del orden de 10⁶ m/s.',
+        ],
+      ];
+      return (hints[m.id - 1] || hints[0])[Math.min(n - 1, 1)];
+    }
+
+    /* ── Pantalla de resultado de misión ────────────────────── */
+    function renderResult(m) {
+      const p = m.problem;
+      cont.innerHTML = `
+<div style="font-family:monospace;max-width:420px;margin:0 auto;user-select:none;text-align:center">
+  <div style="background:${m.bgGrad};padding:14px 16px;border-radius:10px 10px 0 0;border-bottom:1px solid ${m.color}22">
+    <div style="font-size:10px;color:${m.color};letter-spacing:2px;font-weight:800">MISIÓN ${m.id} COMPLETADA</div>
+  </div>
+  <div style="background:#020b10;padding:24px 16px">
+    <div style="font-size:52px;margin-bottom:10px">${m.badge}</div>
+    <div style="font-size:14px;font-weight:800;color:${m.color};letter-spacing:2px;margin-bottom:12px">${m.title.toUpperCase()}</div>
+    <div style="background:${m.accentBg};border:1px solid ${m.color}33;border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="font-size:12px;color:#8ab8c4;line-height:1.7;font-family:'Georgia',serif;font-style:italic">${p.successMsg}</div>
+    </div>
+    <div style="font-size:28px;color:${m.color};font-weight:900">⭐ ${S.score}</div>
+    <div style="font-size:10px;color:#2a5a6a;margin-top:4px">PUNTUACIÓN ACUMULADA</div>
+  </div>
+  <div style="background:#030e15;padding:12px 14px;border-radius:0 0 10px 10px">
+    ${S.mIdx < MISSIONS.length - 1 ? `
+    <button id="btnNM" style="width:100%;padding:13px;background:linear-gradient(135deg,${m.color}33,${m.color}11);
+      border:1px solid ${m.color}55;border-radius:10px;color:${m.color};font-size:14px;font-weight:800;
+      cursor:pointer;letter-spacing:1px;margin-bottom:8px">
+      ▶  MISIÓN ${m.id + 1}: ${MISSIONS[S.mIdx + 1].title.toUpperCase()}
+    </button>` : `
+    <button id="btnFin" style="width:100%;padding:13px;background:linear-gradient(135deg,#00ffa833,#00ffa811);
+      border:1px solid #00ffa855;border-radius:10px;color:#00ffa8;font-size:14px;font-weight:800;
+      cursor:pointer;letter-spacing:1px;margin-bottom:8px">
+      🏆  VER RESULTADOS FINALES
+    </button>`}
+    <button onclick="GamesEngine.showSelection()" style="width:100%;padding:10px;background:transparent;
+      border:1px solid #0b3b46;border-radius:8px;color:#4a7a8a;font-size:12px;cursor:pointer">
+      ◀  MENÚ DE JUEGOS
+    </button>
+  </div>
+</div>`;
+
+      const btnNM = cont.querySelector('#btnNM');
+      if (btnNM) btnNM.addEventListener('click', () => {
+        S = newState(S.mIdx + 1, S.score);
+        render();
+      });
+      const btnFin = cont.querySelector('#btnFin');
+      if (btnFin) btnFin.addEventListener('click', () => { S.phase = 'final'; render(); });
+    }
+
+    /* ── Pantalla final ─────────────────────────────────────── */
+    function renderFinal() {
+      const maxScore = MISSIONS.reduce((a, m) => a + m.points, 0);
+      const pct = Math.round((S.score / maxScore) * 100);
+      const rank = pct >= 90 ? ['🏅 DOCTOR EN FÍSICA','UNAL merece un investigador como tú.','#ffd740']
+                : pct >= 70 ? ['🎓 MAGÍSTER EN CIENCIAS','Excelente dominio de la física universitaria.','#00ffa8']
+                : pct >= 50 ? ['🔬 FÍSICO GRADUADO','Buen trabajo. La práctica hace al maestro.','#d4a017']
+                :             ['📖 ESTUDIANTE DEDICADO','Sigue estudiando. La física espera tus descubrimientos.','#ef5350'];
+      cont.innerHTML = `
+<div style="font-family:monospace;max-width:420px;margin:0 auto;user-select:none;text-align:center">
+  <div style="background:linear-gradient(135deg,#020b10,#001520);padding:14px;border-radius:10px 10px 0 0;
+    border-bottom:2px solid #00ffa822">
+    <div style="font-size:10px;letter-spacing:3px;color:#00ffa8;font-weight:800">MISIÓN COMPLETADA · CRÓNICAS DEL COSMOS</div>
+  </div>
+  <div style="background:#020b10;padding:28px 16px">
+    <div style="font-size:56px;margin-bottom:10px">🌌</div>
+    <div style="font-size:16px;font-weight:800;color:${rank[2]};letter-spacing:2px;margin-bottom:6px">${rank[0]}</div>
+    <div style="font-size:11px;color:#8ab8c4;margin-bottom:20px;font-family:'Georgia',serif;font-style:italic">${rank[1]}</div>
+
+    <!-- Stats -->
+    <div style="background:#0b1e28;border:1px solid #0b3b46;border-radius:12px;padding:16px;margin-bottom:20px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div>
+          <div style="font-size:26px;font-weight:900;color:${rank[2]}">${S.score}</div>
+          <div style="font-size:9px;color:#2a5a6a;margin-top:2px">PUNTOS</div>
+        </div>
+        <div>
+          <div style="font-size:26px;font-weight:900;color:#00ffa8">${pct}%</div>
+          <div style="font-size:9px;color:#2a5a6a;margin-top:2px">PRECISIÓN</div>
+        </div>
+        <div>
+          <div style="font-size:26px;font-weight:900;color:#d4a017">${MISSIONS.length}</div>
+          <div style="font-size:9px;color:#2a5a6a;margin-top:2px">MISIONES</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conceptos dominados -->
+    <div style="text-align:left;margin-bottom:16px">
+      <div style="font-size:10px;color:#2a5a6a;letter-spacing:1px;margin-bottom:8px">CONCEPTOS DOMINADOS:</div>
+      ${MISSIONS.map(m => `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #0b1e28">
+        <div style="font-size:14px">${m.badge}</div>
+        <div>
+          <div style="font-size:11px;color:${m.color};font-weight:800">${m.title}</div>
+          <div style="font-size:10px;color:#2a5a6a">${m.law}</div>
+        </div>
+        <div style="margin-left:auto;font-size:12px;color:#00ffa8">✓</div>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div style="background:#030e15;padding:12px 14px;border-radius:0 0 10px 10px;display:flex;flex-direction:column;gap:8px">
+    <button id="btnReplay" style="padding:12px;background:linear-gradient(135deg,#00ffa833,#00ffa811);
+      border:1px solid #00ffa855;border-radius:10px;color:#00ffa8;font-size:13px;font-weight:800;cursor:pointer">
+      ↺  JUGAR DE NUEVO
+    </button>
+    <button onclick="GamesEngine.showSelection()" style="padding:10px;background:transparent;
+      border:1px solid #0b3b46;border-radius:8px;color:#4a7a8a;font-size:12px;cursor:pointer">
+      ◀  MENÚ DE JUEGOS
+    </button>
+  </div>
+</div>`;
+
+      const r = cont.querySelector('#btnReplay');
+      if (r) r.addEventListener('click', () => { S = newState(0, 0); render(); });
+    }
+
+    return {
+      init(c) { cont = c; S = newState(0, 0); render(); },
+      cleanup() { cont = null; S = null; },
+    };
+  })();
+
 
   /* ── API pública ──────────────────────────────────────────── */
   return { init, launch, showSelection, _memNextLevel:()=>Impls.memory.nextLevel&&Impls.memory.nextLevel() };
