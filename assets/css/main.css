@@ -519,6 +519,62 @@ img,svg,video{ max-width:100%; height:auto; }
              overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .file-meta{ font-size:10px; color:var(--text-dim); margin-top:2px; }
 .file-actions{ display:flex; gap:6px; flex-shrink:0; }
+.file-folder-select{
+  flex-shrink:0; max-width:130px; padding:6px 8px;
+  background:var(--bg-input); border:1px solid var(--border);
+  border-radius:var(--radius-sm); color:var(--text-muted);
+  font-size:11px; outline:none; cursor:pointer; transition:border-color .2s;
+}
+.file-folder-select:focus{ border-color:var(--accent-teal); }
+.file-folder-select option{ background:var(--bg-card); }
+
+/* ================================================
+   FOLDERS (navegador de carpetas dentro de Archivos)
+================================================ */
+.folders-toolbar{ display:flex; justify-content:flex-end; margin-bottom:12px; }
+.folders-grid{
+  display:grid; gap:10px; grid-template-columns:1fr; margin-bottom:16px;
+}
+@media(min-width:540px){ .folders-grid{ grid-template-columns:repeat(2,1fr); } }
+@media(min-width:960px){ .folders-grid{ grid-template-columns:repeat(3,1fr); } }
+.folder-card{
+  background:linear-gradient(145deg,var(--bg-card),var(--bg-main));
+  border:1px solid var(--border); border-radius:var(--radius);
+  padding:14px; cursor:pointer; transition:all .25s;
+  display:flex; align-items:center; gap:12px; position:relative;
+}
+.folder-card:hover{
+  border-color:var(--accent-yellow); transform:translateY(-1px);
+  box-shadow:0 4px 14px rgba(212,160,23,.15);
+}
+.folder-card-icon{
+  width:40px; height:40px; border-radius:var(--radius-sm);
+  background:rgba(212,160,23,.12); display:flex;
+  align-items:center; justify-content:center;
+  font-size:17px; color:var(--accent-yellow); flex-shrink:0;
+}
+.folder-card-info{ flex:1; min-width:0; }
+.folder-card-name{ font-size:13px; font-weight:600; color:var(--text-main);
+                     overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.folder-card-count{ font-size:10.5px; color:var(--text-dim); margin-top:2px; }
+.folder-card-actions{
+  display:flex; gap:4px; flex-shrink:0; opacity:0; transition:opacity .2s;
+}
+.folder-card:hover .folder-card-actions{ opacity:1; }
+.folder-card-actions .btn-icon{ width:26px; height:26px; font-size:11px; }
+
+.folder-header{
+  display:flex; align-items:center; flex-wrap:wrap; gap:12px;
+  margin-bottom:14px;
+}
+.folder-header-title{
+  display:flex; align-items:center; gap:8px;
+  font-size:14px; font-weight:700; color:var(--text-main);
+  flex:1; min-width:0;
+}
+.folder-header-title i{ color:var(--accent-yellow); }
+.folder-header-title span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.folder-header-actions{ display:flex; gap:6px; }
 
 /* ================================================
    DOCUMENTS VIEW (global)
