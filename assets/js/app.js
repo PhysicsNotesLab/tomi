@@ -121,7 +121,7 @@ const DB = {
     return allDocs;
   },
 
-  uploadFile(semId, subId, file, category, onProgress) {
+  uploadFile(semId, subId, file, category, folderId, onProgress) {
     return new Promise((resolve, reject) => {
       const safeName = file.name.replace(/[#\[\]*?]/g, "_");
       const path = `users/${this.uid()}/${semId}/${subId}/${Date.now()}_${safeName}`;
@@ -136,6 +136,7 @@ const DB = {
             date: new Date().toLocaleDateString("es-CO"),
             size: file.size, type: file.type, url,
             storagePath: path,
+            folderId: folderId || null,
             uploadedAt: firebase.firestore.FieldValue.serverTimestamp()
           };
           await this._subRef(semId, subId).collection("files").add(meta);
@@ -148,6 +149,40 @@ const DB = {
   async deleteFile(semId, subId, fileId, storagePath) {
     await this._subRef(semId, subId).collection("files").doc(fileId).delete();
     if (storagePath) try { await storage.ref(storagePath).delete(); } catch(e) {}
+  },
+
+  async moveFile(semId, subId, fileId, folderId) {
+    await this._subRef(semId, subId).collection("files").doc(fileId)
+      .update({ folderId: folderId || null });
+  },
+
+  /* ── Folders (organización de archivos dentro de cada materia) ── */
+  async getFolders(semId, subId) {
+    const snap = await this._subRef(semId, subId).collection("folders")
+                           .orderBy("name").get();
+    return snap.docs.map(d => ({ id:d.id, ...d.data() }));
+  },
+
+  async createFolder(semId, subId, name) {
+    const ref = await this._subRef(semId, subId).collection("folders").add({
+      name, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    return ref.id;
+  },
+
+  async renameFolder(semId, subId, folderId, name) {
+    await this._subRef(semId, subId).collection("folders").doc(folderId)
+      .update({ name });
+  },
+
+  async deleteFolder(semId, subId, folderId) {
+    // Los archivos dentro de la carpeta NO se borran: quedan sin carpeta.
+    const filesSnap = await this._subRef(semId, subId).collection("files")
+                                .where("folderId","==",folderId).get();
+    const batch = db.batch();
+    filesSnap.docs.forEach(d => batch.update(d.ref, { folderId: null }));
+    batch.delete(this._subRef(semId, subId).collection("folders").doc(folderId));
+    await batch.commit();
   }
 };
 
@@ -230,6 +265,92 @@ function fileItemHTML(f) {
     </div>`;
 }
 
+/** Tarjeta de carpeta (vista raíz de la pestaña Archivos de una materia) */
+function folderCardHTML(f, count) {
+  return `
+    <div class="folder-card" data-action="open-folder" data-folder-id="${f.id}">
+      <div class="folder-card-icon"><i class="fa-solid fa-folder"></i></div>
+      <div class="folder-card-info">
+        <div class="folder-card-name">${f.name}</div>
+        <div class="folder-card-count">${count} archivo${count===1?"":"s"}</div>
+      </div>
+      <div class="folder-card-actions">
+        <button class="btn-icon" data-action="rename-folder" data-folder-id="${f.id}" title="Renombrar">
+          <i class="fa-solid fa-pen"></i></button>
+        <button class="btn-icon danger" data-action="delete-folder" data-folder-id="${f.id}" title="Eliminar carpeta">
+          <i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>`;
+}
+
+/** Item de archivo dentro de la vista de materia, con selector para mover de carpeta */
+function subjectFileItemHTML(f, folders) {
+  const ft = getFileIcon(f.type||"");
+  const moveSelect = (folders && folders.length) ? `
+        <select class="file-folder-select" data-move-file="${f.id}" title="Mover a carpeta">
+          <option value="">Sin carpeta</option>
+          ${folders.map(fo => `<option value="${fo.id}" ${f.folderId===fo.id?"selected":""}>${fo.name}</option>`).join("")}
+        </select>` : "";
+  return `
+    <div class="file-item">
+      <div class="file-icon-wrap"><i class="fa-solid ${ft.icon}" style="color:${ft.color}"></i></div>
+      <div class="file-info">
+        <div class="file-name">${f.name}</div>
+        <div class="file-meta">${f.category||""} · ${formatBytes(f.size)} · ${formatDate(f.uploadedAt)}</div>
+      </div>
+      ${moveSelect}
+      <div class="file-actions">
+        ${f.url?`<button class="btn-icon" onclick="window.open('${f.url}','_blank')" title="Abrir">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i></button>`:""}
+        <button class="btn-icon danger" onclick="SubjectActions.deleteFile('${f.id}','${f.storagePath||''}')" title="Eliminar">
+          <i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>`;
+}
+
+/** Contenido de la pestaña Archivos: grid de carpetas + archivos sueltos, o el interior de una carpeta */
+function renderFilesBrowserHTML(files, folders, curFolderId) {
+  if (!curFolderId) {
+    const looseFiles = files.filter(f => !f.folderId);
+    const folderCards = folders.map(f => folderCardHTML(f, files.filter(x => x.folderId === f.id).length)).join("");
+    const nothingAtAll = folders.length === 0 && looseFiles.length === 0;
+    return `
+      <div class="folders-toolbar">
+        <button class="btn-secondary" data-action="new-folder">
+          <i class="fa-solid fa-folder-plus"></i> Crear carpeta</button>
+      </div>
+      ${folders.length ? `<div class="folders-grid">${folderCards}</div>` : ""}
+      ${nothingAtAll
+        ? emptyState("folder-open","Sin archivos","Crea una carpeta o sube tus primeros documentos")
+        : (looseFiles.length
+            ? `<div class="section-heading" style="margin:16px 0 8px">
+                 <i class="fa-solid fa-file"></i> SIN CARPETA</div>
+               <div class="files-list">${looseFiles.map(f => subjectFileItemHTML(f, folders)).join("")}</div>`
+            : "")}
+    `;
+  }
+  const folder = folders.find(f => f.id === curFolderId);
+  const folderFiles = files.filter(f => f.folderId === curFolderId);
+  return `
+    <div class="folder-header">
+      <button class="btn-back" data-action="back-folders" style="margin-bottom:0">
+        <i class="fa-solid fa-arrow-left"></i> Carpetas</button>
+      <div class="folder-header-title">
+        <i class="fa-solid fa-folder-open"></i><span>${folder ? folder.name : "Carpeta"}</span>
+      </div>
+      <div class="folder-header-actions">
+        <button class="btn-icon" data-action="rename-folder" data-folder-id="${curFolderId}" title="Renombrar">
+          <i class="fa-solid fa-pen"></i></button>
+        <button class="btn-icon danger" data-action="delete-folder" data-folder-id="${curFolderId}" title="Eliminar carpeta">
+          <i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>
+    ${folderFiles.length === 0
+      ? emptyState("folder-open","Carpeta vacía","Sube archivos aquí o muévelos desde \"Sin carpeta\"")
+      : `<div class="files-list">${folderFiles.map(f => subjectFileItemHTML(f, folders)).join("")}</div>`}
+  `;
+}
+
 /* ================================================================ ICON OPTIONS */
 const ICON_OPTIONS = [
   { value:"fa-atom",                  label:"⚛ Átomo"              },
@@ -269,6 +390,66 @@ const ICON_OPTIONS = [
   { value:"fa-satellite-dish",        label:"📡 Control"            },
   { value:"fa-rocket",                label:"🚀 Aplicaciones"       },
 ];
+
+/* ================================================================ FolderCRUD — Crear / renombrar / eliminar carpetas de archivos */
+const FolderCRUD = {
+  _semId: null, _subId: null, _editId: null,
+
+  openAdd(semId, subId) {
+    this._semId = semId; this._subId = subId; this._editId = null;
+    document.getElementById("folderModalTitle").textContent = "Nueva carpeta";
+    document.getElementById("folderModalName").value = "";
+    document.getElementById("folderModalDeleteWrap").style.display = "none";
+    document.getElementById("folderModal").classList.add("open");
+    setTimeout(() => document.getElementById("folderModalName").focus(), 120);
+  },
+
+  openEdit(semId, subId, folderId) {
+    const folder = (window._folders||[]).find(f => f.id === folderId);
+    if (!folder) return;
+    this._semId = semId; this._subId = subId; this._editId = folderId;
+    document.getElementById("folderModalTitle").textContent = "Renombrar carpeta";
+    document.getElementById("folderModalName").value = folder.name;
+    document.getElementById("folderModalDeleteWrap").style.display = "block";
+    document.getElementById("folderModal").classList.add("open");
+    setTimeout(() => document.getElementById("folderModalName").focus(), 120);
+  },
+
+  close() { document.getElementById("folderModal").classList.remove("open"); },
+
+  async save() {
+    const name = document.getElementById("folderModalName").value.trim();
+    if (!name) { toast("El nombre de la carpeta es obligatorio", "info"); return; }
+    const { _semId: semId, _subId: subId, _editId: editId } = this;
+    const btn = document.getElementById("btnFolderModalSave");
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando…';
+    try {
+      if (editId) {
+        await DB.renameFolder(semId, subId, editId, name);
+        toast("Carpeta renombrada ✓");
+      } else {
+        await DB.createFolder(semId, subId, name);
+        toast("Carpeta creada ✓");
+      }
+      this.close();
+      await Views.refreshFiles(semId, subId, window._curFolderId);
+    } catch(err) { toast("Error: " + err.message, "err"); }
+    btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar';
+  },
+
+  async deleteFolder() {
+    const { _semId: semId, _subId: subId, _editId: folderId } = this;
+    if (!folderId) return;
+    if (!confirm("¿Eliminar esta carpeta?\nLos archivos que contiene NO se borrarán, quedarán sin carpeta.")) return;
+    try {
+      await DB.deleteFolder(semId, subId, folderId);
+      toast("Carpeta eliminada");
+      this.close();
+      window._curFolderId = null;
+      await Views.refreshFiles(semId, subId, null);
+    } catch(err) { toast("Error: " + err.message, "err"); }
+  }
+};
 
 /* ================================================================ SemCRUD — CRUD de materias dentro de un semestre */
 const SemCRUD = {
@@ -655,9 +836,10 @@ const Views = {
     const sub = resolveSubject(semId, subId);
     if (!sub) { setContent(`<p style="padding:20px">Materia no encontrada</p>`); return; }
 
-    const meta  = await DB.getSubjectMeta(semId, subId);
-    const notes = await DB.getNotes(semId, subId);
-    const files = await DB.getFiles(semId, subId);
+    const meta    = await DB.getSubjectMeta(semId, subId);
+    const notes   = await DB.getNotes(semId, subId);
+    const files   = await DB.getFiles(semId, subId);
+    const folders = await DB.getFolders(semId, subId);
     const status   = meta.status    || "pending";
     const grade    = meta.grade     || "";
     const profName = meta.professor || "";
@@ -684,25 +866,10 @@ const Views = {
             </div>
           </div>`).join("");
 
-    const filesHTML = files.length === 0
-      ? emptyState("folder-open","Sin archivos","Sube documentos, PDFs, PPT, imágenes o archivos Excel")
-      : `<div class="files-list">${files.map(f => {
-          const ft = getFileIcon(f.type||"");
-          return `
-            <div class="file-item">
-              <div class="file-icon-wrap"><i class="fa-solid ${ft.icon}" style="color:${ft.color}"></i></div>
-              <div class="file-info">
-                <div class="file-name">${f.name}</div>
-                <div class="file-meta">${f.category||""} · ${formatBytes(f.size)} · ${formatDate(f.uploadedAt)}</div>
-              </div>
-              <div class="file-actions">
-                ${f.url?`<button class="btn-icon" onclick="window.open('${f.url}','_blank')" title="Abrir">
-                  <i class="fa-solid fa-arrow-up-right-from-square"></i></button>`:""}
-                <button class="btn-icon danger" onclick="SubjectActions.deleteFile('${f.id}','${f.storagePath||''}')" title="Eliminar">
-                  <i class="fa-solid fa-trash"></i></button>
-              </div>
-            </div>`;
-        }).join("")}</div>`;
+    window._curFolderId = null;
+    const folderTargetOptions = `<option value="">📂 Sin carpeta (raíz)</option>` +
+      folders.map(f => `<option value="${f.id}">${f.name}</option>`).join("");
+    const filesBrowserHTML = renderFilesBrowserHTML(files, folders, null);
 
     setContent(`
       <button class="btn-back" onclick="Router.go('semester/${semId}')">
@@ -779,11 +946,14 @@ const Views = {
             <option>Parcial</option><option>Taller</option>
             <option>Proyecto</option><option>Apunte</option><option>Otro</option>
           </select>
+          <select class="form-select" id="fileFolderTarget" style="min-width:160px" title="Carpeta destino">
+            ${folderTargetOptions}
+          </select>
           <button class="btn-primary" id="btnUpload">
             <i class="fa-solid fa-cloud-arrow-up"></i> Subir seleccionados</button>
         </div>
         <div id="uploadProgressList"></div>
-        <div id="filesList">${filesHTML}</div>
+        <div id="filesBrowser">${filesBrowserHTML}</div>
       </div>
 
       <!-- TAB: POMODORO -->
@@ -796,6 +966,7 @@ const Views = {
 
     window._curSemId = semId; window._curSubId = subId;
     window._notes = notes;    window._files    = files;
+    window._folders = folders;
 
     document.querySelectorAll(".tab-btn").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -848,6 +1019,7 @@ const Views = {
     });
 
     SubjectActions.setupUpload(semId, subId);
+    SubjectActions.setupFolderBrowser(semId, subId);
   },
 
   async refreshNotes(semId, subId) {
@@ -874,28 +1046,23 @@ const Views = {
       `<i class="fa-solid fa-book"></i> Notas (${notes.length})`;
   },
 
-  async refreshFiles(semId, subId) {
-    const files = await DB.getFiles(semId, subId);
-    window._files = files;
-    document.getElementById("filesList").innerHTML = files.length === 0
-      ? emptyState("folder-open","Sin archivos","Sube documentos, PDFs, PPT, imágenes o archivos Excel")
-      : `<div class="files-list">${files.map(f => {
-          const ft = getFileIcon(f.type||"");
-          return `
-            <div class="file-item">
-              <div class="file-icon-wrap"><i class="fa-solid ${ft.icon}" style="color:${ft.color}"></i></div>
-              <div class="file-info">
-                <div class="file-name">${f.name}</div>
-                <div class="file-meta">${f.category||""} · ${formatBytes(f.size)} · ${formatDate(f.uploadedAt)}</div>
-              </div>
-              <div class="file-actions">
-                ${f.url?`<button class="btn-icon" onclick="window.open('${f.url}','_blank')" title="Abrir">
-                  <i class="fa-solid fa-arrow-up-right-from-square"></i></button>`:""}
-                <button class="btn-icon danger" onclick="SubjectActions.deleteFile('${f.id}','${f.storagePath||''}')" title="Eliminar">
-                  <i class="fa-solid fa-trash"></i></button>
-              </div>
-            </div>`;
-        }).join("")}</div>`;
+  async refreshFiles(semId, subId, folderId = null) {
+    const files   = await DB.getFiles(semId, subId);
+    const folders = await DB.getFolders(semId, subId);
+    window._files   = files;
+    window._folders = folders;
+    window._curFolderId = folders.find(f => f.id === folderId) ? folderId : null;
+
+    const browser = document.getElementById("filesBrowser");
+    if (browser) browser.innerHTML = renderFilesBrowserHTML(files, folders, window._curFolderId);
+
+    const targetSel = document.getElementById("fileFolderTarget");
+    if (targetSel) {
+      targetSel.innerHTML = `<option value="">📂 Sin carpeta (raíz)</option>` +
+        folders.map(f => `<option value="${f.id}">${f.name}</option>`).join("");
+      targetSel.value = window._curFolderId || "";
+    }
+
     document.querySelector("[data-tab='files']").innerHTML =
       `<i class="fa-solid fa-folder"></i> Archivos (${files.length})`;
   },
@@ -1066,6 +1233,7 @@ const SubjectActions = {
 
   async uploadFiles(semId, subId, files, progList) {
     const category = document.getElementById("fileCategory")?.value || "General";
+    const folderId = document.getElementById("fileFolderTarget")?.value || null;
     for (const file of files) {
       const safeId  = file.name.replace(/\W/g,"_");
       const progDiv = document.createElement("div");
@@ -1079,7 +1247,7 @@ const SubjectActions = {
         </div>`;
       progList.appendChild(progDiv);
       try {
-        await DB.uploadFile(semId, subId, file, category, pct => {
+        await DB.uploadFile(semId, subId, file, category, folderId, pct => {
           const barEl = document.getElementById(`pBar-${safeId}`);
           const pctEl = document.getElementById(`pPct-${safeId}`);
           if (barEl) barEl.style.width = pct + "%";
@@ -1094,7 +1262,50 @@ const SubjectActions = {
     }
     const input = document.getElementById("fileInput");
     if (input) input.value = "";
-    await Views.refreshFiles(semId, subId);
+    await Views.refreshFiles(semId, subId, window._curFolderId);
+  },
+
+  /** Delegación de eventos para el navegador de carpetas (crear, abrir, renombrar, eliminar, mover archivo) */
+  setupFolderBrowser(semId, subId) {
+    const browser = document.getElementById("filesBrowser");
+    if (!browser || browser._folderBrowserWired) return;
+    browser._folderBrowserWired = true;
+
+    browser.addEventListener("click", async (e) => {
+      const el = e.target.closest("[data-action]");
+      if (!el) return;
+      const action   = el.dataset.action;
+      const folderId = el.dataset.folderId;
+
+      if (action === "new-folder") {
+        FolderCRUD.openAdd(window._curSemId, window._curSubId);
+      } else if (action === "open-folder") {
+        await Views.refreshFiles(window._curSemId, window._curSubId, folderId);
+      } else if (action === "back-folders") {
+        await Views.refreshFiles(window._curSemId, window._curSubId, null);
+      } else if (action === "rename-folder") {
+        FolderCRUD.openEdit(window._curSemId, window._curSubId, folderId);
+      } else if (action === "delete-folder") {
+        FolderCRUD._semId = window._curSemId;
+        FolderCRUD._subId = window._curSubId;
+        FolderCRUD._editId = folderId;
+        await FolderCRUD.deleteFolder();
+      }
+    });
+
+    browser.addEventListener("change", async (e) => {
+      if (e.target.matches("[data-move-file]")) {
+        await this.moveFile(e.target.dataset.moveFile, e.target.value || null);
+      }
+    });
+  },
+
+  async moveFile(fileId, folderId) {
+    try {
+      await DB.moveFile(window._curSemId, window._curSubId, fileId, folderId);
+      await Views.refreshFiles(window._curSemId, window._curSubId, window._curFolderId);
+      toast("Archivo movido");
+    } catch(e) { toast("Error al mover: " + e.message, "err"); }
   },
 
   async editNote(noteId) {
@@ -1123,7 +1334,7 @@ const SubjectActions = {
     if (!confirm("¿Eliminar este archivo?")) return;
     try {
       await DB.deleteFile(window._curSemId, window._curSubId, fileId, storagePath);
-      await Views.refreshFiles(window._curSemId, window._curSubId);
+      await Views.refreshFiles(window._curSemId, window._curSubId, window._curFolderId);
       toast("Archivo eliminado");
     } catch(e) { toast("Error al eliminar","err"); }
   }
@@ -1204,6 +1415,17 @@ const App = {
       this.closeSidebar();
     });
 
+    // Folder modal
+    document.getElementById("btnFolderModalSave")?.addEventListener("click",   () => FolderCRUD.save());
+    document.getElementById("btnFolderModalCancel")?.addEventListener("click", () => FolderCRUD.close());
+    document.getElementById("btnFolderModalDelete")?.addEventListener("click", () => FolderCRUD.deleteFolder());
+    document.getElementById("folderModal")?.addEventListener("click", e => {
+      if (e.target.id === "folderModal") FolderCRUD.close();
+    });
+    document.getElementById("folderModalName")?.addEventListener("keydown", e => {
+      if (e.key === "Enter") FolderCRUD.save();
+    });
+
     // Calendar modal
     document.getElementById("calModalType")?.addEventListener("change", () => CalendarCRUD._refreshTypeColor());
     document.getElementById("btnCalModalSave")?.addEventListener("click",   () => CalendarCRUD.save());
@@ -1217,7 +1439,7 @@ const App = {
 
     // Escape key closes any open modal
     document.addEventListener("keydown", e => {
-      if (e.key === "Escape") { SemCRUD.close(); SemesterCRUD.close(); CalendarCRUD.close(); Notif.hide(); }
+      if (e.key === "Escape") { SemCRUD.close(); SemesterCRUD.close(); CalendarCRUD.close(); FolderCRUD.close(); Notif.hide(); }
     });
   },
 
