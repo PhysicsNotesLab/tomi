@@ -202,6 +202,24 @@
   </div>
 </div>
 
+<!-- Modal: Carpetas -->
+<div class="modal-overlay" id="folderModal">
+  <div class="modal-content">
+    <h2 id="folderModalTitle">Nueva carpeta</h2>
+    <label for="folderModalName">Nombre de la carpeta</label>
+    <input type="text" id="folderModalName" placeholder="Ej: Talleres" autocomplete="off"/>
+    <div class="modal-actions">
+      <button class="btn-primary" id="btnFolderModalSave"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+      <button class="btn-secondary" id="btnFolderModalCancel">Cancelar</button>
+    </div>
+    <div id="folderModalDeleteWrap" style="display:none;margin-top:12px;text-align:center">
+      <button class="btn-danger-sm" id="btnFolderModalDelete">
+        <i class="fa-solid fa-trash"></i> Eliminar esta carpeta
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Eventos de Calendario -->
 <div class="modal-overlay" id="calendarModal">
   <div class="modal-content">
