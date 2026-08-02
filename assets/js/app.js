@@ -121,7 +121,7 @@ const DB = {
     return allDocs;
   },
 
-  uploadFile(semId, subId, file, category, folderId, onProgress) {
+  uploadFile(semId, subId, file, folderId, onProgress) {
     return new Promise((resolve, reject) => {
       const safeName = file.name.replace(/[#\[\]*?]/g, "_");
       const path = `users/${this.uid()}/${semId}/${subId}/${Date.now()}_${safeName}`;
@@ -132,7 +132,7 @@ const DB = {
         async () => {
           const url = await task.snapshot.ref.getDownloadURL();
           const meta = {
-            name: file.name, category: category||"General",
+            name: file.name,
             date: new Date().toLocaleDateString("es-CO"),
             size: file.size, type: file.type, url,
             storagePath: path,
@@ -252,7 +252,7 @@ function fileItemHTML(f) {
       <div class="file-icon-wrap"><i class="fa-solid ${ft.icon}" style="color:${ft.color}"></i></div>
       <div class="file-info">
         <div class="file-name">${f.name}</div>
-        <div class="file-meta">${f.category||""} · ${formatBytes(f.size)} · ${formatDate(f.uploadedAt)}</div>
+        <div class="file-meta">${formatBytes(f.size)} · ${formatDate(f.uploadedAt)}</div>
       </div>
       <div class="file-actions">
         ${f.url?`<button class="btn-icon" onclick="window.open('${f.url}','_blank')" title="Abrir">
@@ -296,7 +296,7 @@ function subjectFileItemHTML(f, folders) {
       <div class="file-icon-wrap"><i class="fa-solid ${ft.icon}" style="color:${ft.color}"></i></div>
       <div class="file-info">
         <div class="file-name">${f.name}</div>
-        <div class="file-meta">${f.category||""} · ${formatBytes(f.size)} · ${formatDate(f.uploadedAt)}</div>
+        <div class="file-meta">${formatBytes(f.size)} · ${formatDate(f.uploadedAt)}</div>
       </div>
       ${moveSelect}
       <div class="file-actions">
@@ -941,11 +941,6 @@ const Views = {
             accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.webp,.gif,.bmp">
         </div>
         <div class="upload-controls">
-          <select class="form-select" id="fileCategory" style="min-width:140px">
-            <option>Clase</option><option>Laboratorio</option>
-            <option>Parcial</option><option>Taller</option>
-            <option>Proyecto</option><option>Apunte</option><option>Otro</option>
-          </select>
           <select class="form-select" id="fileFolderTarget" style="min-width:160px" title="Carpeta destino">
             ${folderTargetOptions}
           </select>
@@ -1089,7 +1084,7 @@ const Views = {
               <div class="file-icon-wrap"><i class="fa-solid ${ft.icon}" style="color:${ft.color}"></i></div>
               <div class="file-info">
                 <div class="file-name">${f.name}</div>
-                <div class="file-meta">${label} · ${f.category||""} · ${formatBytes(f.size)} · ${formatDate(f.uploadedAt)}</div>
+                <div class="file-meta">${label} · ${formatBytes(f.size)} · ${formatDate(f.uploadedAt)}</div>
               </div>
               <div class="file-actions">
                 ${f.url?`<button class="btn-icon" onclick="window.open('${f.url}','_blank')">
@@ -1232,7 +1227,6 @@ const SubjectActions = {
   },
 
   async uploadFiles(semId, subId, files, progList) {
-    const category = document.getElementById("fileCategory")?.value || "General";
     const folderId = document.getElementById("fileFolderTarget")?.value || null;
     for (const file of files) {
       const safeId  = file.name.replace(/\W/g,"_");
@@ -1247,7 +1241,7 @@ const SubjectActions = {
         </div>`;
       progList.appendChild(progDiv);
       try {
-        await DB.uploadFile(semId, subId, file, category, folderId, pct => {
+        await DB.uploadFile(semId, subId, file, folderId, pct => {
           const barEl = document.getElementById(`pBar-${safeId}`);
           const pctEl = document.getElementById(`pPct-${safeId}`);
           if (barEl) barEl.style.width = pct + "%";
