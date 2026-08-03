@@ -267,7 +267,7 @@ function fileItemHTML(f) {
 }
 
 /** Tarjeta de carpeta (vista raíz de la pestaña Archivos de una materia) */
-const FOLDER_COLORS = ["#d4a017","#00bfa5","#42a5f5","#ab47bc","#ef5350","#66bb6a","#ff7043","#78909c"];
+const FOLDER_COLORS = ["#d4a017","#00bfa5","#42a5f5","#ab47bc","#66bb6a","#ec407a","#5c6bc0","#78909c"];
 
 function hexToRgba(hex, alpha) {
   const h = (hex||"#d4a017").replace("#","");
