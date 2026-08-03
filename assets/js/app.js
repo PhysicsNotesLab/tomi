@@ -163,16 +163,17 @@ const DB = {
     return snap.docs.map(d => ({ id:d.id, ...d.data() }));
   },
 
-  async createFolder(semId, subId, name) {
+  async createFolder(semId, subId, name, color) {
     const ref = await this._subRef(semId, subId).collection("folders").add({
-      name, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      name, color: color || "#d4a017",
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     return ref.id;
   },
 
-  async renameFolder(semId, subId, folderId, name) {
+  async renameFolder(semId, subId, folderId, name, color) {
     await this._subRef(semId, subId).collection("folders").doc(folderId)
-      .update({ name });
+      .update({ name, color: color || "#d4a017" });
   },
 
   async deleteFolder(semId, subId, folderId) {
@@ -266,10 +267,21 @@ function fileItemHTML(f) {
 }
 
 /** Tarjeta de carpeta (vista raíz de la pestaña Archivos de una materia) */
+const FOLDER_COLORS = ["#d4a017","#00bfa5","#42a5f5","#ab47bc","#ef5350","#66bb6a","#ff7043","#78909c"];
+
+function hexToRgba(hex, alpha) {
+  const h = (hex||"#d4a017").replace("#","");
+  const full = h.length === 3 ? h.split("").map(c=>c+c).join("") : h;
+  const n = parseInt(full, 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${alpha})`;
+}
+
 function folderCardHTML(f, count) {
+  const color = f.color || "#d4a017";
   return `
-    <div class="folder-card" data-action="open-folder" data-folder-id="${f.id}">
-      <div class="folder-card-icon"><i class="fa-solid fa-folder"></i></div>
+    <div class="folder-card" data-action="open-folder" data-folder-id="${f.id}" style="border-left:3px solid ${color}">
+      <div class="folder-card-icon" style="background:${hexToRgba(color,.14)};color:${color}">
+        <i class="fa-solid fa-folder"></i></div>
       <div class="folder-card-info">
         <div class="folder-card-name">${f.name}</div>
         <div class="folder-card-count">${count} archivo${count===1?"":"s"}</div>
@@ -330,13 +342,14 @@ function renderFilesBrowserHTML(files, folders, curFolderId) {
     `;
   }
   const folder = folders.find(f => f.id === curFolderId);
+  const folderColor = folder?.color || "#d4a017";
   const folderFiles = files.filter(f => f.folderId === curFolderId);
   return `
     <div class="folder-header">
       <button class="btn-back" data-action="back-folders" style="margin-bottom:0">
         <i class="fa-solid fa-arrow-left"></i> Carpetas</button>
       <div class="folder-header-title">
-        <i class="fa-solid fa-folder-open"></i><span>${folder ? folder.name : "Carpeta"}</span>
+        <i class="fa-solid fa-folder-open" style="color:${folderColor}"></i><span>${folder ? folder.name : "Carpeta"}</span>
       </div>
       <div class="folder-header-actions">
         <button class="btn-icon" data-action="rename-folder" data-folder-id="${curFolderId}" title="Renombrar">
@@ -393,13 +406,29 @@ const ICON_OPTIONS = [
 
 /* ================================================================ FolderCRUD — Crear / renombrar / eliminar carpetas de archivos */
 const FolderCRUD = {
-  _semId: null, _subId: null, _editId: null,
+  _semId: null, _subId: null, _editId: null, _color: FOLDER_COLORS[0],
+
+  renderSwatches() {
+    document.getElementById("folderColorPicker").innerHTML = FOLDER_COLORS.map(c => `
+      <button type="button" class="folder-color-swatch ${c===this._color?'selected':''}"
+        data-color="${c}" style="background:${c};color:${c}" title="${c}"></button>
+    `).join("");
+  },
+
+  selectColor(color) {
+    this._color = color;
+    document.querySelectorAll("#folderColorPicker .folder-color-swatch").forEach(el => {
+      el.classList.toggle("selected", el.dataset.color === color);
+    });
+  },
 
   openAdd(semId, subId) {
     this._semId = semId; this._subId = subId; this._editId = null;
+    this._color = FOLDER_COLORS[0];
     document.getElementById("folderModalTitle").textContent = "Nueva carpeta";
     document.getElementById("folderModalName").value = "";
     document.getElementById("folderModalDeleteWrap").style.display = "none";
+    this.renderSwatches();
     document.getElementById("folderModal").classList.add("open");
     setTimeout(() => document.getElementById("folderModalName").focus(), 120);
   },
@@ -408,9 +437,11 @@ const FolderCRUD = {
     const folder = (window._folders||[]).find(f => f.id === folderId);
     if (!folder) return;
     this._semId = semId; this._subId = subId; this._editId = folderId;
+    this._color = folder.color || FOLDER_COLORS[0];
     document.getElementById("folderModalTitle").textContent = "Renombrar carpeta";
     document.getElementById("folderModalName").value = folder.name;
     document.getElementById("folderModalDeleteWrap").style.display = "block";
+    this.renderSwatches();
     document.getElementById("folderModal").classList.add("open");
     setTimeout(() => document.getElementById("folderModalName").focus(), 120);
   },
@@ -420,15 +451,15 @@ const FolderCRUD = {
   async save() {
     const name = document.getElementById("folderModalName").value.trim();
     if (!name) { toast("El nombre de la carpeta es obligatorio", "info"); return; }
-    const { _semId: semId, _subId: subId, _editId: editId } = this;
+    const { _semId: semId, _subId: subId, _editId: editId, _color: color } = this;
     const btn = document.getElementById("btnFolderModalSave");
     btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando…';
     try {
       if (editId) {
-        await DB.renameFolder(semId, subId, editId, name);
+        await DB.renameFolder(semId, subId, editId, name, color);
         toast("Carpeta renombrada ✓");
       } else {
-        await DB.createFolder(semId, subId, name);
+        await DB.createFolder(semId, subId, name, color);
         toast("Carpeta creada ✓");
       }
       this.close();
@@ -1418,6 +1449,10 @@ const App = {
     });
     document.getElementById("folderModalName")?.addEventListener("keydown", e => {
       if (e.key === "Enter") FolderCRUD.save();
+    });
+    document.getElementById("folderColorPicker")?.addEventListener("click", e => {
+      const sw = e.target.closest(".folder-color-swatch");
+      if (sw) FolderCRUD.selectColor(sw.dataset.color);
     });
 
     // Calendar modal
