@@ -8,6 +8,7 @@ service firebase.storage {
         request.auth.token.email in [
           "pgalvisg8156@universidadean.edu.co",
           "tomassantiagogalvisbarrera3@gmail.com"
+             "tomasgalvisb@gmail.com"
         ]
       );
     }
