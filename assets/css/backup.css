@@ -1,0 +1,108 @@
+/* ================================================
+   BACKUP — Modal de copia de seguridad local
+   Reutiliza variables y .modal-* de main.css
+================================================ */
+
+.modal-content.bk-modal { max-width: 560px; }
+
+/* main.css estiliza TODOS los label/input dentro de .modal-content:
+   se neutraliza aquí solo para los controles del backup */
+.modal-content.bk-modal label {
+  text-transform: none; letter-spacing: 0;
+  margin: 0; font-size: .9rem; color: var(--text-main);
+}
+.modal-content.bk-modal input[type="checkbox"],
+.modal-content.bk-modal input[type="radio"] {
+  width: 18px; height: 18px; padding: 0; margin: 0; flex-shrink: 0;
+  accent-color: var(--accent-teal); cursor: pointer;
+}
+
+.bk-lead   { color: var(--text-muted); font-size: .88rem; line-height: 1.5; margin-bottom: 16px; text-align: center; }
+.bk-muted  { color: var(--text-muted); font-size: .88rem; }
+.bk-center { text-align: center; padding: 8px 0; }
+.bk-big    { font-size: 2.2rem; color: var(--text-dim); margin-bottom: 8px; display: block; }
+.bk-center .spinner { margin: 12px auto; }
+
+/* Tarjetas de modo */
+.bk-modes { display: grid; gap: 8px; margin-bottom: 14px; }
+.modal-content.bk-modal .bk-mode {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; cursor: pointer;
+  background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); transition: border-color .2s, background .2s;
+}
+.bk-mode:hover { border-color: var(--border-2); }
+.bk-mode.is-on { border-color: var(--accent-teal); background: var(--accent-teal-d); }
+.bk-mode > i   { font-size: 1.2rem; color: var(--accent-yellow); width: 24px; text-align: center; }
+.bk-mode span  { display: flex; flex-direction: column; gap: 2px; }
+.bk-mode b     { font-size: .93rem; }
+.bk-mode small { color: var(--text-muted); font-size: .78rem; }
+
+/* Árbol de selección */
+.bk-tree {
+  max-height: 260px; overflow-y: auto; margin-bottom: 14px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-darker);
+}
+.modal-content.bk-modal .bk-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; cursor: pointer; transition: background .15s;
+}
+.bk-row:hover { background: var(--accent-teal-d); }
+.bk-row-sem   { border-top: 1px solid var(--border); font-weight: 600; }
+.bk-sem:first-child .bk-row-sem { border-top: none; }
+.bk-row-sub   { padding-left: 38px; font-weight: 400; }
+.bk-name      { flex: 1; overflow-wrap: anywhere; }
+.bk-name em   { color: var(--text-muted); font-size: .8rem; font-style: normal; font-weight: 400; margin-left: 6px; }
+.bk-meta      { color: var(--text-dim); font-size: .75rem; white-space: nowrap; }
+
+.modal-content.bk-modal .bk-check {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 2px; cursor: pointer; margin-bottom: 12px;
+}
+.bk-check small { color: var(--text-dim); }
+.bk-check input:disabled { cursor: not-allowed; opacity: .6; }
+
+/* Resumen / avisos */
+.bk-summary {
+  padding: 12px 14px; font-size: .9rem; text-align: center;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.bk-warn {
+  margin-top: 10px; padding: 9px 12px; text-align: left;
+  font-size: .8rem; line-height: 1.45; color: #f0c36a;
+  background: rgba(212,160,23,.1); border: 1px solid rgba(212,160,23,.35);
+  border-radius: var(--radius-sm);
+}
+.bk-warn.bk-info { color: var(--accent-teal); background: var(--accent-teal-d); border-color: var(--accent-teal-g); }
+.bk-errlist { margin: 6px 0 0 18px; color: var(--text-muted); }
+
+/* Confirmación */
+.bk-confirm { list-style: none; display: grid; gap: 10px; margin-bottom: 14px; }
+.bk-confirm li { display: flex; gap: 12px; align-items: flex-start; font-size: .92rem; }
+.bk-confirm i  { color: var(--accent-yellow); width: 20px; text-align: center; margin-top: 2px; }
+.bk-preview {
+  background: var(--bg-darker); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px; margin-bottom: 12px;
+  font: .76rem/1.5 ui-monospace, Consolas, monospace;
+  color: var(--text-muted); overflow-x: auto; white-space: pre;
+}
+.bk-note { color: var(--text-dim); font-size: .8rem; line-height: 1.45; }
+.bk-note i { color: var(--accent-teal); margin-right: 4px; }
+
+/* Progreso */
+.bk-bar { height: 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 99px; overflow: hidden; margin: 6px 0 8px; }
+.bk-bar-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent-teal), var(--accent-yellow)); transition: width .25s ease; }
+.bk-prog-line { display: flex; justify-content: space-between; font-size: .85rem; }
+.bk-phase   { margin-top: 10px; }
+.bk-current { margin-top: 4px; font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 1.2em; }
+
+.bk-modal .modal-actions { justify-content: flex-end; }
+.bk-modal .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+
+@media (max-width: 480px) {
+  .modal-content.bk-modal { padding: 22px 16px; }
+  .bk-row-sub { padding-left: 30px; }
+  .bk-meta { font-size: .7rem; }
+}
