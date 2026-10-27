@@ -12,7 +12,7 @@
  *
  * SOLO LECTURA: no escribe, mueve ni borra nada en Firestore/Storage.
  * Requiere (ya cargados antes): firebase-config.js (db, storage, auth),
- * app.js (DB, toast, App) y JSZip.
+ * app.js (DB, toast, App). JSZip se carga solo si falta (ver ensureJSZip).
  */
 "use strict";
 
@@ -93,6 +93,31 @@ const Backup = (() => {
     if (/^[=+\-@]/.test(s)) s = "'" + s;              // evita fórmulas al abrir en Excel
     return `"${s.replace(/"/g, '""')}"`;
   };
+
+  /* ============================================================ CARGA DE JSZip */
+  // Orden: copia local → cdnjs → jsDelivr. Así no depende de la etiqueta <script> del HTML.
+  const JSZIP_SOURCES = [
+    "assets/js/vendor/jszip.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js",
+    "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
+  ];
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const el = document.createElement("script");
+      el.src = src;
+      el.onload = resolve;
+      el.onerror = () => { el.remove(); reject(new Error(`No se pudo cargar ${src}`)); };
+      document.head.appendChild(el);
+    });
+  }
+  async function ensureJSZip() {
+    if (typeof JSZip !== "undefined") return true;
+    for (const src of JSZIP_SOURCES) {
+      try { await loadScript(src); if (typeof JSZip !== "undefined") return true; }
+      catch (e) { console.warn("Backup:", e.message); }
+    }
+    return false;
+  }
 
   /* ============================================================ ESTADO */
   const S = {
@@ -636,8 +661,8 @@ const Backup = (() => {
 
   /* ============================================================ API */
   async function open() {
-    if (typeof JSZip === "undefined") {
-      toast("No se cargó la librería JSZip. Revisa tu conexión y recarga.", "err"); return;
+    if (!(await ensureJSZip())) {
+      toast("No se pudo cargar JSZip. Sube assets/js/vendor/jszip.min.js o revisa tu conexión.", "err"); return;
     }
     if (!auth.currentUser) { toast("Inicia sesión para crear una copia.", "info"); return; }
     ensureModal().classList.add("open");
@@ -671,5 +696,5 @@ const Backup = (() => {
   }
   init();
 
-  return { open, close, _t: { safeName, safeFileName, buildPlan, loadTree, fmtBytes, S } };
+  return { open, close, _t: { ensureJSZip, JSZIP_SOURCES, safeName, safeFileName, buildPlan, loadTree, fmtBytes, S } };
 })();
